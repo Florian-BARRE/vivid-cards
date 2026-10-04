@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output (attached to GitHub releases, never committed)
+dist/
+
+# Tooling caches and reports
+coverage/
+.vite/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+
+# Local configuration (deploy target, secrets)
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+desktop.ini
