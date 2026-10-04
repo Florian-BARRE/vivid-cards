@@ -24,9 +24,15 @@ the [roadmap](#roadmap).
 
 ### HACS
 
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Florian-BARRE&repository=vivid-cards&category=plugin)
+
+Click the button above, or add it by hand:
+
 1. In HACS, open the menu (⋮) → **Custom repositories**.
 2. Add `https://github.com/Florian-BARRE/vivid-cards` with the type **Dashboard**.
-3. Search for **Vivid Cards**, download it, then reload your browser.
+3. Search for **Vivid Cards** and download it.
+
+HACS adds the dashboard resource for you; reload the page afterwards.
 
 ### Manual
 
@@ -196,4 +202,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and conventions.
 
 ## License
 
-[MIT](LICENSE) © Florian Barré
+[MIT](LICENSE) © Florian Barre

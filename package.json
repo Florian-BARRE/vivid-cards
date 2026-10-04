@@ -19,7 +19,7 @@
     "url": "git+https://github.com/Florian-BARRE/vivid-cards.git"
   },
   "license": "MIT",
-  "author": "Florian Barré",
+  "author": "Florian Barre",
   "private": true,
   "type": "module",
   "engines": {
