@@ -19,7 +19,10 @@ function sameToken(a: string | undefined, b: string | undefined): boolean {
  *
  *   ["salon-ambilight-wled", "salon-buffet-wled"] -> ["Ambilight", "Buffet"]
  *
- * At least one word is always kept, and a single name is only capitalized.
+ *   ["Cuisine Spot 1", "Cuisine Spot 2"] -> ["Spot 1", "Spot 2"]
+ *
+ * At least one word is always kept, a bare number keeps the word before it,
+ * and a single name is only capitalized.
  */
 export function shortenSiblingNames(names: readonly string[]): string[] {
   const tokens = names.map(tokenize);
@@ -42,6 +45,10 @@ export function shortenSiblingNames(names: readonly string[]): string[] {
   ) {
     suffix += 1;
   }
+
+  // "Spot 1" says more than "1": give a bare number its last shared word back.
+  const isNumber = (t: string[]) => /^\d+$/.test(t.slice(prefix, t.length - suffix).join(''));
+  if (prefix > 0 && tokens.some(isNumber)) prefix -= 1;
 
   return tokens.map((t) => capitalize(t.slice(prefix, t.length - suffix).join(' ')));
 }

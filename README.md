@@ -15,7 +15,7 @@ badge that shines brighter the more a strip draws.
 
 | Card                                  | What it is for                                                      |
 | ------------------------------------- | ------------------------------------------------------------------- |
-| [`vivid-led-group`](#vivid-led-group) | A light group or a single light, WLED aware, with details per strip |
+| [`vivid-led-group`](#vivid-led-group) | A light group or a single light, WLED aware, with details per light |
 
 More cards and badges (battery, doors and windows, presence, illuminance…) are on
 the [roadmap](#roadmap).
@@ -45,8 +45,9 @@ Requires Home Assistant 2024.11 or newer.
 
 ## vivid-led-group
 
-A light group (or one light) as a header and a brightness tile, with every strip
-of the group in a details dialog.
+A light group (or one light) as a header and a brightness tile, with every light
+of the group in a details dialog. Works with any light; WLED strips get live
+override and estimated current on top.
 
 <p>
   <img src="docs/assets/led-group-details.png" alt="Details dialog of the LED group card" width="560" />
@@ -57,77 +58,132 @@ type: custom:vivid-led-group
 entity: light.living_room_leds
 ```
 
+### Visual editor
+
+Pick a light or a group: the editor shows what it detected (members, WLED,
+color or tunable white, where consumption comes from) and only offers what
+applies. Each detected light has its own settings: answering the ambilight
+button, how its consumption is measured, its name and whether it is shown in
+the details. Everything else sits under **Advanced**. The YAML only keeps what
+you changed.
+
+<p>
+  <img src="docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
+</p>
+
 ### Gestures
 
-| Where             | Tap                                  | Hold             | Drag                               |
-| ----------------- | ------------------------------------ | ---------------- | ---------------------------------- |
-| Tile              | Toggle                               | Open the details | Set the brightness (0 % turns off) |
-| Color bar         | Pick the hue                         |                  | Pick the hue                       |
-| Name              | Open the details                     |                  |                                    |
-| Power badge       | Toggle                               |                  |                                    |
-| Consumption badge | History of the power sensor (strips) |                  |                                    |
-| Live override     | Switch it on or off                  |                  |                                    |
+| Where             | Tap                                   | Hold                         | Drag                               |
+| ----------------- | ------------------------------------- | ---------------------------- | ---------------------------------- |
+| Tile              | `tile.tap_action` (toggle)            | `tile.hold_action` (details) | Set the brightness (0 % turns off) |
+| Color bar         | Pick the hue or the color temperature |                              | Same                               |
+| Name              | Open the details                      |                              |                                    |
+| Power badge       | Toggle                                |                              |                                    |
+| Consumption badge | History of the power sensor (lights)  |                              |                                    |
+| Live override     | Switch it on or off                   |                              |                                    |
 
-In the details dialog, holding a strip's tile opens its Home Assistant dialog.
-The details close with Escape, a tap outside, or a swipe down on mobile.
+A double tap runs `tile.double_tap_action` (nothing by default). Without
+details (a single light, or `details.enabled: false`), holding the tile opens
+the Home Assistant dialog. In the details dialog, holding a light's tile opens
+its Home Assistant dialog. The details close with Escape, a tap outside, or a
+swipe down on mobile.
 
 ### Options
 
-| Option               | Default                 | Description                                                                                         |
-| -------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `entity`             | required                | A light group, or a single light.                                                                   |
-| `name`               | entity name             | Title of the card.                                                                                  |
-| `icon`               | `mdi:led-strip-variant` | Icon of the card and of every strip.                                                                |
-| `details_hash`       | none                    | Opens the details when the page URL ends with this hash, so any card can open them with `navigate`. |
-| `show_power`         | `true`                  | Consumption badges.                                                                                 |
-| `show_live_override` | `true`                  | WLED live override badges.                                                                          |
-| `show_effects`       | `true`                  | Effect picker.                                                                                      |
-| `show_hue`           | `true`                  | Color bar.                                                                                          |
-| `power`              | see below               | Where consumption comes from and how it glows.                                                      |
-| `members`            | none                    | Per-strip overrides (YAML only).                                                                    |
+| Option      | Default      | Description                                                                    |
+| ----------- | ------------ | ------------------------------------------------------------------------------ |
+| `entity`    | required     | A light group, or a single light.                                              |
+| `name`      | entity name  | Title of the card.                                                             |
+| `icon`      | each light's | Icon of the card and of every light. By default each light keeps its own icon. |
+| `tile`      | see below    | Brightness tile.                                                               |
+| `power`     | see below    | Consumption badges: where they come from and how they glow.                    |
+| `ambilight` | see below    | WLED live override badges.                                                     |
+| `details`   | see below    | Details dialog.                                                                |
+| `members`   | none         | Per-light overrides.                                                           |
 
-`power` options:
+`tile`:
+
+| Option              | Default      | Description                                                                                                    |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| `color_bar`         | `auto`       | `auto` (hue for color lights, temperature for tunable whites, none otherwise), `hue`, `temperature` or `none`. |
+| `state`             | `brightness` | Text on the tile: `brightness` or `none`.                                                                      |
+| `effects`           | `true`       | Effect picker.                                                                                                 |
+| `tap_action`        | `toggle`     | Any Home Assistant action, plus `details`.                                                                     |
+| `hold_action`       | `details`    | `details` for a group, `more-info` for a single light.                                                         |
+| `double_tap_action` | `none`       | Same syntax.                                                                                                   |
+
+Actions accept a name (`toggle`, `details`, `more-info`, `none`) or the usual
+object: `navigate`, `url`, `perform-action`…
+
+`power`:
 
 | Option           | Default    | Description                                                                                                                                            |
 | ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sensor_pattern` | none       | Power sensor of each strip. `{object_id}` is replaced by the light's object id: `sensor.{object_id}_power` finds `sensor.desk_power` for `light.desk`. |
-| `voltage`        | none       | Strip voltage. When a strip has no power sensor, its WLED estimated current is converted to watts.                                                     |
-| `idle`           | `3`        | Watts per strip under which the badge stays neutral.                                                                                                   |
-| `max`            | `40`       | Watts per strip at which the glow is the brightest.                                                                                                    |
-| `steps`          | `[10, 25]` | Watts per strip where the glow turns from yellow to amber, then to orange.                                                                             |
+| `enabled`        | `true`     | Consumption badges.                                                                                                                                    |
+| `sensor_pattern` | none       | Power sensor of each light. `{object_id}` is replaced by the light's object id: `sensor.{object_id}_power` finds `sensor.desk_power` for `light.desk`. |
+| `voltage`        | none       | Strip voltage. Turns the WLED estimated current into watts.                                                                                            |
+| `idle`           | `3`        | Watts per light under which the badge stays neutral.                                                                                                   |
+| `max`            | `40`       | Watts per light at which the glow is the brightest.                                                                                                    |
+| `steps`          | `[10, 25]` | Watts per light where the glow turns from yellow to amber, then to orange.                                                                             |
 
-The group badge adds up its strips; its scale grows with the number of strips.
+The group badge adds up its lights; its scale grows with the number of lights
+that report a consumption.
+
+`ambilight`:
+
+| Option    | Default | Description                                                  |
+| --------- | ------- | ------------------------------------------------------------ |
+| `enabled` | `true`  | WLED live override badges (shown only when a light has one). |
+
+`details`:
+
+| Option      | Default          | Description                                                                                         |
+| ----------- | ---------------- | --------------------------------------------------------------------------------------------------- |
+| `enabled`   | groups only      | The details dialog.                                                                                 |
+| `hash`      | none             | Opens the details when the page URL ends with this hash, so any card can open them with `navigate`. |
+| `sort`      | `name`           | `name`, or `group` to keep the order of the group.                                                  |
+| `summary`   | `true`           | Group badges at the top.                                                                            |
+| `effects`   | `tile.effects`   | Effect picker of each light.                                                                        |
+| `color_bar` | `tile.color_bar` | Color bar of each light, same values as `tile.color_bar`.                                           |
 
 `members` entries:
 
-| Option         | Description                              |
-| -------------- | ---------------------------------------- |
-| `entity`       | The strip to override.                   |
-| `name`         | Display name.                            |
-| `power_sensor` | Power sensor of this strip.              |
-| `hidden`       | `true` hides the strip from the details. |
+| Option         | Description                                                                        |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `entity`       | The light to override.                                                             |
+| `name`         | Display name.                                                                      |
+| `hidden`       | `true` hides the light from the details (it still counts in totals and ambilight). |
+| `ambilight`    | `false` leaves the light out of the group ambilight badge and hides its own badge. |
+| `power_mode`   | `auto` (default), `sensor`, `voltage` or `none`.                                   |
+| `power_sensor` | Power sensor of this light.                                                        |
+| `voltage`      | Voltage of this strip, instead of `power.voltage`.                                 |
 
 ### Where consumption comes from
 
-For each strip, the first source found wins:
+With `power_mode: auto`, the first source found wins:
 
 1. `members[].power_sensor`
 2. `power.sensor_pattern`
 3. A power sensor attached to the same device
-4. WLED estimated current × `power.voltage`
+4. WLED estimated current × voltage (`members[].voltage`, else `power.voltage`)
 
-### Strip names
+`sensor` only uses `power_sensor`, `voltage` only the estimated current, and
+`none` turns the consumption of that light off.
 
-Strip names drop the words all members share at the start and at the end:
+### Light names
+
+Names drop the words all members share at the start and at the end:
 `salon-ambilight-wled`, `salon-buffet-wled` and `salon-canape-wled` become
-**Ambilight**, **Buffet** and **Canape**. Use `members[].name` to pick your own.
+**Ambilight**, **Buffet** and **Canape**. A bare number keeps the word before
+it: `Cuisine Spot 1` and `Cuisine Spot 2` become **Spot 1** and **Spot 2**. Use
+`members[].name` to pick your own.
 
 ### WLED live override
 
 WLED can ignore realtime data (HyperHDR, Hyperion, E1.31…) with its live override
 setting. The badge is amber while the override is on, so the strip shows its own
 effect instead of the stream. Tap it to switch. The group badge switches every
-strip that is online.
+strip that is online and answers the ambilight button.
 
 ### Example
 
@@ -135,13 +191,16 @@ strip that is online.
 type: custom:vivid-led-group
 entity: light.salon_leds
 name: LEDs
-details_hash: salon-leds-details
 power:
   sensor_pattern: sensor.{object_id}_puissance
   max: 34
+details:
+  hash: salon-leds-details
 members:
   - entity: light.salon_canape_wled
     name: Canapé
+  - entity: light.salon_ambilight_wled
+    ambilight: false
 ```
 
 Another card can then open the details:
@@ -151,6 +210,19 @@ tap_action:
   action: navigate
   navigation_path: '#salon-leds-details'
 ```
+
+### Upgrading from 0.1
+
+0.1 options keep working and are read as their 0.2 equivalent; the editor
+saves the new form.
+
+| 0.1                  | 0.2                    |
+| -------------------- | ---------------------- |
+| `show_power`         | `power.enabled`        |
+| `show_live_override` | `ambilight.enabled`    |
+| `show_effects`       | `tile.effects`         |
+| `show_hue: false`    | `tile.color_bar: none` |
+| `details_hash`       | `details.hash`         |
 
 ## Theming
 
@@ -180,8 +252,10 @@ npm run check    # format, lint, typecheck, tests and build
 npm run build    # dist/vivid-cards.js
 ```
 
-The preview page (`dev/`) runs the cards against an in-memory Home Assistant
-with three WLED strips, so you can work on the UI without a server.
+The preview pages run the cards against an in-memory Home Assistant (three
+WLED strips and two tunable white spots), so you can work on the UI without a
+server: `/dev/` for the cards, `/dev/editor.html` for the visual editor in
+several situations.
 
 ### Testing on your Home Assistant
 

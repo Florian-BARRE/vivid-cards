@@ -38,11 +38,15 @@ tests/                  Vitest unit tests.
 
 ## Adding a card
 
-1. Create `src/cards/<name>/` with `config.ts`, `model.ts`, `editor.ts` and the
-   element `vivid-<name>.ts` (registered with `defineElement` and `registerCard`).
+1. Create `src/cards/<name>/` with `config.ts`, `model.ts`, the element
+   `vivid-<name>.ts` (registered with `defineElement` and `registerCard`) and
+   its editor `vivid-<name>-editor.ts`, returned by `getConfigElement()`. Keep
+   config edits as pure functions (`editor-model.ts`) and wait for `ha-form`
+   with `ensureHaForm()`.
 2. Import it from `src/vivid-cards.ts`.
-3. Extend `dev/mock-hass.ts` and mount the card in `dev/main.ts`.
-4. Test the model in `tests/`.
+3. Extend `dev/mock-hass.ts`, mount the card in `dev/main.ts` and the editor in
+   `dev/editor.ts` (`dev/ha-stubs.ts` stands in for `ha-form`).
+4. Test the model and the editor helpers in `tests/`.
 5. Document it in the README.
 
 ## Conventions

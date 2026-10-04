@@ -1,14 +1,22 @@
 import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { fireEvent, haptic, setBrightness, setEffect, setHue, toggleEntity } from '../core/actions';
+import {
+  fireEvent,
+  haptic,
+  setBrightness,
+  setColorTemperature,
+  setEffect,
+  setHue,
+} from '../core/actions';
 import { clamp, lightColor } from '../core/color';
 import { isAvailable } from '../core/entities';
 import type { HomeAssistant, LightAttributes } from '../core/hass-types';
+import { temperatureRange, type ColorBar } from '../core/light';
 import { defineElement } from '../core/register';
 import { localize } from '../i18n';
 import { tokens } from './shared-styles';
-import './vivid-hue-slider';
+import './vivid-color-bar';
 import './vivid-select-chip';
 
 const HOLD_MS = 500;
@@ -17,7 +25,9 @@ const SCROLL_THRESHOLD_PX = 10;
 const PENDING_TIMEOUT_MS = 2000;
 const KEY_STEP = 5;
 const KEY_COMMIT_DELAY_MS = 400;
-const COLOR_MODES = new Set(['hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
+const DOUBLE_TAP_MS = 250;
+
+export type TileGesture = 'tap' | 'hold' | 'double_tap';
 
 type Gesture = {
   pointerId: number;
@@ -30,8 +40,9 @@ type Gesture = {
 };
 
 /**
- * Brightness tile for a light: drag horizontally to dim, tap to toggle, hold to
- * fire `vivid-hold` (`{ entityId }`). Optional effect picker and hue bar.
+ * Brightness tile for a light. Dragging horizontally dims it; taps, holds and
+ * double taps are reported as `vivid-gesture` (`{ gesture, entityId }`) so the
+ * card decides what they do. Optional effect picker and color bar.
  */
 export class VividLightTile extends LitElement {
   static override properties = {
@@ -41,7 +52,9 @@ export class VividLightTile extends LitElement {
     name: {},
     showName: { type: Boolean, attribute: 'show-name' },
     showEffects: { type: Boolean, attribute: 'show-effects' },
-    showHue: { type: Boolean, attribute: 'show-hue' },
+    showState: { type: Boolean, attribute: 'show-state' },
+    colorBar: { attribute: 'color-bar' },
+    doubleTap: { type: Boolean, attribute: 'double-tap' },
     _preview: { state: true },
   };
 
@@ -51,20 +64,26 @@ export class VividLightTile extends LitElement {
   declare name?: string;
   declare showName: boolean;
   declare showEffects: boolean;
-  declare showHue: boolean;
+  declare showState: boolean;
+  declare colorBar: ColorBar;
+  /** Waits for a possible second tap before reporting a tap. */
+  declare doubleTap: boolean;
   /** Brightness shown while dragging or until Home Assistant confirms the change. */
   declare _preview?: number;
 
   private gesture?: Gesture;
   private pendingTimer?: number;
   private keyTimer?: number;
+  private tapTimer?: number;
 
   constructor() {
     super();
     this.icon = 'mdi:led-strip-variant';
     this.showName = false;
     this.showEffects = true;
-    this.showHue = true;
+    this.showState = true;
+    this.colorBar = 'hue';
+    this.doubleTap = false;
   }
 
   static override styles = [
@@ -196,6 +215,29 @@ export class VividLightTile extends LitElement {
     this.resetGesture();
     window.clearTimeout(this.pendingTimer);
     window.clearTimeout(this.keyTimer);
+    window.clearTimeout(this.tapTimer);
+  }
+
+  private emit(gesture: TileGesture): void {
+    haptic(this, gesture === 'hold' ? 'medium' : 'light');
+    fireEvent(this, 'vivid-gesture', { gesture, entityId: this.entityId });
+  }
+
+  private tap(): void {
+    if (!this.doubleTap) {
+      this.emit('tap');
+      return;
+    }
+    if (this.tapTimer !== undefined) {
+      window.clearTimeout(this.tapTimer);
+      this.tapTimer = undefined;
+      this.emit('double_tap');
+      return;
+    }
+    this.tapTimer = window.setTimeout(() => {
+      this.tapTimer = undefined;
+      this.emit('tap');
+    }, DOUBLE_TAP_MS);
   }
 
   private get stateObj() {
@@ -250,8 +292,7 @@ export class VividLightTile extends LitElement {
     gesture.holdTimer = window.setTimeout(() => {
       if (!this.gesture || this.gesture.sliding || this.gesture.cancelled) return;
       this.gesture.held = true;
-      haptic(this, 'medium');
-      fireEvent(this, 'vivid-hold', { entityId: this.entityId });
+      this.emit('hold');
     }, HOLD_MS);
     this.gesture = gesture;
     try {
@@ -291,10 +332,7 @@ export class VividLightTile extends LitElement {
       this.commitBrightness(this.percentAt(event.clientX));
       return;
     }
-    if (!gesture.cancelled && !gesture.held && this.hass && this.entityId) {
-      haptic(this, 'light');
-      void toggleEntity(this.hass, this.entityId);
-    }
+    if (!gesture.cancelled && !gesture.held) this.tap();
   };
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
@@ -307,7 +345,7 @@ export class VividLightTile extends LitElement {
     if (!this.available || !this.hass || !this.entityId) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      void toggleEntity(this.hass, this.entityId);
+      this.emit('tap');
       return;
     }
     const current = this._preview ?? this.currentBrightness();
@@ -335,12 +373,38 @@ export class VividLightTile extends LitElement {
     if (this.hass && this.entityId) void setEffect(this.hass, this.entityId, event.detail.value);
   };
 
-  private readonly onHueChanged = (event: CustomEvent<{ hue: number }>): void => {
+  private readonly onColorChanged = (event: CustomEvent<{ value: number }>): void => {
     if (!this.hass || !this.entityId) return;
+    if (this.colorBar === 'temperature') {
+      void setColorTemperature(this.hass, this.entityId, event.detail.value);
+      return;
+    }
     const hs = (this.stateObj?.attributes as LightAttributes | undefined)?.hs_color;
     const saturation = Array.isArray(hs) && typeof hs[1] === 'number' && hs[1] > 0 ? hs[1] : 100;
-    void setHue(this.hass, this.entityId, event.detail.hue, saturation);
+    void setHue(this.hass, this.entityId, event.detail.value, saturation);
   };
+
+  private renderColorBar(isOn: boolean, available: boolean) {
+    if (this.colorBar === 'none') return nothing;
+    const attributes = (this.stateObj?.attributes ?? {}) as LightAttributes;
+    let value: number | undefined;
+    if (this.colorBar === 'hue') {
+      const hs = attributes.hs_color;
+      value = isOn && Array.isArray(hs) && typeof hs[0] === 'number' ? hs[0] : undefined;
+    } else if (isOn && attributes.color_mode === 'color_temp') {
+      value = attributes.color_temp_kelvin ?? undefined;
+    }
+    const range = temperatureRange(this.stateObj);
+    return html`<vivid-color-bar
+      .kind=${this.colorBar}
+      .value=${value}
+      .min=${range.min}
+      .max=${range.max}
+      .label=${localize(this.hass, this.colorBar === 'hue' ? 'hue' : 'temperature')}
+      ?disabled=${!available}
+      @value-changed=${this.onColorChanged}
+    ></vivid-color-bar>`;
+  }
 
   protected override render() {
     const state = this.stateObj;
@@ -351,9 +415,6 @@ export class VividLightTile extends LitElement {
     const brightness = this._preview ?? this.currentBrightness();
     const rgb = lightColor(state);
     const effects = Array.isArray(attributes.effect_list) ? attributes.effect_list : [];
-    const supportsColor = (attributes.supported_color_modes ?? []).some((m) => COLOR_MODES.has(m));
-    const hs = attributes.hs_color;
-    const hue = isOn && Array.isArray(hs) && typeof hs[0] === 'number' ? hs[0] : undefined;
     const lit = isOn || (this._preview !== undefined && this._preview > 0);
 
     const stateText = !available
@@ -392,7 +453,7 @@ export class VividLightTile extends LitElement {
         <div class="icon"><ha-icon .icon=${this.icon}></ha-icon></div>
         <div class="text">
           ${this.showName && this.name ? html`<span class="name">${this.name}</span>` : nothing}
-          <span class="state">${stateText}</span>
+          ${this.showState ? html`<span class="state">${stateText}</span>` : nothing}
         </div>
         ${
           this.showEffects && effects.length > 0
@@ -408,17 +469,7 @@ export class VividLightTile extends LitElement {
             : nothing
         }
       </div>
-      ${
-        this.showHue && supportsColor
-          ? html`<vivid-hue-slider
-              .hue=${hue}
-              .label=${localize(this.hass, 'hue')}
-              ?dimmed=${!isOn}
-              ?disabled=${!available}
-              @hue-changed=${this.onHueChanged}
-            ></vivid-hue-slider>`
-          : nothing
-      }
+      ${this.renderColorBar(isOn, available)}
     </div>`;
   }
 }

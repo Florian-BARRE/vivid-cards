@@ -1,8 +1,10 @@
 /**
  * In-memory Home Assistant used by the preview page and the unit tests.
- * Models a living room with three WLED strips grouped in `light.salon_leds`:
- * device registry, live override selects, estimated current and template power
- * sensors. Service calls mutate the state and publish a new `hass` snapshot.
+ * Models a living room with three WLED strips grouped in `light.salon_leds`
+ * (device registry, live override selects, estimated current and template power
+ * sensors) and a kitchen with two tunable white spots grouped in
+ * `light.cuisine_spots` (no WLED; only the second one has a power sensor, on its
+ * device). Service calls mutate the state and publish a new `hass` snapshot.
  */
 import { hsToRgb } from '../src/core/color';
 import type {
@@ -15,6 +17,7 @@ import type {
 } from '../src/core/hass-types';
 
 export const GROUP_ID = 'light.salon_leds';
+export const SPOTS_GROUP_ID = 'light.cuisine_spots';
 
 const EFFECTS = ['Solid', 'Rainbow', 'Colorloop', 'Breathe', 'Candle', 'Fire 2012', 'Aurora'];
 
@@ -62,6 +65,28 @@ const STRIPS: StripSpec[] = [
   },
 ];
 
+interface SpotSpec {
+  key: string;
+  name: string;
+  on: boolean;
+  brightness: number;
+  kelvin: number;
+  /** Entity id of a power sensor on the spot's device. */
+  powerSensor?: string;
+}
+
+const SPOTS: SpotSpec[] = [
+  { key: 'cuisine_spot_1', name: 'Cuisine Spot 1', on: true, brightness: 230, kelvin: 3000 },
+  {
+    key: 'cuisine_spot_2',
+    name: 'Cuisine Spot 2',
+    on: false,
+    brightness: 0,
+    kelvin: 4000,
+    powerSensor: 'sensor.prise_spot_2_power',
+  },
+];
+
 const NOW = new Date('2026-10-04T18:00:00Z').toISOString();
 /** Watts drawn by the ESP and the strip at 0 % / 100 % brightness. */
 const IDLE_WATTS = 1.8;
@@ -85,6 +110,7 @@ export interface MockHass {
 
 export function createMockHass(language = 'en'): MockHass {
   const strips = STRIPS.map((spec) => ({ ...spec }));
+  const spots = SPOTS.map((spec) => ({ ...spec }));
   const listeners = new Set<(hass: HomeAssistant) => void>();
   const calls: MockHass['calls'] = [];
 
@@ -122,6 +148,32 @@ export function createMockHass(language = 'en'): MockHass {
     };
   }
   entities[GROUP_ID] = { entity_id: GROUP_ID, platform: 'group', labels: [] };
+  for (const spot of spots) {
+    const deviceId = `device_${spot.key}`;
+    devices[deviceId] = {
+      id: deviceId,
+      name: spot.name,
+      name_by_user: null,
+      manufacturer: 'Signify',
+      model: 'GU10 White Ambiance',
+      area_id: 'cuisine',
+    };
+    entities[`light.${spot.key}`] = {
+      entity_id: `light.${spot.key}`,
+      device_id: deviceId,
+      platform: 'hue',
+      labels: [],
+    };
+    if (spot.powerSensor) {
+      entities[spot.powerSensor] = {
+        entity_id: spot.powerSensor,
+        device_id: deviceId,
+        platform: 'hue',
+        labels: [],
+      };
+    }
+  }
+  entities[SPOTS_GROUP_ID] = { entity_id: SPOTS_GROUP_ID, platform: 'group', labels: [] };
 
   let states: Record<string, HassEntity> = {};
 
@@ -207,6 +259,50 @@ export function createMockHass(language = 'en'): MockHass {
         icon: 'mdi:led-strip-variant',
       }),
     );
+    for (const spot of spots) {
+      put(
+        entity(`light.${spot.key}`, spot.on ? 'on' : 'off', {
+          friendly_name: spot.name,
+          supported_color_modes: ['color_temp'],
+          color_mode: spot.on ? 'color_temp' : null,
+          brightness: spot.on ? spot.brightness : null,
+          color_temp_kelvin: spot.on ? spot.kelvin : null,
+          min_color_temp_kelvin: 2200,
+          max_color_temp_kelvin: 6500,
+          icon: 'mdi:ceiling-light',
+        }),
+      );
+      if (spot.powerSensor) {
+        put(
+          entity(
+            spot.powerSensor,
+            (spot.on ? 0.4 + 5.6 * (spot.brightness / 255) : 0.4).toFixed(1),
+            {
+              friendly_name: `${spot.name} Power`,
+              unit_of_measurement: 'W',
+              device_class: 'power',
+              state_class: 'measurement',
+            },
+          ),
+        );
+      }
+    }
+    const litSpots = spots.filter((s) => s.on);
+    put(
+      entity(SPOTS_GROUP_ID, litSpots.length ? 'on' : 'off', {
+        friendly_name: 'Cuisine Spots',
+        entity_id: spots.map((s) => `light.${s.key}`),
+        supported_color_modes: ['color_temp'],
+        color_mode: litSpots.length ? 'color_temp' : null,
+        brightness: litSpots.length
+          ? Math.round(litSpots.reduce((sum, s) => sum + s.brightness, 0) / litSpots.length)
+          : null,
+        color_temp_kelvin: litSpots[0]?.kelvin ?? null,
+        min_color_temp_kelvin: 2200,
+        max_color_temp_kelvin: 6500,
+        icon: 'mdi:ceiling-light-multiple',
+      }),
+    );
     states = next;
   };
 
@@ -220,20 +316,29 @@ export function createMockHass(language = 'en'): MockHass {
   const targets = (target: ServiceTarget | undefined): string[] => {
     const ids = target?.entity_id;
     const list = Array.isArray(ids) ? ids : ids ? [ids] : [];
-    return list.flatMap((id) => (id === GROUP_ID ? strips.map((s) => `light.${s.key}`) : [id]));
+    return list.flatMap((id) =>
+      id === GROUP_ID
+        ? strips.map((s) => `light.${s.key}`)
+        : id === SPOTS_GROUP_ID
+          ? spots.map((s) => `light.${s.key}`)
+          : [id],
+    );
   };
 
-  const stripFor = (entityId: string) =>
-    strips.find((s) => entityId === `light.${s.key}` || entityId.startsWith(`select.${s.key}_`));
+  /** A strip or a spot: both share `on` and `brightness`. */
+  type Light = Pick<StripSpec, 'on' | 'brightness'> & Partial<StripSpec> & Partial<SpotSpec>;
+  const stripFor = (entityId: string): Light | undefined =>
+    strips.find((s) => entityId === `light.${s.key}` || entityId.startsWith(`select.${s.key}_`)) ??
+    spots.find((s) => entityId === `light.${s.key}`);
 
   const callService: HomeAssistant['callService'] = async (domain, service, data = {}, target) => {
     calls.push({ domain, service, data, target });
     const ids = targets(target);
-    const groupToggle = target?.entity_id === GROUP_ID;
+    const groupToggle = target?.entity_id === GROUP_ID || target?.entity_id === SPOTS_GROUP_ID;
     const anyOn = ids.some((id) => stripFor(id)?.on);
     for (const id of ids) {
       const strip = stripFor(id);
-      if (!strip || !strip.online) continue;
+      if (!strip || strip.online === false) continue;
       if (domain === 'select' && service === 'select_option') {
         strip.override = String(data.option) as StripSpec['override'];
         continue;
@@ -255,6 +360,7 @@ export function createMockHass(language = 'en'): MockHass {
           strip.saturation = Number(data.hs_color[1]);
         }
         if (typeof data.effect === 'string') strip.effect = data.effect;
+        if (typeof data.color_temp_kelvin === 'number') strip.kelvin = data.color_temp_kelvin;
       }
     }
     publish();
