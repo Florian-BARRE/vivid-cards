@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-04
+
+### Changed
+
+- The power button halo grows with the brightness: a soft rim when dimmed, a
+  wide bright bloom at full power. A group's gradient bleeds its first and
+  last colors out on each side. `appearance.glow` still scales it.
+
 ## [0.4.0] - 2026-10-04
 
 ### Added
@@ -108,6 +116,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.4.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.2.0
