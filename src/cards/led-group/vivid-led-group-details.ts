@@ -9,8 +9,7 @@ import '../../components/vivid-light-header';
 import '../../components/vivid-light-tile';
 import '../../components/vivid-power-history';
 import type { PowerSeriesSource } from '../../components/vivid-power-history';
-import '../../components/vivid-wled-controls';
-import '../../components/vivid-wled-health';
+import '../../components/vivid-wled-panel';
 import type { ResolvedLedGroupConfig } from './config';
 import type { LedGroupModel, StripModel } from './model';
 
@@ -96,12 +95,23 @@ export class VividLedGroupDetails extends LitElement {
     event.stopPropagation();
     const { gesture, entityId } = event.detail;
     if (!entityId || !this.hass) return;
-    if (gesture === 'tap') void toggleEntity(this.hass, entityId, this.lightOptions);
-    else if (gesture === 'hold') fireEvent(this, 'vivid-more-info', { entityId });
+    if (gesture === 'tap') {
+      void toggleEntity(this.hass, entityId, {
+        transition: this.config?.members.get(entityId)?.transition ?? this.config?.tile.transition,
+      });
+    } else if (gesture === 'hold') fireEvent(this, 'vivid-more-info', { entityId });
   };
 
   private get lightOptions() {
     return { transition: this.config?.tile.transition };
+  }
+
+  /** A light's own transition wins over the card's. */
+  private stripOptions(strip: StripModel) {
+    return {
+      transition:
+        this.config?.members.get(strip.entityId)?.transition ?? this.config?.tile.transition,
+    };
   }
 
   /** Consumption sources of every light, in watts. */
@@ -127,28 +137,15 @@ export class VividLedGroupDetails extends LitElement {
 
   private renderExtras(strip: StripModel, config: ResolvedLedGroupConfig) {
     if (!strip.wled || !strip.available) return nothing;
-    const controls = config.details.wledControls;
-    const health = config.details.health;
-    if (!controls && !health) return nothing;
-    return html`<div class="extras">
-      ${
-        controls
-          ? html`<vivid-wled-controls
-              .hass=${this.hass}
-              .entities=${strip.wledEntities}
-              .effectActive=${strip.effectActive}
-            ></vivid-wled-controls>`
-          : nothing
-      }
-      ${
-        health
-          ? html`<vivid-wled-health
-              .hass=${this.hass}
-              .entities=${strip.wledEntities}
-            ></vivid-wled-health>`
-          : nothing
-      }
-    </div>`;
+    if (!config.details.wledControls && !config.details.health) return nothing;
+    return html`<vivid-wled-panel
+      class="extras"
+      .hass=${this.hass}
+      .entities=${strip.wledEntities}
+      .effectActive=${strip.effectActive}
+      .settings=${config.details.wledControls}
+      .device=${config.details.health}
+    ></vivid-wled-panel>`;
   }
 
   private renderStrip(strip: StripModel, config: ResolvedLedGroupConfig, order: number) {
@@ -172,7 +169,7 @@ export class VividLedGroupDetails extends LitElement {
         .hasPower=${strip.power !== undefined}
         .watts=${strip.watts}
         .scale=${strip.scale}
-        .lightOptions=${this.lightOptions}
+        .lightOptions=${this.stripOptions(strip)}
         .powerEntity=${strip.power?.entityId}
         .showLiveOverride=${config.ambilight.enabled}
         .liveOverride=${liveOverride}
@@ -188,7 +185,7 @@ export class VividLedGroupDetails extends LitElement {
         .favorites=${config.details.favorites && strip.available ? config.tile.favorites : []}
         .brightnessMin=${config.tile.brightnessMin}
         .brightnessStep=${config.tile.brightnessStep}
-        .lightOptions=${this.lightOptions}
+        .lightOptions=${this.stripOptions(strip)}
         .animateEffects=${config.appearance.animateEffects}
         @vivid-gesture=${this.onTileGesture}
       ></vivid-light-tile>

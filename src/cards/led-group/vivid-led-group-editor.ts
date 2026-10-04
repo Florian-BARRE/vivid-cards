@@ -84,6 +84,7 @@ const LABELS: Record<string, EditorStringKey> = {
   wled_controls: 'details_wled_controls',
   health: 'details_health',
   member_icon: 'member_icon',
+  member_transition: 'transition',
 };
 
 const MODE_LABELS: Record<PowerMode, EditorStringKey> = {
@@ -603,6 +604,36 @@ export class VividLedGroupEditor extends LitElement {
                     schema.name === 'member_name'
                       ? this.t('member_name_helper', { name: strip.autoName })
                       : undefined,
+                )}
+                ${this.form(
+                  [
+                    {
+                      name: 'member_transition',
+                      selector: {
+                        number: {
+                          min: 0,
+                          max: 30,
+                          step: 0.1,
+                          mode: 'box',
+                          unit_of_measurement: 's',
+                        },
+                      },
+                    },
+                  ],
+                  { member_transition: override?.transition },
+                  (value) =>
+                    this.commit(
+                      updateMember(config, strip.entityId, {
+                        transition: value.member_transition as number | undefined,
+                      }),
+                    ),
+                  () =>
+                    this.t('member_transition_helper', {
+                      value:
+                        resolved.tile.transition === undefined
+                          ? this.t('none')
+                          : `${formatNumber(this.hass, resolved.tile.transition, 1)} s`,
+                    }),
                 )}
                 <label class="switch-row">
                   <span>${this.t('member_visible')}</span>

@@ -125,3 +125,53 @@ export function startOfDay(now: number): number {
   date.setHours(0, 0, 0, 0);
   return date.getTime();
 }
+
+/** One period of `recorder/statistics_during_period` (times in ms). */
+interface StatisticValue {
+  start: number;
+  end: number;
+  mean?: number | null;
+}
+
+/**
+ * Hourly mean of `entityIds` between `start` and `end` (ms), from the long-term
+ * statistics: light even over weeks. Entities without statistics (no
+ * `state_class`) are missing from the result. Each period becomes a step that
+ * ends with the period; gaps stay unknown.
+ */
+export async function fetchStatistics(
+  hass: HomeAssistant,
+  entityIds: readonly string[],
+  start: number,
+  end: number,
+): Promise<HistorySeries> {
+  if (!hass.callWS || entityIds.length === 0) return {};
+  const result = await hass.callWS<Record<string, StatisticValue[]>>({
+    type: 'recorder/statistics_during_period',
+    start_time: new Date(start).toISOString(),
+    end_time: new Date(end).toISOString(),
+    statistic_ids: [...entityIds],
+    period: 'hour',
+    types: ['mean'],
+  });
+  const series: HistorySeries = {};
+  for (const [entityId, values] of Object.entries(result ?? {})) {
+    const readings: Reading[] = [];
+    const sorted = [...values].sort((a, b) => a.start - b.start);
+    sorted.forEach((value, index) => {
+      const mean =
+        typeof value.mean === 'number' && Number.isFinite(value.mean) ? value.mean : undefined;
+      readings.push({ t: value.start, v: mean });
+      const next = sorted[index + 1];
+      if (!next || next.start > value.end) readings.push({ t: value.end, v: undefined });
+    });
+    series[entityId] = readings;
+  }
+  return series;
+}
+
+/** Keeps the readings before `time` and closes them there, to append a newer series. */
+export function cutBefore(readings: readonly Reading[], time: number): Reading[] {
+  const kept = readings.filter((reading) => reading.t < time);
+  return kept.length ? [...kept, { t: time, v: undefined }] : [];
+}

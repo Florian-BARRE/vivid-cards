@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { GROUP_ID, createMockHass } from '../dev/mock-hass';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { buildLedGroupModel } from '../src/cards/led-group/model';
-import { formatCost, formatEnergy } from '../src/components/vivid-power-history';
+import { formatCost, formatEnergy, niceMax } from '../src/components/vivid-power-history';
 import {
+  cutBefore,
   energyWh,
   fetchHistory,
+  fetchStatistics,
   resample,
   scaleReadings,
   startOfDay,
@@ -139,5 +141,55 @@ describe('custom order and price', () => {
         details: { order: [1] as never },
       }),
     ).toThrow(/order/);
+  });
+});
+
+describe('statistics and axis', () => {
+  it('turns hourly means into steps and keeps gaps unknown', async () => {
+    const hass = {
+      ...createMockHass().hass,
+      callWS: async <T>() =>
+        ({
+          'sensor.a': [
+            { start: 0, end: HOUR, mean: 10 },
+            { start: HOUR, end: 2 * HOUR, mean: 20 },
+            { start: 3 * HOUR, end: 4 * HOUR, mean: null },
+          ],
+        }) as T,
+    };
+    const series = await fetchStatistics(hass, ['sensor.a'], 0, 4 * HOUR);
+    expect(series['sensor.a']).toEqual([
+      { t: 0, v: 10 },
+      { t: HOUR, v: 20 },
+      { t: 2 * HOUR, v: undefined },
+      { t: 3 * HOUR, v: undefined },
+      { t: 4 * HOUR, v: undefined },
+    ]);
+    expect(energyWh(series['sensor.a'] ?? [], 0, 4 * HOUR)).toBeCloseTo(30);
+  });
+
+  it('cuts a series to append a newer one', () => {
+    expect(
+      cutBefore(
+        [
+          { t: 0, v: 1 },
+          { t: 10, v: 2 },
+        ],
+        5,
+      ),
+    ).toEqual([
+      { t: 0, v: 1 },
+      { t: 5, v: undefined },
+    ]);
+    expect(cutBefore([{ t: 10, v: 2 }], 5)).toEqual([]);
+  });
+
+  it('rounds the axis to tidy values', () => {
+    expect(niceMax(0)).toBe(1);
+    expect(niceMax(37)).toBe(50);
+    expect(niceMax(40)).toBe(50);
+    expect(niceMax(21)).toBe(25);
+    expect(niceMax(100)).toBe(100);
+    expect(niceMax(0.7)).toBe(1);
   });
 });

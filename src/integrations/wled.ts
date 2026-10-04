@@ -23,6 +23,9 @@ export interface WledEntities {
   speed?: string;
   intensity?: string;
   nightlight?: string;
+  /** `switch` entities of the segment. */
+  reverse?: string;
+  freeze?: string;
   syncSend?: string;
   syncReceive?: string;
   wifiSignal?: string;
@@ -54,6 +57,10 @@ const BY_TRANSLATION_KEY: Record<string, Role> = {
   intensity: 'intensity',
   segment_intensity: 'intensity',
   nightlight: 'nightlight',
+  reverse: 'reverse',
+  segment_reverse: 'reverse',
+  freeze: 'freeze',
+  segment_freeze: 'freeze',
   sync_send: 'syncSend',
   sync_receive: 'syncReceive',
   wifi_signal: 'wifiSignal',

@@ -42,6 +42,8 @@ describe('registry helpers', () => {
       speed: id('number', 'speed'),
       intensity: id('number', 'intensity'),
       nightlight: id('switch', 'nightlight'),
+      reverse: id('switch', 'reverse'),
+      freeze: id('switch', 'freeze'),
       syncSend: id('switch', 'sync_send'),
       syncReceive: id('switch', 'sync_receive'),
       wifiSignal: id('sensor', 'wi_fi_signal'),
