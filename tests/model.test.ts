@@ -39,25 +39,41 @@ describe('registry helpers', () => {
 });
 
 describe('power sources', () => {
-  it('follows the documented priority', () => {
+  const light = 'light.salon_buffet_wled';
+  const pattern = { sensorPattern: 'sensor.{object_id}_puissance' };
+
+  it('follows the auto priority: chosen sensor, pattern, device, estimate', () => {
     const { hass } = createMockHass();
-    const light = 'light.salon_buffet_wled';
-    expect(resolvePowerSource(hass, light, {}, 'sensor.salon_canape_wled_puissance')).toEqual({
-      kind: 'power',
-      entityId: 'sensor.salon_canape_wled_puissance',
-    });
     expect(
-      resolvePowerSource(hass, light, { sensor_pattern: 'sensor.{object_id}_puissance' }),
-    ).toEqual({
+      resolvePowerSource(hass, light, pattern, { sensor: 'sensor.salon_canape_wled_puissance' }),
+    ).toEqual({ kind: 'power', entityId: 'sensor.salon_canape_wled_puissance', origin: 'sensor' });
+    expect(resolvePowerSource(hass, light, pattern)).toEqual({
       kind: 'power',
       entityId: 'sensor.salon_buffet_wled_puissance',
+      origin: 'pattern',
     });
     expect(resolvePowerSource(hass, light, { voltage: 5 })).toEqual({
       kind: 'current',
       entityId: 'sensor.salon_buffet_wled_estimated_current',
       voltage: 5,
+      origin: 'estimated',
     });
     expect(resolvePowerSource(hass, light, {})).toBeUndefined();
+  });
+
+  it('honors explicit modes', () => {
+    const { hass } = createMockHass();
+    expect(resolvePowerSource(hass, light, pattern, { mode: 'none' })).toBeUndefined();
+    expect(
+      resolvePowerSource(hass, light, pattern, { mode: 'voltage', voltage: 12 }),
+    ).toMatchObject({
+      kind: 'current',
+      voltage: 12,
+    });
+    expect(resolvePowerSource(hass, light, { voltage: 5 }, { mode: 'voltage' })).toMatchObject({
+      voltage: 5,
+    });
+    expect(resolvePowerSource(hass, light, pattern, { mode: 'sensor' })).toBeUndefined();
   });
 
   it('converts current and kilowatts to watts', () => {
@@ -70,11 +86,16 @@ describe('power sources', () => {
         kind: 'current',
         entityId: 'sensor.salon_buffet_wled_estimated_current',
         voltage: 5,
+        origin: 'estimated',
       }),
     ).toBe(10);
     mock.setState('sensor.salon_buffet_wled_puissance', '0.25', { unit_of_measurement: 'kW' });
     expect(
-      readWatts(mock.hass, { kind: 'power', entityId: 'sensor.salon_buffet_wled_puissance' }),
+      readWatts(mock.hass, {
+        kind: 'power',
+        entityId: 'sensor.salon_buffet_wled_puissance',
+        origin: 'pattern',
+      }),
     ).toBe(250);
   });
 });
@@ -105,6 +126,8 @@ describe('buildLedGroupModel', () => {
   it('aggregates the live override of available strips only', () => {
     const { hass } = createMockHass();
     const model = buildLedGroupModel(hass, config());
+    expect(model.isGroup).toBe(true);
+    expect(model.hasLiveOverride).toBe(true);
     expect(model.liveOverride).toEqual({
       available: [
         'select.salon_buffet_wled_live_override',
@@ -112,6 +135,50 @@ describe('buildLedGroupModel', () => {
       ],
       active: true,
     });
+  });
+
+  it('leaves strips out of the ambilight on request', () => {
+    const { hass } = createMockHass();
+    const model = buildLedGroupModel(
+      hass,
+      config({ members: [{ entity: 'light.salon_buffet_wled', ambilight: false }] }),
+    );
+    expect(model.detected.find((m) => m.autoName === 'Buffet')?.ambilight).toBe(false);
+    expect(model.liveOverride).toEqual({
+      available: ['select.salon_canape_wled_live_override'],
+      active: false,
+    });
+    expect(buildLedGroupModel(hass, config({ ambilight: { enabled: false } })).liveOverride).toBe(
+      undefined,
+    );
+  });
+
+  it('picks details and hold defaults from the entity kind', () => {
+    const { hass } = createMockHass();
+    const group = buildLedGroupModel(hass, config());
+    expect(group.detailsEnabled).toBe(true);
+    expect(group.holdAction).toEqual({ action: 'details' });
+    expect(group.tileColorBar).toBe('hue');
+
+    const single = buildLedGroupModel(
+      hass,
+      resolveConfig({ type: 'custom:vivid-led-group', entity: 'light.salon_buffet_wled' }),
+    );
+    expect(single.isGroup).toBe(false);
+    expect(single.detailsEnabled).toBe(false);
+    expect(single.holdAction).toEqual({ action: 'more-info' });
+  });
+
+  it('keeps the group order on request', () => {
+    const { hass } = createMockHass();
+    const model = buildLedGroupModel(
+      hass,
+      config({
+        members: [{ entity: 'light.salon_canape_wled', name: 'A sofa' }],
+        details: { sort: 'group' },
+      }),
+    );
+    expect(model.members.map((m) => m.name)).toEqual(['Ambilight', 'Buffet', 'A sofa']);
   });
 
   it('applies member overrides', () => {
@@ -126,6 +193,8 @@ describe('buildLedGroupModel', () => {
       }),
     );
     expect(model.members.map((m) => m.name)).toEqual(['Canape', 'Sideboard']);
+    expect(model.detected).toHaveLength(3);
+    expect(model.detected.find((m) => m.hidden)?.autoName).toBe('Ambilight');
   });
 
   it('watches every entity it reads', async () => {

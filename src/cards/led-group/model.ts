@@ -1,9 +1,11 @@
+import type { ActionConfig } from '../../core/action-handler';
 import { lightColor } from '../../core/color';
 import { expandGroup, friendlyName, isAvailable } from '../../core/entities';
 import type { PowerScale } from '../../core/glow';
 import type { HassEntity, HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
+import { resolveColorBar, type ColorBar } from '../../core/light';
 import { shortenSiblingNames } from '../../core/naming';
-import { readWatts, resolvePowerSource } from '../../integrations/power';
+import { readWatts, resolvePowerSource, type PowerSource } from '../../integrations/power';
 import {
   findWledEntities,
   liveOverrideState,
@@ -22,9 +24,18 @@ export interface LightModel {
 }
 
 export interface StripModel extends LightModel {
-  powerEntity?: string;
+  /** Name computed from the sibling names, before any override. */
+  autoName: string;
+  /** Hidden from the details dialog (still part of totals and ambilight). */
+  hidden: boolean;
+  /** Provided by the WLED integration. */
+  wled: boolean;
+  power?: PowerSource;
   watts: number | undefined;
+  /** WLED live override select of this strip, when it has one. */
   liveOverride?: LiveOverrideState;
+  /** Shows an ambilight badge and answers the group ambilight badge. */
+  ambilight: boolean;
 }
 
 export interface GroupLiveOverride {
@@ -36,12 +47,24 @@ export interface GroupLiveOverride {
 
 export interface LedGroupModel extends LightModel {
   icon: string;
+  /** The entity is a group with members. */
+  isGroup: boolean;
+  /** Every detected strip, including hidden ones. */
+  detected: StripModel[];
+  /** Strips listed in the details dialog. */
   members: StripModel[];
   /** Sum of the strips that report a consumption. */
   watts: number | undefined;
+  /** At least one strip has a consumption source. */
+  hasPower: boolean;
+  /** At least one strip has a WLED live override. */
+  hasLiveOverride: boolean;
   stripScale: PowerScale;
   groupScale: PowerScale;
   liveOverride: GroupLiveOverride | undefined;
+  detailsEnabled: boolean;
+  tileColorBar: ColorBar;
+  holdAction: ActionConfig;
   /** Every entity the card reads; a change to any of them triggers a render. */
   watched: string[];
 }
@@ -75,43 +98,60 @@ export function buildLedGroupModel(
   hass: HomeAssistant,
   config: ResolvedLedGroupConfig,
 ): LedGroupModel {
-  const memberIds = expandGroup(hass, config.entity).filter(
-    (id) => !config.members.get(id)?.hidden,
-  );
-  const shortNames = shortenSiblingNames(memberIds.map((id) => friendlyName(hass, id)));
+  const groupState = hass.states[config.entity];
+  const memberIds = expandGroup(hass, config.entity);
+  const isGroup = Array.isArray(groupState?.attributes.entity_id) && memberIds.length > 0;
+  const autoNames = shortenSiblingNames(memberIds.map((id) => friendlyName(hass, id)));
   const watched = new Set<string>([config.entity, ...memberIds]);
 
-  const members: StripModel[] = memberIds.map((entityId, index) => {
+  const detected: StripModel[] = memberIds.map((entityId, index) => {
     const override = config.members.get(entityId);
-    const name = override?.name ?? shortNames[index] ?? entityId;
-    const strip: StripModel = { ...lightModel(hass, entityId, name), watts: undefined };
+    const autoName = autoNames[index] ?? entityId;
+    const strip: StripModel = {
+      ...lightModel(hass, entityId, override?.name ?? autoName),
+      autoName,
+      hidden: override?.hidden ?? false,
+      wled: hass.entities?.[entityId]?.platform === 'wled',
+      watts: undefined,
+      ambilight: false,
+    };
 
-    const source = resolvePowerSource(hass, entityId, config.power, override?.power_sensor);
-    if (source) {
-      strip.powerEntity = source.entityId;
-      strip.watts = readWatts(hass, source);
-      watched.add(source.entityId);
+    if (config.power.enabled) {
+      strip.power = resolvePowerSource(hass, entityId, config.power, {
+        mode: override?.power_mode,
+        sensor: override?.power_sensor,
+        voltage: override?.voltage,
+      });
+      if (strip.power) {
+        strip.watts = readWatts(hass, strip.power);
+        watched.add(strip.power.entityId);
+      }
     }
 
     const liveOverride = findWledEntities(hass, entityId).liveOverride;
     if (liveOverride) {
       strip.liveOverride = liveOverrideState(hass, liveOverride);
+      strip.ambilight = config.ambilight.enabled && override?.ambilight !== false;
       watched.add(liveOverride);
     }
     return strip;
   });
 
-  members.sort((a, b) => a.name.localeCompare(b.name));
+  if (config.details.sort === 'name') {
+    detected.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
-  const powered = members.filter((m) => m.powerEntity !== undefined);
+  const powered = detected.filter((m) => m.power !== undefined);
   const reporting = powered.filter((m) => m.watts !== undefined);
   const watts = reporting.length
     ? reporting.reduce((sum, m) => sum + (m.watts ?? 0), 0)
     : undefined;
 
   const overrides = new Map<string, LiveOverrideState>();
-  for (const member of members) {
-    if (member.liveOverride) overrides.set(member.liveOverride.entityId, member.liveOverride);
+  for (const strip of detected) {
+    if (strip.ambilight && strip.liveOverride) {
+      overrides.set(strip.liveOverride.entityId, strip.liveOverride);
+    }
   }
   const overrideStates = [...overrides.values()];
   const liveOverride: GroupLiveOverride | undefined = overrideStates.length
@@ -121,16 +161,25 @@ export function buildLedGroupModel(
       }
     : undefined;
 
+  const members = detected.filter((m) => !m.hidden);
+  const detailsEnabled = (config.details.enabled ?? isGroup) && members.length > 0;
   const group = lightModel(hass, config.entity, config.name ?? friendlyName(hass, config.entity));
 
   return {
     ...group,
     icon: config.icon,
+    isGroup,
+    detected,
     members,
     watts,
-    stripScale: config.scale,
-    groupScale: scaleFor(config.scale, powered.length),
+    hasPower: powered.length > 0,
+    hasLiveOverride: detected.some((m) => m.liveOverride !== undefined),
+    stripScale: config.power.scale,
+    groupScale: scaleFor(config.power.scale, powered.length),
     liveOverride,
+    detailsEnabled,
+    tileColorBar: resolveColorBar(config.tile.colorBar, groupState),
+    holdAction: config.tile.holdAction ?? { action: detailsEnabled ? 'details' : 'more-info' },
     watched: [...watched],
   };
 }

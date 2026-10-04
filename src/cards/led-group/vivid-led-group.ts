@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
+import { runAction, type ActionConfig } from '../../core/action-handler';
 import { openMoreInfo } from '../../core/actions';
 import { domainOf } from '../../core/entities';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
@@ -125,7 +126,7 @@ export class VividLedGroup extends LitElement {
   /* ----------------------------- details dialog ----------------------------- */
 
   private get detailsHash(): string | undefined {
-    return this._config?.detailsHash;
+    return this.model?.detailsEnabled === false ? undefined : this._config?.details.hash;
   }
 
   private readonly syncWithLocation = (): void => {
@@ -140,6 +141,10 @@ export class VividLedGroup extends LitElement {
   };
 
   private readonly openDetails = (): void => {
+    if (!this.model?.detailsEnabled) {
+      if (this.model) openMoreInfo(this, this.model.entityId);
+      return;
+    }
     const hash = this.detailsHash;
     if (hash && window.location.hash !== hash) {
       window.history.pushState(null, '', hash);
@@ -199,6 +204,24 @@ export class VividLedGroup extends LitElement {
     openMoreInfo(this, event.detail.entityId);
   };
 
+  private readonly onTileGesture = (event: CustomEvent<{ gesture: string }>): void => {
+    event.stopPropagation();
+    const config = this._config;
+    const model = this.model;
+    if (!config || !model || !this.hass) return;
+    const actions: Record<string, ActionConfig> = {
+      tap: config.tile.tapAction,
+      hold: model.holdAction,
+      double_tap: config.tile.doubleTapAction,
+    };
+    runAction(actions[event.detail.gesture], {
+      node: this,
+      hass: this.hass,
+      entityId: model.entityId,
+      openDetails: model.detailsEnabled ? this.openDetails : undefined,
+    });
+  };
+
   /* --------------------------------- render --------------------------------- */
 
   protected override render() {
@@ -208,7 +231,6 @@ export class VividLedGroup extends LitElement {
     if (!model || !this.hass.states[config.entity]) {
       return html`<ha-card><div class="warning">Entity not found: ${config.entity}</div></ha-card>`;
     }
-    const hasPower = model.members.some((m) => m.powerEntity !== undefined);
     return html`<ha-card>
       <div class="card">
         <vivid-light-header
@@ -220,11 +242,11 @@ export class VividLedGroup extends LitElement {
           .available=${model.available}
           .isOn=${model.isOn}
           .rgb=${model.rgb}
-          .showPower=${config.showPower}
-          .hasPower=${hasPower}
+          .showPower=${config.power.enabled}
+          .hasPower=${model.hasPower}
           .watts=${model.watts}
           .scale=${model.groupScale}
-          .showLiveOverride=${config.showLiveOverride}
+          .showLiveOverride=${config.ambilight.enabled}
           .liveOverride=${model.liveOverride}
           @vivid-name-click=${this.openDetails}
           @vivid-more-info=${this.onMoreInfo}
@@ -234,9 +256,11 @@ export class VividLedGroup extends LitElement {
           .entityId=${model.entityId}
           .icon=${config.icon}
           .name=${model.name}
-          .showEffects=${config.showEffects}
-          .showHue=${config.showHue}
-          @vivid-hold=${this.openDetails}
+          .showEffects=${config.tile.effects}
+          .showState=${config.tile.state !== 'none'}
+          .colorBar=${model.tileColorBar}
+          .doubleTap=${config.tile.doubleTapAction.action !== 'none'}
+          @vivid-gesture=${this.onTileGesture}
         ></vivid-light-tile>
       </div>
     </ha-card>`;

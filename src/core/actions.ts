@@ -65,3 +65,16 @@ export function selectOption(
   if (entityIds.length === 0) return Promise.resolve();
   return hass.callService('select', 'select_option', { option }, { entity_id: [...entityIds] });
 }
+
+export function setColorTemperature(
+  hass: HomeAssistant,
+  entityId: string,
+  kelvin: number,
+): Promise<unknown> {
+  return hass.callService(
+    'light',
+    'turn_on',
+    { color_temp_kelvin: Math.round(kelvin) },
+    { entity_id: entityId },
+  );
+}
