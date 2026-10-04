@@ -12,3 +12,11 @@ export function registerCard(entry: CustomCardEntry): void {
     window.customCards.push(entry);
   }
 }
+
+/** Lists a badge in Home Assistant's badge picker (dashboards with badges, 2024.8+). */
+export function registerBadge(entry: CustomCardEntry): void {
+  window.customBadges = window.customBadges ?? [];
+  if (!window.customBadges.some((badge) => badge.type === entry.type)) {
+    window.customBadges.push(entry);
+  }
+}

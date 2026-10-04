@@ -147,6 +147,21 @@ const en = {
   section_glow: 'Consumption glow',
   idle: 'Neutral below',
   max: 'Brightest at',
+  icon_on: 'Icon when on',
+  icon_off: 'Icon when off',
+  icon_auto: 'Empty: {icon}',
+  icon_auto_struck: 'Empty: {icon}, crossed out',
+  badge_look: 'Colors',
+  look_disc: 'On the icon',
+  look_pill: 'Whole badge',
+  badge_layout: 'Details',
+  layout_list: 'List with sliders',
+  layout_compact: 'Compact',
+  show_count: 'Show the count (2/3) or the brightness',
+  badge_glow: 'Halo',
+  badge_tap_default: 'Default (turn all on / off)',
+  badge_hold_default: 'Default (lights under the badge)',
+  badge_details_title: 'Title of the details',
 };
 
 type EditorStrings = typeof en;
@@ -298,6 +313,21 @@ const fr: EditorStrings = {
   section_glow: 'Lueur de la conso',
   idle: 'Neutre sous',
   max: 'Lueur maximale à',
+  icon_on: 'Icône allumée',
+  icon_off: 'Icône éteinte',
+  icon_auto: 'Vide : {icon}',
+  icon_auto_struck: 'Vide : {icon} barrée',
+  badge_look: 'Couleurs',
+  look_disc: 'Sur l’icône',
+  look_pill: 'Badge entier',
+  badge_layout: 'Détail',
+  layout_list: 'Liste avec sliders',
+  layout_compact: 'Compact',
+  show_count: 'Afficher le compte (2/3) ou la luminosité',
+  badge_glow: 'Halo',
+  badge_tap_default: 'Par défaut (tout allumer / éteindre)',
+  badge_hold_default: 'Par défaut (lumières sous le badge)',
+  badge_details_title: 'Titre du détail',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };

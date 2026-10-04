@@ -59,6 +59,21 @@ export const DEFAULT_POWER_COLORS: [Rgb, Rgb, Rgb] = [
 ];
 const AMBER: Rgb = [255, 193, 7];
 const WHITE = '#ffffff';
+const DARK_ICON = 'rgba(0, 0, 0, 0.72)';
+
+/** Relative luminance (0–1) of an sRGB color. */
+export function luminance([r, g, b]: Rgb): number {
+  const linear = (value: number) => {
+    const channel = value / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
+/** White on colored surfaces, dark on very light ones (white or warm white light). */
+export function iconOn(rgb: Rgb): string {
+  return luminance(rgb) >= 0.6 ? DARK_ICON : WHITE;
+}
 
 /** 0 when idle, 1 at `max`. */
 export function powerRatio(watts: number, scale: PowerScale): number {
@@ -117,7 +132,7 @@ export function lightTone(
   if (colors.length === 1) {
     return {
       background: rgbCss(first),
-      iconColor: WHITE,
+      iconColor: iconOn(first),
       shadow: `${inner(first)}, ${halo(bloomBlur, rgbCss(first, bloomAlpha), bloomSpread)}`,
     };
   }
@@ -128,7 +143,7 @@ export function lightTone(
   );
   return {
     background: `linear-gradient(120deg, ${stops.join(', ')})`,
-    iconColor: WHITE,
+    iconColor: iconOn(meanColor(colors)),
     shadow: [
       inner(meanColor(colors)),
       sideHalo(-shift, bloomBlur, rgbCss(first, bloomAlpha), bloomSpread),

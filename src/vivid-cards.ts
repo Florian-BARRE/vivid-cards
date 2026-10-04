@@ -3,6 +3,7 @@
  * component as custom elements.
  */
 import './cards/led-group/vivid-led-group';
+import './badges/light/vivid-light-badge';
 
 export const VERSION = __VIVID_VERSION__;
 
