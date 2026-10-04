@@ -56,16 +56,32 @@ describe('power glow', () => {
 
 describe('light and toggle tones', () => {
   it('fills the power button with the light color only while on', () => {
-    expect(lightTone([255, 0, 0], true)).toEqual({
-      background: 'rgb(255, 0, 0)',
-      iconColor: '#ffffff',
-      shadow: '0 0 calc(14px * var(--vivid-glow, 1)) rgba(255, 0, 0, 0.45)',
-    });
+    const tone = lightTone([255, 0, 0], true);
+    expect(tone.background).toBe('rgb(255, 0, 0)');
+    expect(tone.iconColor).toBe('#ffffff');
+    expect(tone.shadow).toBe(
+      '0 0 calc(18px * var(--vivid-glow, 1)) rgba(255, 0, 0, 0.8), ' +
+        '0 0 calc(60px * var(--vivid-glow, 1)) calc(4px * var(--vivid-glow, 1)) rgba(255, 0, 0, 0.8)',
+    );
     expect(lightTone([255, 0, 0], false)).toEqual({});
     expect(lightTone([[255, 0, 0]], true)).toEqual(lightTone([255, 0, 0], true));
   });
 
-  it('turns several colors into a gradient haloed with their mean', () => {
+  it('glows wider and brighter with the brightness', () => {
+    const blurs = (shadow = '') =>
+      [...shadow.matchAll(/calc\((\d+(?:\.\d+)?)px/g)].map((m) => Number(m[1]));
+    const dim = blurs(lightTone([255, 0, 0], true, 5).shadow);
+    const full = blurs(lightTone([255, 0, 0], true, 100).shadow);
+    expect(dim[0]).toBeLessThan(5);
+    expect(dim[1]).toBeLessThan(10);
+    expect(full.slice(0, 2)).toEqual([18, 60]);
+    const half = blurs(lightTone([255, 0, 0], true, 50).shadow);
+    expect(half[1]).toBeGreaterThan(dim[1] ?? 0);
+    expect(half[1]).toBeLessThan(full[1] ?? 0);
+    expect(lightTone([255, 0, 0], true, 250)).toEqual(lightTone([255, 0, 0], true, 100));
+  });
+
+  it('turns several colors into a gradient bleeding both colors out', () => {
     const tone = lightTone(
       [
         [255, 0, 0],
@@ -74,7 +90,9 @@ describe('light and toggle tones', () => {
       true,
     );
     expect(tone.background).toBe('linear-gradient(120deg, rgb(255, 0, 0) 0%, rgb(0, 0, 255) 100%)');
-    expect(tone.shadow).toContain('rgba(128, 0, 128, 0.45)');
+    expect(tone.shadow).toContain('rgba(128, 0, 128, 0.8)');
+    expect(tone.shadow).toContain('calc(-12px * var(--vivid-glow, 1)) 0 calc(60px');
+    expect(tone.shadow).toContain('rgba(0, 0, 255, 0.8)');
     expect(meanColor([])).toEqual([0, 0, 0]);
   });
 

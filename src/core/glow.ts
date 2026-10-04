@@ -25,8 +25,19 @@ export const GLOW_FACTORS: Record<GlowLevel, number> = {
 };
 
 /** Box shadow whose blur follows `--vivid-glow` (0 removes it). */
-export function halo(blur: number, color: string): string {
-  return `0 0 calc(${blur}px * var(--vivid-glow, 1)) ${color}`;
+export function halo(blur: number, color: string, spread = 0): string {
+  const grow = spread ? ` calc(${spread}px * var(--vivid-glow, 1))` : '';
+  return `0 0 calc(${blur}px * var(--vivid-glow, 1))${grow} ${color}`;
+}
+
+/** Like `halo`, shifted sideways (the shift follows `--vivid-glow` too). */
+function sideHalo(x: number, blur: number, color: string, spread = 0): string {
+  const grow = spread ? ` calc(${spread}px * var(--vivid-glow, 1))` : '';
+  return `calc(${x}px * var(--vivid-glow, 1)) 0 calc(${blur}px * var(--vivid-glow, 1))${grow} ${color}`;
+}
+
+function round(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 export interface PowerScale {
@@ -83,22 +94,46 @@ export function powerTone(watts: number | undefined, scale: PowerScale): ChipTon
 
 /**
  * Power button: filled with the light's own color and haloed while on; white
- * icon on it. Several colors (a group) make a gradient haloed with their mean.
+ * icon on it. Several colors (a group) make a gradient, haloed with their mean
+ * and with the first and last colors bleeding out on each side.
+ *
+ * The halo grows with the brightness (percent): a soft rim when dimmed, a wide
+ * bright bloom at full power.
  */
-export function lightTone(rgb: Rgb | readonly Rgb[] | undefined, isOn: boolean): ChipTone {
+export function lightTone(
+  rgb: Rgb | readonly Rgb[] | undefined,
+  isOn: boolean,
+  brightness = 100,
+): ChipTone {
   const colors = rgb === undefined ? [] : isRgbList(rgb) ? rgb : [rgb];
   const first = colors[0];
   if (!isOn || !first) return {};
+  // Slightly steeper than linear: dimmed lights stay calm, full power really blooms.
+  const level = (clamp(brightness, 0, 100) / 100) ** 1.2;
+  const inner = (color: Rgb) => halo(round(4 + 14 * level), rgbCss(color, 0.3 + 0.5 * level));
+  const bloomBlur = round(8 + 52 * level);
+  const bloomSpread = round(4 * level);
+  const bloomAlpha = 0.08 + 0.72 * level;
   if (colors.length === 1) {
-    return { background: rgbCss(first), iconColor: WHITE, shadow: halo(14, rgbCss(first, 0.45)) };
+    return {
+      background: rgbCss(first),
+      iconColor: WHITE,
+      shadow: `${inner(first)}, ${halo(bloomBlur, rgbCss(first, bloomAlpha), bloomSpread)}`,
+    };
   }
+  const last = colors[colors.length - 1] ?? first;
+  const shift = round(4 + 8 * level);
   const stops = colors.map(
     (color, index) => `${rgbCss(color)} ${Math.round((index / (colors.length - 1)) * 100)}%`,
   );
   return {
     background: `linear-gradient(120deg, ${stops.join(', ')})`,
     iconColor: WHITE,
-    shadow: halo(14, rgbCss(meanColor(colors), 0.45)),
+    shadow: [
+      inner(meanColor(colors)),
+      sideHalo(-shift, bloomBlur, rgbCss(first, bloomAlpha), bloomSpread),
+      sideHalo(shift, bloomBlur, rgbCss(last, bloomAlpha), bloomSpread),
+    ].join(', '),
   };
 }
 
