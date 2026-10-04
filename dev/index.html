@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Vivid Cards preview</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root[data-theme='dark'] {
+        --primary-background-color: #111111;
+        --card-background-color: #1c1c1c;
+        --ha-card-background: #1c1c1c;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --disabled-text-color: #6f6f6f;
+        --rgb-primary-text-color: 225, 225, 225;
+        --primary-color: #03a9f4;
+        --divider-color: rgba(225, 225, 225, 0.12);
+        color-scheme: dark;
+      }
+      :root[data-theme='light'] {
+        --primary-background-color: #fafafa;
+        --card-background-color: #ffffff;
+        --ha-card-background: #ffffff;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --disabled-text-color: #bdbdbd;
+        --rgb-primary-text-color: 33, 33, 33;
+        --primary-color: #03a9f4;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, 'Segoe UI', system-ui, sans-serif;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 16px;
+      }
+      .toolbar button {
+        font: inherit;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      .toolbar span {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+      }
+      .stage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        padding: 0 16px 32px;
+        align-items: flex-start;
+      }
+      .column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .phone {
+        width: 390px;
+      }
+      .wide {
+        width: 520px;
+      }
+      .log {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        white-space: pre-wrap;
+        max-width: 520px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button id="theme">Toggle theme</button>
+      <button id="language">Toggle language</button>
+      <button id="details">Open details</button>
+      <span>Drag a tile to dim · tap to toggle · hold for details</span>
+    </div>
+    <div class="stage">
+      <div class="column phone" id="phone"></div>
+      <div class="column wide" id="wide"></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
