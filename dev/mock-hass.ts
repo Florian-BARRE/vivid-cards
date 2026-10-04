@@ -230,13 +230,7 @@ export function createMockHass(language = 'en'): MockHass {
     add(`sensor.${strip.key}_free_memory`, 'free_heap', 'diagnostic');
     add(`sensor.${strip.key}_ip`, 'ip', 'diagnostic');
     // No translation key: recognized by their domain and device class.
-    entities[`sensor.${strip.key}_uptime`] = {
-      entity_id: `sensor.${strip.key}_uptime`,
-      device_id: deviceId,
-      platform: 'wled',
-      entity_category: 'diagnostic',
-      labels: [],
-    };
+    add(`sensor.${strip.key}_uptime`, 'uptime', 'diagnostic');
     entities[`button.${strip.key}_restart`] = {
       entity_id: `button.${strip.key}_restart`,
       device_id: deviceId,

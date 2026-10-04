@@ -9,9 +9,12 @@ badge that shines brighter the more a strip draws.
 </p>
 
 - **No dependencies.** One JavaScript file, no other custom card required.
-- **Zero templating.** Point a card at a group: members, WLED entities and
-  power sensors are discovered from the Home Assistant registries.
-- **Theme aware.** Follows your Home Assistant theme, light or dark.
+- **Zero templating.** Point a card at a light or a group: members, WLED
+  entities and power sensors are discovered from the Home Assistant registries.
+- **Visual editor.** Everything can be set without YAML, and the editor only
+  shows what applies to the light you picked.
+- **Theme aware.** Follows your Home Assistant theme, light or dark, in English
+  and French.
 
 | Card                                  | What it is for                                                      |
 | ------------------------------------- | ------------------------------------------------------------------- |
@@ -22,7 +25,9 @@ the [roadmap](#roadmap).
 
 ## Installation
 
-### HACS
+Requires Home Assistant 2024.11 or newer.
+
+### HACS (recommended)
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Florian-BARRE&repository=vivid-cards&category=plugin)
 
@@ -32,7 +37,8 @@ Click the button above, or add it by hand:
 2. Add `https://github.com/Florian-BARRE/vivid-cards` with the type **Dashboard**.
 3. Search for **Vivid Cards** and download it.
 
-HACS adds the dashboard resource for you; reload the page afterwards.
+HACS adds the dashboard resource for you; reload the page afterwards. Updates
+show up in HACS like any other download.
 
 ### Manual
 
@@ -40,51 +46,80 @@ HACS adds the dashboard resource for you; reload the page afterwards.
 2. Copy it to `config/www/vivid-cards/vivid-cards.js`.
 3. Add a dashboard resource: **Settings → Dashboards → ⋮ → Resources → Add resource**,
    URL `/local/vivid-cards/vivid-cards.js`, type **JavaScript module**.
+4. Reload the page.
 
-Requires Home Assistant 2024.11 or newer.
+## Quick start
 
-## vivid-led-group
+1. Open a dashboard, **⋮ → Edit dashboard → Add card**, and search for
+   **Vivid LED group**.
+2. Pick a light or a light group. The editor tells you what it found: how many
+   lights, which ones are WLED, whether they do color or tunable white, and
+   where their consumption comes from.
+3. If no consumption is found, open **Consumption** and give a sensor pattern
+   (see [where consumption comes from](#where-consumption-comes-from)) or, for
+   WLED strips, their voltage.
+4. Save. Tap the name or hold the tile to open the details.
 
-A light group (or one light) as a header and a brightness tile, with every light
-of the group in a details dialog. Works with any light; WLED strips also get
-the ambilight button, presets, palettes, effect speed and device information.
-
-<p>
-  <img src="docs/assets/led-group-details.png" alt="Details dialog of the LED group card" width="640" />
-</p>
+The same card in YAML:
 
 ```yaml
 type: custom:vivid-led-group
 entity: light.living_room_leds
 ```
 
-### Visual editor
+## vivid-led-group
 
-Pick a light or a group: the editor shows what it detected (members, WLED,
-color or tunable white, where consumption comes from) and only offers what
-applies. The three switches on top turn the ambilight button, the consumption
-badges and the details on or off; everything else is folded into sections
-that summarize their settings: **Detected lights**, **Tile**, **Gestures**,
-**Consumption**, **Details** and **Appearance**. The YAML only keeps what you
-changed.
+A light group (or one light) as a header and a brightness tile, with every light
+of the group in a details dialog. Works with any light: Hue, Zigbee, ESPHome…
+WLED strips also get the ambilight button, presets, palettes, effect speed and
+device information.
 
 <p>
-  <img src="docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
+  <img src="docs/assets/led-group-details.png" alt="Details dialog of the LED group card" width="640" />
 </p>
 
 ### What the card shows
 
 - **Header**: name, consumption badge glowing with the power drawn, ambilight
-  button, power button filled with the light color (a gradient of every lit
-  light for a group).
+  button (WLED), power button filled with the light color (a gradient of every
+  lit light for a group).
 - **Tile**: drag to dim, effect picker, color bar (hue or color temperature),
   entity badges and favorite colors. The tile shimmers while an effect runs.
-- **Details** (groups): group badges, a 24 h consumption chart with the
-  energy used today and its cost, then every light with its own header and
-  tile. WLED strips add presets, playlists, palette, effect speed and
-  intensity, and a foldable **Device** panel: Wi-Fi, uptime, LEDs, current
-  limit, memory, IP, firmware, nightlight and sync switches, update and
-  restart (restart asks for a second tap). Two columns on large screens.
+- **Details** (groups):
+  - the group badges;
+  - a **consumption chart** over 6 hours, 24 hours or 7 days, one color per
+    light, with a cursor that reads every light at a given time, the energy
+    used today and over the period, its cost and the peak;
+  - every light with its own header and tile;
+  - for WLED strips, two foldable panels: **Settings** (preset, playlist,
+    palette, effect speed and intensity, reverse, freeze, nightlight, sync) and
+    **Device** (Wi-Fi, uptime, LEDs, current limit, memory, IP, firmware, update
+    and restart).
+
+  Two columns on large screens, a bottom sheet on phones.
+
+### Visual editor
+
+<p>
+  <img src="docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
+</p>
+
+Pick a light or a group first: the editor shows what it detected and only
+offers what applies. The three switches on top turn the ambilight button, the
+consumption badges and the details on or off. Everything else is folded into
+sections that summarize their settings:
+
+| Section             | What it sets                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| **Detected lights** | Per light: ambilight, how consumption is measured, name, icon, transition, shown in the details |
+| **Tile**            | Color bar, state text, effect picker, favorite colors, badges, brightness, transition           |
+| **Gestures**        | Tap, hold and double tap                                                                        |
+| **Consumption**     | Sensor pattern, strip voltage, price, glow scale                                                |
+| **Details**         | Link (hash), order, color bar, what the details show                                            |
+| **Appearance**      | Glow, header, compact layout, gradient, shimmer                                                 |
+
+The YAML only keeps what you changed. Actions richer than a toggle (navigate,
+perform-action…) are kept as they are and shown as **Custom (YAML)**.
 
 ### Gestures
 
@@ -98,12 +133,98 @@ changed.
 | Power button      | Toggle                                |                              |                                    |
 | Consumption badge | History of the power sensor (lights)  |                              |                                    |
 | Ambilight button  | Switch the WLED live override         |                              |                                    |
+| Chart             | Read the values at that time          |                              | Same                               |
 
 A double tap runs `tile.double_tap_action` (nothing by default). Without
 details (a single light, or `details.enabled: false`), holding the tile opens
-the Home Assistant dialog. In the details dialog, holding a light's tile opens
-its Home Assistant dialog. The details close with Escape, a tap outside, or a
-swipe down on mobile.
+the Home Assistant dialog. In the details dialog, a tap on a light's tile
+toggles it and a hold opens its Home Assistant dialog. The details close with
+Escape, a tap outside, or a swipe down on phones.
+
+### Recipes
+
+**WLED strips with a power sensor each** (a template or a smart plug):
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+power:
+  sensor_pattern: sensor.{object_id}_power
+```
+
+**WLED strips without power sensors**: WLED estimates its current; give the
+strip voltage to turn it into watts. The glow then scales on WLED's own current
+limit.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+power:
+  voltage: 5
+```
+
+**Any other lights** (here two tunable white spots, one on a smart plug): the
+power sensor of each device is found on its own, the color bar switches to
+temperature.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.kitchen_spots
+name: Spots
+tile:
+  favorites: [{ kelvin: 2700 }, { kelvin: 4000 }, { kelvin: 6000 }]
+```
+
+**A small tile for a grid**: no header, smaller controls.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.desk
+appearance:
+  header: false
+  compact: true
+```
+
+**Open the details from another card**:
+
+```yaml
+# On the LED card
+details:
+  hash: salon-leds
+# On any other card
+tap_action:
+  action: navigate
+  navigation_path: '#salon-leds'
+```
+
+**Everything at once**:
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+name: LEDs
+badges:
+  - sensor.salon_temperature
+tile:
+  favorites: ['#ff8a3d', '#8a2be2', { kelvin: 2700, brightness: 40 }]
+  transition: 0.5
+power:
+  sensor_pattern: sensor.{object_id}_power
+  voltage: 5
+  price: 0.2516
+details:
+  hash: salon-leds
+  sort: custom
+  order: [light.salon_tv_wled, light.salon_sofa_wled]
+appearance:
+  glow: strong
+members:
+  - entity: light.salon_sofa_wled
+    name: Sofa
+    transition: 2
+  - entity: light.salon_backlight_wled
+    ambilight: false
+```
 
 ### Options
 
@@ -145,18 +266,15 @@ their value, on/off entities light up while on.
 
 | Option           | Default | Description                                                                                                                                            |
 | ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `enabled`        | `true`  | Consumption badges.                                                                                                                                    |
+| `enabled`        | `true`  | Consumption badges and chart.                                                                                                                          |
 | `sensor_pattern` | none    | Power sensor of each light. `{object_id}` is replaced by the light's object id: `sensor.{object_id}_power` finds `sensor.desk_power` for `light.desk`. |
 | `voltage`        | none    | Strip voltage. Turns the WLED estimated current into watts.                                                                                            |
-| `price`          | none    | Price of a kWh: the details show what today cost.                                                                                                      |
+| `price`          | none    | Price of a kWh: the details show what today and the period cost.                                                                                       |
 | `currency`       | HA's    | Currency code of the price, e.g. `EUR`.                                                                                                                |
 | `idle`           | `3`     | Watts per light under which the badge stays neutral.                                                                                                   |
 | `max`            | auto    | Watts per light at which the glow is the brightest. Without it, WLED's current limit × voltage when known, else 40.                                    |
 | `steps`          | auto    | Watts per light where the glow turns from the first color to the second, then the third. They follow `max` unless set.                                 |
 | `colors`         | yellow… | Three colors of the glow, low to high.                                                                                                                 |
-
-The group badge adds up its lights. The energy of the day is computed from the
-power history since midnight.
 
 `ambilight`:
 
@@ -173,11 +291,11 @@ power history since midnight.
 | `sort`          | `name`           | `name`, `group` (order of the group) or `custom` (with `order`).                                    |
 | `order`         | none             | Entity ids in display order, with `sort: custom`. The editor fills it with its arrows.              |
 | `summary`       | `true`           | Group badges at the top.                                                                            |
-| `history`       | `true`           | 24 h consumption chart, energy of the day and cost.                                                 |
+| `history`       | `true`           | Consumption chart, energy and cost.                                                                 |
 | `effects`       | `tile.effects`   | Effect picker of each light.                                                                        |
 | `favorites`     | `true`           | Favorite colors on each light.                                                                      |
-| `wled_controls` | `true`           | WLED presets, playlists, palette, effect speed and intensity.                                       |
-| `health`        | `true`           | WLED device panel.                                                                                  |
+| `wled_controls` | `true`           | WLED **Settings** panel.                                                                            |
+| `health`        | `true`           | WLED **Device** panel.                                                                              |
 | `color_bar`     | `tile.color_bar` | Color bar of each light, same values as `tile.color_bar`.                                           |
 
 `appearance`:
@@ -202,6 +320,7 @@ power history since midnight.
 | `power_mode`   | `auto` (default), `sensor`, `voltage` or `none`.                                   |
 | `power_sensor` | Power sensor of this light.                                                        |
 | `voltage`      | Voltage of this strip, instead of `power.voltage`.                                 |
+| `transition`   | Seconds of fade for this light, instead of `tile.transition`.                      |
 
 ### Where consumption comes from
 
@@ -209,11 +328,42 @@ With `power_mode: auto`, the first source found wins:
 
 1. `members[].power_sensor`
 2. `power.sensor_pattern`
-3. A power sensor attached to the same device
+3. A power sensor attached to the same device (a smart bulb or plug that
+   measures itself)
 4. WLED estimated current × voltage (`members[].voltage`, else `power.voltage`)
 
 `sensor` only uses `power_sensor`, `voltage` only the estimated current, and
-`none` turns the consumption of that light off.
+`none` turns the consumption of that light off. The editor shows which source
+each light uses.
+
+The chart reads Home Assistant's history for 6 and 24 hours, and the long-term
+statistics for 7 days. Statistics exist for sensors with a `state_class`
+(`measurement` for a power sensor; WLED's estimated current has one). The
+energy of the day and of the period is computed from the power, so it can
+differ slightly from an energy meter.
+
+### WLED
+
+WLED entities are recognized through the WLED integration, whatever you named
+them: live override, estimated current, current limit, LED count, presets,
+playlists, palette, speed, intensity, reverse, freeze, nightlight, sync, Wi-Fi,
+uptime, memory, IP, firmware update and restart. Strips with several segments
+use the entities of their own segment.
+
+Home Assistant disables a few diagnostic entities by default (uptime, Wi-Fi
+signal and RSSI, free memory). Enable them on the WLED device page
+(**Settings → Devices & services → WLED → device → entities**) to see them in
+the **Device** panel.
+
+**Ambilight.** WLED can ignore realtime data (HyperHDR, Hyperion, E1.31…) with
+its live override setting. The ambilight button is amber while the strips show
+the realtime stream (live override off) and grey while WLED ignores it. Tap it
+to switch. The group button is amber when every strip that answers it shows
+the stream, and switches every one that is online.
+
+**Transitions.** The WLED integration does not expose WLED's own transition
+time, so the card sends one with its commands instead: `tile.transition` for
+every light, `members[].transition` for one.
 
 ### Light names
 
@@ -223,50 +373,10 @@ Names drop the words all members share at the start and at the end:
 it: `Cuisine Spot 1` and `Cuisine Spot 2` become **Spot 1** and **Spot 2**. Use
 `members[].name` to pick your own.
 
-### Ambilight
-
-WLED can ignore realtime data (HyperHDR, Hyperion, E1.31…) with its live
-override setting. The ambilight button is amber while the strips show the
-realtime stream (live override off) and grey while WLED ignores it. Tap it to
-switch. The group button is amber when every strip that answers it shows the
-stream, and switches every one that is online.
-
-### Example
-
-```yaml
-type: custom:vivid-led-group
-entity: light.salon_leds
-name: LEDs
-badges:
-  - sensor.salon_temperature
-tile:
-  favorites: ['#ff8a3d', '#8a2be2', { kelvin: 2700, brightness: 40 }]
-  transition: 0.5
-power:
-  sensor_pattern: sensor.{object_id}_puissance
-  voltage: 5
-  price: 0.2516
-details:
-  hash: salon-leds-details
-members:
-  - entity: light.salon_canape_wled
-    name: Canapé
-  - entity: light.salon_ambilight_wled
-    ambilight: false
-```
-
-Another card can then open the details:
-
-```yaml
-tap_action:
-  action: navigate
-  navigation_path: '#salon-leds-details'
-```
-
 ### Upgrading
 
-0.1 options keep working and are read as their current equivalent; the editor
-saves the new form. 0.3 only adds options.
+Options from older versions keep working and are read as their current
+equivalent; the editor saves the new form. 0.3 and 0.4 only add options.
 
 | 0.1                  | Now                    |
 | -------------------- | ---------------------- |
@@ -276,22 +386,52 @@ saves the new form. 0.3 only adds options.
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
 
+## Troubleshooting
+
+**"Custom element doesn't exist: vivid-led-group".** The resource is not
+loaded. With HACS, reload the page; in the companion app, reset its frontend
+cache from the app settings. Installed by hand, check the resource URL and that
+its type is **JavaScript module**.
+
+**The card did not change after an update.** The browser still has the old
+file: reload without cache (Ctrl + F5) or reset the companion app frontend
+cache. The browser console logs the loaded version (`VIVID CARDS vX.Y.Z`).
+
+**No consumption badge.** The editor banner says how many lights have a
+consumption source. Open **Consumption** and give a sensor pattern or a strip
+voltage, or pick a sensor for a light in **Detected lights**.
+
+**The 7 days chart is empty.** The power sensors have no long-term statistics:
+give them `state_class: measurement` (template sensors accept it), and wait for
+Home Assistant to compile the first hours.
+
+**No ambilight button.** It only shows for WLED strips with their live override
+entity enabled, and when `ambilight.enabled` is on.
+
+**The details do not open from another card.** Set `details.hash` on the LED
+card, and use the same hash, with `#`, in the other card's `navigation_path`.
+
+**An error on the card.** The card explains which option is wrong; fix it in
+the YAML or open the editor, which keeps the last valid preview while you type.
+
 ## Theming
 
 Vivid Cards read the standard Home Assistant theme variables. A few of their own
 can be set in a theme:
 
-| Variable                 | Default | Description                         |
-| ------------------------ | ------- | ----------------------------------- |
-| `vivid-card-radius`      | `28px`  | Corner radius of cards and dialogs. |
-| `vivid-card-tile-radius` | `22px`  | Corner radius of tiles.             |
+| Variable                 | Default | Description                                     |
+| ------------------------ | ------- | ----------------------------------------------- |
+| `vivid-card-radius`      | `28px`  | Corner radius of dialogs.                       |
+| `vivid-card-tile-radius` | `22px`  | Corner radius of tiles and panels.              |
+| `vivid-card-chip-height` | `36px`  | Height of badges and controls (`30px` compact). |
+| `vivid-surface-color`    | theme   | Background of tiles, panels and badges.         |
 
 ## Roadmap
 
 - Badge collection with presets per device class: battery, door and window,
   presence, illuminance, temperature.
 - Label driven badges: show any entity of a strip's device on its header.
-- WLED presets and palettes in the details dialog.
+- WLED palette previews.
 
 ## Development
 

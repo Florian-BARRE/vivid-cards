@@ -67,6 +67,7 @@ const BY_TRANSLATION_KEY: Record<string, Role> = {
   wifi_rssi: 'wifiRssi',
   free_heap: 'freeHeap',
   ip: 'ip',
+  uptime: 'uptime',
 };
 
 function looksLikeLiveOverride(hass: HomeAssistant, entityId: string): boolean {
@@ -85,7 +86,9 @@ function roleWithoutKey(hass: HomeAssistant, entityId: string): Role | undefined
   if (domain === 'update') return 'update';
   const deviceClass = hass.states[entityId]?.attributes.device_class;
   if (domain === 'button' && deviceClass === 'restart') return 'restart';
-  if (domain === 'sensor' && deviceClass === 'timestamp') return 'uptime';
+  if (domain === 'sensor' && (deviceClass === 'timestamp' || deviceClass === 'uptime')) {
+    return 'uptime';
+  }
   return undefined;
 }
 
@@ -110,7 +113,8 @@ export function findWledEntities(hass: HomeAssistant, lightId: string): WledEnti
       continue;
     }
     const key = entry.translation_key;
-    const role = key ? BY_TRANSLATION_KEY[key] : roleWithoutKey(hass, entityId);
+    // Unknown keys (new entities, renamed keys) still get a chance by domain and device class.
+    const role = (key ? BY_TRANSLATION_KEY[key] : undefined) ?? roleWithoutKey(hass, entityId);
     if (!role) {
       if (found.liveOverride === undefined && looksLikeLiveOverride(hass, entityId)) {
         found.liveOverride = entityId;

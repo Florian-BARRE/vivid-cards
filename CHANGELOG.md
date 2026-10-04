@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-04
+
+### Added
+
+- Consumption chart over 6 hours, 24 hours or 7 days (7 days from the
+  long-term statistics): one stacked area per light, axis in watts, hour or
+  day labels, a cursor that reads every light, today / period / peak with the
+  cost, and each light's share.
+- WLED **Settings** panel per strip: preset, playlist, palette, effect speed
+  and intensity, reverse, freeze, nightlight and sync switches.
+- `members[].transition` overrides `tile.transition` for one light.
+
+### Changed
+
+- The WLED controls and device facts fold into two panels opened from tabs
+  that summarize them; the **Device** panel is a compact grid of facts with
+  the firmware, update and restart on one row.
+- Lights without data are left out of the chart and marked in its legend.
+- README: quick start, recipes, WLED notes and troubleshooting.
+
+### Fixed
+
+- The WLED uptime sensor is found with its translation key, and WLED entities
+  with an unknown key fall back to their domain and device class.
+
 ## [0.3.0] - 2026-10-04
 
 ### Added
@@ -83,6 +108,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.4.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.3.0
 [0.2.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.1.1
