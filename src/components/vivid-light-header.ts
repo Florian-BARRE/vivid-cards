@@ -42,6 +42,7 @@ export class VividLightHeader extends LitElement {
     isOn: { type: Boolean, attribute: 'is-on' },
     rgb: { attribute: false },
     colors: { attribute: false },
+    brightness: { type: Number },
     badges: { attribute: false },
     lightOptions: { attribute: false },
     showPower: { type: Boolean, attribute: 'show-power' },
@@ -64,6 +65,8 @@ export class VividLightHeader extends LitElement {
   declare rgb?: Rgb;
   /** Colors of the power button; several make a gradient. Defaults to `rgb`. */
   declare colors?: Rgb[];
+  /** 0–100: the power button glows wider and brighter with it. */
+  declare brightness?: number;
   declare badges?: BadgeModel[];
   declare lightOptions?: LightCallOptions;
   declare showPower: boolean;
@@ -246,7 +249,11 @@ export class VividLightHeader extends LitElement {
           wide
           .icon=${'mdi:power'}
           .tooltip=${localize(this.hass, this.isOn ? 'power_off' : 'power_on')}
-          .tone=${lightTone(this.colors?.length ? this.colors : this.rgb, this.isOn)}
+          .tone=${lightTone(
+            this.colors?.length ? this.colors : this.rgb,
+            this.isOn,
+            this.brightness ?? 100,
+          )}
           .pressed=${this.isOn}
           ?disabled=${!this.available}
           @click=${this.onToggleClick}

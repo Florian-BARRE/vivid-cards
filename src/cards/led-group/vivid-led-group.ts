@@ -267,6 +267,7 @@ export class VividLedGroup extends LitElement {
           .isOn=${model.isOn}
           .rgb=${model.rgb}
           .colors=${model.colors}
+          .brightness=${model.brightness}
           .lightOptions=${this.lightOptions}
           .showPower=${config.power.enabled}
           .hasPower=${model.hasPower}

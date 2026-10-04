@@ -82,7 +82,7 @@ device information.
 
 - **Header**: name, consumption badge glowing with the power drawn, ambilight
   button (WLED), power button filled with the light color (a gradient of every
-  lit light for a group).
+  lit light for a group) whose halo grows with the brightness.
 - **Tile**: drag to dim, effect picker, color bar (hue or color temperature),
   entity badges and favorite colors. The tile shimmers while an effect runs.
 - **Details** (groups):
