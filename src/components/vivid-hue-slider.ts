@@ -63,9 +63,6 @@ export class VividHueSlider extends LitElement {
         outline: 2px solid var(--vivid-focus);
         outline-offset: 2px;
       }
-      :host([dimmed]) .track {
-        filter: saturate(0.45) brightness(0.62);
-      }
       :host([disabled]) .track {
         cursor: default;
         background: rgba(var(--vivid-rgb-text), 0.06);

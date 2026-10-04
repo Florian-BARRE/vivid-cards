@@ -5,11 +5,21 @@ import { css } from 'lit';
  * Home Assistant theme, e.g. `vivid-card-radius: 20px`.
  */
 export const tokens = css`
+  /*
+   * Badges take their background from --vivid-chip-context, which containers set
+   * for their children (a tile sets it to --vivid-layer-2). It is never declared
+   * on :host, so it inherits through shadow roots.
+   */
   :host {
     --vivid-rgb-text: var(--rgb-primary-text-color, 255, 255, 255);
-    --vivid-surface: rgba(var(--vivid-rgb-text), 0.05);
-    --vivid-chip-surface: rgba(var(--vivid-rgb-text), 0.08);
-    --vivid-line-color: rgba(var(--vivid-rgb-text), 0.07);
+    /* Three surface levels: the page, what sits on it (tiles, badges), what sits in a tile. */
+    --vivid-layer-0: var(--primary-background-color, #111111);
+    --vivid-layer-1: var(
+      --vivid-surface-color,
+      var(--secondary-background-color, var(--card-background-color, #282828))
+    );
+    --vivid-layer-2: color-mix(in srgb, var(--vivid-layer-0) 70%, var(--vivid-layer-1));
+    --vivid-line-color: var(--vivid-layer-1);
     --vivid-muted: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
     --vivid-chip-height: 36px;
     --vivid-tile-radius: var(--vivid-card-tile-radius, 22px);

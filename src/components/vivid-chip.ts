@@ -58,7 +58,7 @@ export class VividChip extends LitElement {
         min-width: var(--vivid-chip-height);
         padding: 0 12px;
         border-radius: calc(var(--vivid-chip-height) / 2);
-        background: var(--chip-bg, var(--vivid-chip-surface));
+        background: var(--chip-bg, var(--vivid-chip-context, var(--vivid-layer-1)));
         box-shadow: var(--chip-shadow, none);
         color: var(--primary-text-color);
         font: inherit;

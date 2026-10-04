@@ -78,7 +78,8 @@ export class VividLightTile extends LitElement {
         overflow: hidden;
         isolation: isolate;
         border-radius: var(--vivid-tile-radius);
-        background: var(--vivid-surface);
+        background: var(--vivid-layer-1);
+        --vivid-chip-context: var(--vivid-layer-2);
         padding: 8px;
         display: flex;
         flex-direction: column;
@@ -121,11 +122,7 @@ export class VividLightTile extends LitElement {
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: color-mix(
-          in srgb,
-          var(--ha-card-background, var(--card-background-color, #1c1c1c)) 72%,
-          transparent
-        );
+        background: var(--vivid-layer-2);
         color: var(--vivid-muted);
         transition: color 0.4s ease;
       }
@@ -404,6 +401,7 @@ export class VividLightTile extends LitElement {
                 .value=${attributes.effect ?? undefined}
                 .options=${effects}
                 .tooltip=${localize(this.hass, 'effect')}
+                .placeholder=${localize(this.hass, 'effect')}
                 ?disabled=${!available}
                 @value-changed=${this.onEffectChanged}
               ></vivid-select-chip>`

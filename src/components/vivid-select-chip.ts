@@ -15,6 +15,7 @@ export class VividSelectChip extends LitElement {
     value: {},
     options: { attribute: false },
     tooltip: {},
+    placeholder: {},
     disabled: { type: Boolean, reflect: true },
   };
 
@@ -22,6 +23,7 @@ export class VividSelectChip extends LitElement {
   declare value?: string;
   declare options: string[];
   declare tooltip?: string;
+  declare placeholder?: string;
   declare disabled: boolean;
 
   constructor() {
@@ -48,7 +50,7 @@ export class VividSelectChip extends LitElement {
         height: var(--vivid-chip-height);
         padding: 0 10px 0 12px;
         border-radius: calc(var(--vivid-chip-height) / 2);
-        background: var(--vivid-chip-surface);
+        background: var(--vivid-chip-context, var(--vivid-layer-1));
         color: var(--primary-text-color);
         font-size: 13px;
         font-weight: 500;
@@ -106,7 +108,7 @@ export class VividSelectChip extends LitElement {
     const known = this.value !== undefined && this.options.includes(this.value);
     return html`<label class="chip" @pointerdown=${this.stop} title=${ifDefined(this.tooltip)}>
       ${this.icon ? html`<ha-icon .icon=${this.icon}></ha-icon>` : nothing}
-      <span class="value">${this.value ?? '—'}</span>
+      <span class="value">${this.value ?? this.placeholder ?? '—'}</span>
       <ha-icon class="chevron" .icon=${'mdi:chevron-down'}></ha-icon>
       <select
         aria-label=${ifDefined(this.tooltip)}

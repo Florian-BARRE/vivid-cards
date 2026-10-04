@@ -75,7 +75,7 @@ export class VividDialog extends LitElement {
         display: flex;
         flex-direction: column;
         border-radius: var(--vivid-card-radius, 28px);
-        background: var(--ha-card-background, var(--card-background-color, #1c1c1c));
+        background: var(--vivid-layer-0);
         box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
         opacity: 0;
         transform: translate(-50%, calc(-50% + 24px)) scale(0.98);
@@ -117,7 +117,7 @@ export class VividDialog extends LitElement {
         clip-path: none;
         padding: 6px 10px;
         border-radius: 12px;
-        background: var(--vivid-chip-surface);
+        background: var(--vivid-layer-1);
       }
       .body {
         overflow-y: auto;

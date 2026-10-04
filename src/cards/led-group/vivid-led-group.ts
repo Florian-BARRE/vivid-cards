@@ -72,14 +72,18 @@ export class VividLedGroup extends LitElement {
       ha-card {
         height: 100%;
         box-sizing: border-box;
-        border-radius: var(--vivid-card-radius, 28px);
-        overflow: hidden;
+        background: none;
+        border: none;
+        box-shadow: none;
+        overflow: visible;
       }
       .card {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding: 12px;
+        gap: 8px;
+      }
+      vivid-light-header {
+        padding: 0 4px;
       }
       .warning {
         padding: 16px;
