@@ -222,14 +222,16 @@ export class VividLightHeader extends LitElement {
     const target = this.liveOverride;
     if (!this.showLiveOverride || !target) return nothing;
     const usable = target.available.length > 0;
+    // Ambilight is on while WLED shows the realtime stream, i.e. the override is off.
+    const ambilightOn = !target.active;
     const tooltip = !usable
       ? localize(this.hass, 'live_override_unavailable')
-      : localize(this.hass, target.active ? 'live_override_on' : 'live_override_off');
+      : localize(this.hass, ambilightOn ? 'ambilight_on' : 'ambilight_off');
     return html`<vivid-chip
       .icon=${'mdi:television-ambient-light'}
       .tooltip=${tooltip}
-      .tone=${toggleTone(target.active)}
-      .pressed=${target.active}
+      .tone=${toggleTone(ambilightOn && usable)}
+      .pressed=${ambilightOn}
       ?disabled=${!usable}
       @click=${this.onLiveOverrideClick}
     ></vivid-chip>`;

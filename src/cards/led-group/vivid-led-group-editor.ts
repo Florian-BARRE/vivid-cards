@@ -69,6 +69,8 @@ const LABELS: Record<string, EditorStringKey> = {
   details_effects: 'details_effects',
   idle: 'idle',
   max: 'max',
+  price: 'price',
+  details_history: 'details_history',
   glow: 'glow',
   header: 'show_header',
   compact: 'compact',
@@ -381,9 +383,48 @@ export class VividLedGroupEditor extends LitElement {
         (schema) =>
           schema.name === 'sensor_pattern' ? this.t('sensor_pattern_helper') : undefined,
       )}
-      <div class="hint">
-        ${this.t(withVoltage ? 'power_order_hint' : 'power_order_hint_plain')}
-      </div>`;
+      <div class="hint">${this.t(withVoltage ? 'power_order_hint' : 'power_order_hint_plain')}</div>
+      ${
+        model.detailsEnabled
+          ? this.form(
+              [
+                {
+                  type: 'grid',
+                  name: '',
+                  schema: [
+                    {
+                      name: 'price',
+                      selector: {
+                        number: {
+                          min: 0,
+                          step: 0.0001,
+                          mode: 'box',
+                          unit_of_measurement: `${this.currency()}/kWh`,
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+              { price: config.power?.price },
+              (value) => this.commit(setOption(config, 'power', 'price', value.price)),
+              (schema) => (schema.name === 'price' ? this.t('price_helper') : undefined),
+            )
+          : nothing
+      }`;
+  }
+
+  private currency(): string {
+    const code = this._config?.power?.currency ?? this.hass?.config?.currency ?? 'EUR';
+    try {
+      return (
+        new Intl.NumberFormat(this.hass?.language ?? 'en', { style: 'currency', currency: code })
+          .formatToParts(0)
+          .find((part) => part.type === 'currency')?.value ?? code
+      );
+    } catch {
+      return code;
+    }
   }
 
   /* --------------------------------- members -------------------------------- */
@@ -423,8 +464,14 @@ export class VividLedGroupEditor extends LitElement {
       }
     }
     if (strip.wled) tags.push(html`<span class="tag">${this.t('wled')}</span>`);
-    if (strip.liveOverride?.active && resolved.ambilight.enabled) {
-      tags.push(html`<span class="tag amber">${this.t('override_active')}</span>`);
+    // Amber like the card's button: the strip shows the realtime stream.
+    if (
+      resolved.ambilight.enabled &&
+      strip.ambilight &&
+      strip.liveOverride?.available &&
+      !strip.liveOverride.active
+    ) {
+      tags.push(html`<span class="tag amber">${this.t('ambilight_tag')}</span>`);
     }
     return tags;
   }
@@ -538,6 +585,7 @@ export class VividLedGroupEditor extends LitElement {
         <span class="light" style=${styleMap(light)}><ha-icon .icon=${strip.icon}></ha-icon></span>
         <span class="member-name">${strip.name}</span>
         <span class="tags">${this.renderTags(strip, resolved)}</span>
+        ${isGroup && resolved.details.sort === 'custom' ? this.renderMove(strip) : nothing}
       </div>
       <div class="member-body">
         ${ambilightRow}
@@ -706,6 +754,39 @@ export class VividLedGroupEditor extends LitElement {
           this.commit(next);
         },
       )}`;
+  }
+
+  private renderMove(strip: StripModel) {
+    const config = this._config ?? ({} as LedGroupCardConfig);
+    const order = this.resolve()?.model.detected.map((item) => item.entityId) ?? [];
+    const index = order.indexOf(strip.entityId);
+    const move = (delta: number) => {
+      const next = [...order];
+      const [item] = next.splice(index, 1);
+      if (item === undefined) return;
+      next.splice(index + delta, 0, item);
+      this.commit(setOption(config, 'details', 'order', next));
+    };
+    return html`<span class="move">
+      <button
+        type="button"
+        aria-label=${this.t('move_up', { name: strip.name })}
+        title=${this.t('move_up', { name: strip.name })}
+        ?disabled=${index <= 0}
+        @click=${() => move(-1)}
+      >
+        <ha-icon .icon=${'mdi:chevron-up'}></ha-icon>
+      </button>
+      <button
+        type="button"
+        aria-label=${this.t('move_down', { name: strip.name })}
+        title=${this.t('move_down', { name: strip.name })}
+        ?disabled=${index === -1 || index >= order.length - 1}
+        @click=${() => move(1)}
+      >
+        <ha-icon .icon=${'mdi:chevron-down'}></ha-icon>
+      </button>
+    </span>`;
   }
 
   /* -------------------------------- advanced -------------------------------- */
@@ -897,7 +978,13 @@ export class VividLedGroupEditor extends LitElement {
                 selector: this.select(
                   MEMBER_ORDERS.map((value) => ({
                     value,
-                    label: this.t(value === 'name' ? 'sort_name' : 'sort_group'),
+                    label: this.t(
+                      value === 'name'
+                        ? 'sort_name'
+                        : value === 'group'
+                          ? 'sort_group'
+                          : 'sort_custom',
+                    ),
                   })),
                 ),
               },
@@ -924,6 +1011,7 @@ export class VividLedGroupEditor extends LitElement {
                 { name: 'health', selector: { boolean: {} } },
               ]
             : []),
+          ...(model.hasPower ? [{ name: 'details_history', selector: { boolean: {} } }] : []),
         ],
         {
           hash,
@@ -934,6 +1022,7 @@ export class VividLedGroupEditor extends LitElement {
           details_favorites: resolved.details.favorites,
           wled_controls: resolved.details.wledControls,
           health: resolved.details.health,
+          details_history: resolved.details.history,
         },
         (value) => {
           // The hash becomes part of a URL: keep it to the characters the card accepts.
@@ -961,6 +1050,20 @@ export class VividLedGroupEditor extends LitElement {
           if (wled) {
             next = setOption(next, 'details', 'wled_controls', value.wled_controls, true);
             next = setOption(next, 'details', 'health', value.health, true);
+          }
+          if (model.hasPower) {
+            next = setOption(next, 'details', 'history', value.details_history, true);
+          }
+          // A custom order starts from the order shown right now.
+          if (value.sort === 'custom' && resolved.details.sort !== 'custom') {
+            next = setOption(
+              next,
+              'details',
+              'order',
+              model.detected.map((strip) => strip.entityId),
+            );
+          } else if (value.sort !== 'custom') {
+            next = setOption(next, 'details', 'order', undefined);
           }
           this.commit(next);
         },
@@ -1181,6 +1284,33 @@ export class VividLedGroupEditor extends LitElement {
         height: 100%;
         opacity: 0;
         cursor: pointer;
+      }
+      .move {
+        display: inline-flex;
+        gap: 2px;
+        flex: none;
+      }
+      .move button {
+        appearance: none;
+        border: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: rgba(var(--vivid-rgb-text), 0.06);
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      .move button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .move button:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
       }
       .badge-list {
         display: flex;

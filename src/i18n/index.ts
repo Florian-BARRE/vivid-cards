@@ -6,8 +6,8 @@ const en = {
   power_on: 'Turn on',
   power_off: 'Turn off',
   consumption: 'Consumption',
-  live_override_on: 'Live override on — realtime data ignored',
-  live_override_off: 'Live override off — realtime data shown',
+  ambilight_on: 'Ambilight on — realtime data shown',
+  ambilight_off: 'Ambilight off — WLED ignores realtime data',
   live_override_unavailable: 'Live override unavailable',
   effect: 'Effect',
   hue: 'Color',
@@ -40,6 +40,8 @@ const en = {
   days: '{d} d {h} h',
   hours: '{h} h {m} min',
   minutes: '{m} min',
+  today: 'Today',
+  now: 'now',
 };
 
 type Strings = typeof en;
@@ -50,8 +52,8 @@ const fr: Strings = {
   power_on: 'Allumer',
   power_off: 'Éteindre',
   consumption: 'Consommation',
-  live_override_on: 'Remplacement en direct activé — flux temps réel ignoré',
-  live_override_off: 'Remplacement en direct désactivé — flux temps réel affiché',
+  ambilight_on: 'Ambilight activé — flux temps réel affiché',
+  ambilight_off: 'Ambilight désactivé — WLED ignore le flux temps réel',
   live_override_unavailable: 'Remplacement en direct indisponible',
   effect: 'Effet',
   hue: 'Couleur',
@@ -84,6 +86,8 @@ const fr: Strings = {
   days: '{d} j {h} h',
   hours: '{h} h {m} min',
   minutes: '{m} min',
+  today: 'Aujourd’hui',
+  now: 'maintenant',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };

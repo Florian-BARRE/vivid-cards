@@ -20,7 +20,7 @@ function mount(container: HTMLElement, config: Record<string, unknown>): void {
 const baseConfig = {
   entity: GROUP_ID,
   name: 'LEDs',
-  power: { sensor_pattern: 'sensor.{object_id}_puissance', voltage: 5 },
+  power: { sensor_pattern: 'sensor.{object_id}_puissance', voltage: 5, price: 0.2516 },
   details: { hash: 'salon-leds-details' },
   badges: ['sensor.salon_temperature'],
   tile: {

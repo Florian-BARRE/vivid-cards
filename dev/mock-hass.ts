@@ -626,6 +626,45 @@ export function createMockHass(language = 'en'): MockHass {
     publish();
   };
 
+  /**
+   * Synthetic history: lights on in the evening, at their current level, idle
+   * the rest of the day; one reading every ten minutes.
+   */
+  const history = (entityIds: string[], start: number, end: number) => {
+    const result: Record<string, { s: string; lu: number }[]> = {};
+    for (const entityId of entityIds) {
+      const state = states[entityId];
+      if (!state) continue;
+      const current = Number.parseFloat(state.state);
+      const idle = entityId.endsWith('_estimated_current')
+        ? 360
+        : entityId.includes('spot')
+          ? 0.4
+          : IDLE_WATTS;
+      const points: { s: string; lu: number }[] = [];
+      for (let time = start; time <= end; time += 10 * 60_000) {
+        const hour = new Date(time).getHours() + new Date(time).getMinutes() / 60;
+        const evening = hour >= 18 || hour < 0.5 || (hour >= 7 && hour < 8);
+        const wave = 0.75 + 0.25 * Math.sin(time / 1_700_000 + entityId.length);
+        const value = !Number.isFinite(current)
+          ? 'unavailable'
+          : String(Math.round((evening ? Math.max(current, idle * 4) * wave : idle) * 10) / 10);
+        points.push({ s: value, lu: time / 1000 });
+      }
+      result[entityId] = points;
+    }
+    return result;
+  };
+
+  const callWS = async <T>(message: Record<string, unknown>): Promise<T> => {
+    if (message.type !== 'history/history_during_period') throw new Error('unsupported');
+    return history(
+      (message.entity_ids as string[]) ?? [],
+      Date.parse(String(message.start_time)),
+      Date.parse(String(message.end_time)),
+    ) as T;
+  };
+
   rebuild();
   hass = {
     states,
@@ -634,7 +673,9 @@ export function createMockHass(language = 'en'): MockHass {
     language,
     locale: { language },
     themes: { darkMode: true },
+    config: { currency: 'EUR', time_zone: 'Europe/Paris' },
     callService,
+    callWS,
   };
 
   return {

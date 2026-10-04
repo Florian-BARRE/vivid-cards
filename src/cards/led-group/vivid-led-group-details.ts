@@ -7,6 +7,8 @@ import { defineElement } from '../../core/register';
 import { tokens } from '../../components/shared-styles';
 import '../../components/vivid-light-header';
 import '../../components/vivid-light-tile';
+import '../../components/vivid-power-history';
+import type { PowerSeriesSource } from '../../components/vivid-power-history';
 import '../../components/vivid-wled-controls';
 import '../../components/vivid-wled-health';
 import type { ResolvedLedGroupConfig } from './config';
@@ -102,6 +104,27 @@ export class VividLedGroupDetails extends LitElement {
     return { transition: this.config?.tile.transition };
   }
 
+  /** Consumption sources of every light, in watts. */
+  private historySources(model: LedGroupModel): PowerSeriesSource[] {
+    return model.detected.flatMap((strip) => {
+      const source = strip.power;
+      if (!source) return [];
+      const unit = this.hass?.states[source.entityId]?.attributes.unit_of_measurement;
+      const factor = source.kind === 'current' ? source.voltage / 1000 : unit === 'kW' ? 1000 : 1;
+      return [{ entityId: source.entityId, factor, name: strip.name }];
+    });
+  }
+
+  private renderHistory(model: LedGroupModel, config: ResolvedLedGroupConfig) {
+    if (!config.details.history || !config.power.enabled || !model.hasPower) return nothing;
+    return html`<vivid-power-history
+      .hass=${this.hass}
+      .sources=${this.historySources(model)}
+      .price=${config.power.price}
+      .currency=${config.power.currency}
+    ></vivid-power-history>`;
+  }
+
   private renderExtras(strip: StripModel, config: ResolvedLedGroupConfig) {
     if (!strip.wled || !strip.available) return nothing;
     const controls = config.details.wledControls;
@@ -183,6 +206,7 @@ export class VividLedGroupDetails extends LitElement {
         .filter(({ order }) => order % 2 === column),
     );
     return html`${config.details.summary ? this.renderSummary(model, config) : nothing}
+      ${this.renderHistory(model, config)}
       <div class="columns">
         ${columns.map(
           (items) =>

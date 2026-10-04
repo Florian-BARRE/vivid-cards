@@ -193,6 +193,13 @@ export function buildLedGroupModel(
 
   if (config.details.sort === 'name') {
     detected.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (config.details.sort === 'custom') {
+    // Listed lights first, in the given order; the others keep the group order.
+    const rank = (id: string) => {
+      const index = config.details.order.indexOf(id);
+      return index === -1 ? config.details.order.length : index;
+    };
+    detected.sort((a, b) => rank(a.entityId) - rank(b.entityId));
   }
 
   const powered = detected.filter((m) => m.power !== undefined);

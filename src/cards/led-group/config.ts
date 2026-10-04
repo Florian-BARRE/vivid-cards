@@ -10,11 +10,11 @@ export const CARD_TYPE = 'vivid-led-group';
 
 export type ColorBarMode = 'auto' | 'hue' | 'temperature' | 'none';
 export type StateText = 'brightness' | 'none';
-export type MemberOrder = 'name' | 'group';
+export type MemberOrder = 'name' | 'group' | 'custom';
 
 export const COLOR_BAR_MODES: ColorBarMode[] = ['auto', 'hue', 'temperature', 'none'];
 export const STATE_TEXTS: StateText[] = ['brightness', 'none'];
-export const MEMBER_ORDERS: MemberOrder[] = ['name', 'group'];
+export const MEMBER_ORDERS: MemberOrder[] = ['name', 'group', 'custom'];
 export const POWER_MODES: PowerMode[] = ['auto', 'sensor', 'voltage', 'none'];
 export const GLOW_LEVELS: GlowLevel[] = ['off', 'soft', 'normal', 'strong'];
 
@@ -75,6 +75,10 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     max?: number;
     steps?: [number, number];
     colors?: [FavoriteInput, FavoriteInput, FavoriteInput];
+    /** Price of a kWh, to show what today cost. */
+    price?: number;
+    /** ISO 4217 code; defaults to Home Assistant's currency. */
+    currency?: string;
   };
   ambilight?: {
     enabled?: boolean;
@@ -89,6 +93,9 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     favorites?: boolean;
     wled_controls?: boolean;
     health?: boolean;
+    history?: boolean;
+    /** Entity ids in display order, with `sort: custom`. */
+    order?: string[];
   };
   members?: LedGroupMemberConfig[];
 }
@@ -130,6 +137,8 @@ export interface ResolvedLedGroupConfig {
     autoMax: boolean;
     /** `steps` were not set: they follow `max`. */
     autoSteps: boolean;
+    price?: number;
+    currency?: string;
   };
   ambilight: { enabled: boolean };
   details: {
@@ -143,6 +152,8 @@ export interface ResolvedLedGroupConfig {
     favorites: boolean;
     wledControls: boolean;
     health: boolean;
+    history: boolean;
+    order: string[];
   };
   members: Map<string, LedGroupMemberConfig>;
 }
@@ -328,6 +339,21 @@ function resolveBadges(value: unknown): BadgeConfig[] {
   });
 }
 
+function resolveCurrency(value: unknown): string | undefined {
+  const code = optionalString(value, 'power.currency');
+  if (code === undefined) return undefined;
+  if (!/^[A-Za-z]{3}$/.test(code)) fail('"power.currency" must be a currency code such as EUR.');
+  return code.toUpperCase();
+}
+
+function resolveOrder(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    fail('"details.order" must be a list of entity ids.');
+  }
+  return value as string[];
+}
+
 function percent(value: unknown, field: string, fallback: number): number {
   const number = optionalNumber(value, field);
   if (number === undefined) return fallback;
@@ -408,6 +434,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       scale: resolveScale(power),
       autoMax: power.max === undefined || power.max === null || power.max === '',
       autoSteps: power.steps === undefined || power.steps === null,
+      price: optionalNumber(power.price, 'power.price'),
+      currency: resolveCurrency(power.currency),
     },
     ambilight: { enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true },
     details: {
@@ -421,6 +449,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       favorites: optionalBoolean(details.favorites, 'details.favorites') ?? true,
       wledControls: optionalBoolean(details.wled_controls, 'details.wled_controls') ?? true,
       health: optionalBoolean(details.health, 'details.health') ?? true,
+      history: optionalBoolean(details.history, 'details.history') ?? true,
+      order: resolveOrder(details.order),
     },
     members: resolveMembers(config.members),
   };
