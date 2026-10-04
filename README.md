@@ -193,10 +193,11 @@ with three WLED strips, so you can work on the UI without a server.
 
 ### Releasing
 
-1. Update `version` in `package.json` and the changelog.
-2. Commit, then push a tag with the same version: `git tag v0.2.0 && git push --tags`.
-3. The release workflow checks the code, builds it and attaches `vivid-cards.js`
-   to a GitHub release, which HACS installs.
+1. Update `version` in `package.json` and the changelog, commit and push.
+2. On GitHub, open **Releases → Draft a new release**, create the tag matching
+   the version (e.g. `v0.2.0`) and publish it.
+3. The release workflow checks the code, builds it and attaches
+   `vivid-cards.js` to the release, which HACS installs.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and conventions.
 

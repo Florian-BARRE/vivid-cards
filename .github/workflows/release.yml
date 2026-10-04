@@ -1,16 +1,17 @@
 name: Release
 
-# Push a tag such as v0.2.0 (matching package.json) to publish a GitHub release
-# with the bundle attached; HACS installs from that asset.
+# Publish a release on GitHub (tag matching package.json, e.g. v0.2.0): this
+# workflow checks the code, builds it and attaches vivid-cards.js, which HACS
+# installs.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  bundle:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,11 +24,11 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${version}" >&2
+            echo "Release tag ${GITHUB_REF_NAME} does not match package.json version ${version}" >&2
             exit 1
           fi
       - run: npm run check
-      - name: Publish the release
+      - name: Attach the bundle to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/vivid-cards.js --title "${GITHUB_REF_NAME}" --generate-notes
+        run: gh release upload "${GITHUB_REF_NAME}" dist/vivid-cards.js --clobber
