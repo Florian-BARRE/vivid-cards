@@ -9,11 +9,17 @@ src/
     hass-types.ts       Local subset of the frontend types.
     entities.ts         Groups, device siblings, states.
     actions.ts          Service calls and HA events (more-info, haptics).
+    action-handler.ts   Tap, hold and double tap actions (HA syntax plus details).
     color.ts, glow.ts   Light colors and badge tones (pure functions).
+    light.ts            Color and temperature capabilities of a light.
+    badges.ts           What an entity badge shows.
+    history.ts          History and statistics fetching, integration (pure math).
     naming.ts           Sibling name shortening.
+    ha-elements.ts      Loads Home Assistant's form elements for the editors.
     register.ts         Custom element and card picker registration.
   integrations/         Knowledge about specific integrations (WLED, power).
-  components/           Reusable elements shared by every card (vivid-*).
+  components/           Reusable elements shared by every card (vivid-*): chips,
+                        tiles, header, dialog, color bar, power chart, WLED panel.
   cards/<card>/         One folder per card: config, model, editor, elements.
   i18n/                 Interface strings (en, fr).
 dev/                    Preview page and the simulated Home Assistant.
@@ -48,6 +54,12 @@ tests/                  Vitest unit tests.
    `dev/editor.ts` (`dev/ha-stubs.ts` stands in for `ha-form`).
 4. Test the model and the editor helpers in `tests/`.
 5. Document it in the README.
+
+## Releasing
+
+Bump `version` in `package.json` and add the changelog entry, then merge into
+`main`: the **Auto release** workflow creates the release and attaches the
+bundle. Merge only what was reviewed, since a version bump on `main` publishes.
 
 ## Conventions
 

@@ -37,6 +37,8 @@ interface StripSpec {
   speed: number;
   intensity: number;
   nightlight: boolean;
+  reverse: boolean;
+  freeze: boolean;
   syncSend: boolean;
   syncReceive: boolean;
   /** Wi-Fi signal in percent. */
@@ -55,6 +57,8 @@ const STRIP_DEFAULTS = {
   speed: 128,
   intensity: 128,
   nightlight: false,
+  reverse: false,
+  freeze: false,
   syncSend: false,
   syncReceive: true,
   firmware: '0.15.0',
@@ -215,6 +219,8 @@ export function createMockHass(language = 'en'): MockHass {
     add(`number.${strip.key}_speed`, 'speed', 'config');
     add(`number.${strip.key}_intensity`, 'intensity', 'config');
     add(`switch.${strip.key}_nightlight`, 'nightlight', 'config');
+    add(`switch.${strip.key}_reverse`, 'reverse', 'config');
+    add(`switch.${strip.key}_freeze`, 'freeze', 'config');
     add(`switch.${strip.key}_sync_send`, 'sync_send', 'config');
     add(`switch.${strip.key}_sync_receive`, 'sync_receive', 'config');
     add(`sensor.${strip.key}_led_count`, 'info_leds_count', 'diagnostic');
@@ -224,13 +230,7 @@ export function createMockHass(language = 'en'): MockHass {
     add(`sensor.${strip.key}_free_memory`, 'free_heap', 'diagnostic');
     add(`sensor.${strip.key}_ip`, 'ip', 'diagnostic');
     // No translation key: recognized by their domain and device class.
-    entities[`sensor.${strip.key}_uptime`] = {
-      entity_id: `sensor.${strip.key}_uptime`,
-      device_id: deviceId,
-      platform: 'wled',
-      entity_category: 'diagnostic',
-      labels: [],
-    };
+    add(`sensor.${strip.key}_uptime`, 'uptime', 'diagnostic');
     entities[`button.${strip.key}_restart`] = {
       entity_id: `button.${strip.key}_restart`,
       device_id: deviceId,
@@ -380,17 +380,14 @@ export function createMockHass(language = 'en'): MockHass {
           }),
         );
       }
-      for (const [key, label] of [
-        ['nightlight', 'Nightlight'],
-        ['sync_send', 'Sync send'],
-        ['sync_receive', 'Sync receive'],
+      for (const [key, label, field] of [
+        ['nightlight', 'Nightlight', 'nightlight'],
+        ['reverse', 'Reverse', 'reverse'],
+        ['freeze', 'Freeze', 'freeze'],
+        ['sync_send', 'Sync send', 'syncSend'],
+        ['sync_receive', 'Sync receive', 'syncReceive'],
       ] as const) {
-        const on =
-          key === 'nightlight'
-            ? strip.nightlight
-            : key === 'sync_send'
-              ? strip.syncSend
-              : strip.syncReceive;
+        const on = strip[field];
         put(
           entity(`switch.${strip.key}_${key}`, value(on ? 'on' : 'off'), {
             friendly_name: name(label),
@@ -595,6 +592,8 @@ export function createMockHass(language = 'en'): MockHass {
         const flip = (on: boolean | undefined) =>
           service === 'toggle' ? !on : service === 'turn_on';
         if (id.endsWith('_nightlight')) strip.nightlight = flip(strip.nightlight);
+        else if (id.endsWith('_reverse')) strip.reverse = flip(strip.reverse);
+        else if (id.endsWith('_freeze')) strip.freeze = flip(strip.freeze);
         else if (id.endsWith('_sync_send')) strip.syncSend = flip(strip.syncSend);
         else if (id.endsWith('_sync_receive')) strip.syncReceive = flip(strip.syncReceive);
         continue;
@@ -656,7 +655,37 @@ export function createMockHass(language = 'en'): MockHass {
     return result;
   };
 
+  /** Hourly means of the synthetic history, like the recorder's statistics. */
+  const statistics = (entityIds: string[], start: number, end: number) => {
+    const raw = history(entityIds, start, end);
+    const result: Record<string, { start: number; end: number; mean: number }[]> = {};
+    for (const [entityId, points] of Object.entries(raw)) {
+      const hours = new Map<number, number[]>();
+      for (const point of points) {
+        const value = Number.parseFloat(point.s);
+        if (!Number.isFinite(value)) continue;
+        const hour = Math.floor((point.lu * 1000) / 3_600_000) * 3_600_000;
+        hours.set(hour, [...(hours.get(hour) ?? []), value]);
+      }
+      result[entityId] = [...hours.entries()]
+        .filter(([hour]) => hour + 3_600_000 <= end)
+        .map(([hour, values]) => ({
+          start: hour,
+          end: hour + 3_600_000,
+          mean: values.reduce((sum, value) => sum + value, 0) / values.length,
+        }));
+    }
+    return result;
+  };
+
   const callWS = async <T>(message: Record<string, unknown>): Promise<T> => {
+    if (message.type === 'recorder/statistics_during_period') {
+      return statistics(
+        (message.statistic_ids as string[]) ?? [],
+        Date.parse(String(message.start_time)),
+        Date.parse(String(message.end_time)),
+      ) as T;
+    }
     if (message.type !== 'history/history_during_period') throw new Error('unsupported');
     return history(
       (message.entity_ids as string[]) ?? [],

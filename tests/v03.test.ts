@@ -312,3 +312,26 @@ describe('editor helpers for v0.3', () => {
     );
   });
 });
+
+describe('WLED entities without a known key', () => {
+  it('falls back to the domain and device class', () => {
+    const { hass } = createMockHass();
+    const device = hass.entities['light.salon_buffet_wled']?.device_id;
+    const entities = {
+      ...hass.entities,
+      'update.salon_buffet_wled_firmware': {
+        entity_id: 'update.salon_buffet_wled_firmware',
+        device_id: device,
+        platform: 'wled',
+        translation_key: 'firmware_update',
+        labels: [],
+      },
+    };
+    expect(findWledEntities({ ...hass, entities }, 'light.salon_buffet_wled').update).toBe(
+      'update.salon_buffet_wled_firmware',
+    );
+    expect(findWledEntities(hass, 'light.salon_buffet_wled').uptime).toBe(
+      'sensor.salon_buffet_wled_uptime',
+    );
+  });
+});

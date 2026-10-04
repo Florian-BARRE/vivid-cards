@@ -41,6 +41,8 @@ export interface LedGroupMemberConfig {
   power_mode?: PowerMode;
   power_sensor?: string;
   voltage?: number;
+  /** Seconds of fade for this light, instead of `tile.transition`. */
+  transition?: number;
 }
 
 export interface LedGroupCardConfig extends LovelaceCardConfig {
@@ -379,6 +381,7 @@ function resolveMembers(raw: unknown): Map<string, LedGroupMemberConfig> {
       power_mode: optionalChoice(member.power_mode, 'members.power_mode', POWER_MODES),
       power_sensor: optionalString(member.power_sensor, 'members.power_sensor'),
       voltage: optionalNumber(member.voltage, 'members.voltage'),
+      transition: optionalNumber(member.transition, 'members.transition'),
     });
   }
   return members;
