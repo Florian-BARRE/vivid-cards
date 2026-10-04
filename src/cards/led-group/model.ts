@@ -11,11 +11,13 @@ import {
   liveOverrideState,
   type LiveOverrideState,
 } from '../../integrations/wled';
-import type { ResolvedLedGroupConfig } from './config';
+import { DEFAULT_ICON, type ResolvedLedGroupConfig } from './config';
 
 export interface LightModel {
   entityId: string;
   name: string;
+  /** Card icon, else the light's own icon, else the LED strip icon. */
+  icon: string;
   available: boolean;
   isOn: boolean;
   /** 0–100, 0 when off. */
@@ -46,7 +48,6 @@ export interface GroupLiveOverride {
 }
 
 export interface LedGroupModel extends LightModel {
-  icon: string;
   /** The entity is a group with members. */
   isGroup: boolean;
   /** Every detected strip, including hidden ones. */
@@ -69,8 +70,14 @@ export interface LedGroupModel extends LightModel {
   watched: string[];
 }
 
-function lightModel(hass: HomeAssistant, entityId: string, name: string): LightModel {
+function lightModel(
+  hass: HomeAssistant,
+  entityId: string,
+  name: string,
+  icon: string | undefined,
+): LightModel {
   const state: HassEntity | undefined = hass.states[entityId];
+  const own = state?.attributes.icon;
   const available = isAvailable(state);
   const isOn = available && state.state === 'on';
   const raw = (state?.attributes as LightAttributes | undefined)?.brightness;
@@ -78,6 +85,7 @@ function lightModel(hass: HomeAssistant, entityId: string, name: string): LightM
   return {
     entityId,
     name,
+    icon: icon ?? (typeof own === 'string' && own ? own : DEFAULT_ICON),
     available,
     isOn,
     brightness,
@@ -108,7 +116,7 @@ export function buildLedGroupModel(
     const override = config.members.get(entityId);
     const autoName = autoNames[index] ?? entityId;
     const strip: StripModel = {
-      ...lightModel(hass, entityId, override?.name ?? autoName),
+      ...lightModel(hass, entityId, override?.name ?? autoName, config.icon),
       autoName,
       hidden: override?.hidden ?? false,
       wled: hass.entities?.[entityId]?.platform === 'wled',
@@ -163,11 +171,15 @@ export function buildLedGroupModel(
 
   const members = detected.filter((m) => !m.hidden);
   const detailsEnabled = (config.details.enabled ?? isGroup) && members.length > 0;
-  const group = lightModel(hass, config.entity, config.name ?? friendlyName(hass, config.entity));
+  const group = lightModel(
+    hass,
+    config.entity,
+    config.name ?? friendlyName(hass, config.entity),
+    config.icon,
+  );
 
   return {
     ...group,
-    icon: config.icon,
     isGroup,
     detected,
     members,

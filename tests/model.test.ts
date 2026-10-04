@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUP_ID, createMockHass } from '../dev/mock-hass';
+import { GROUP_ID, SPOTS_GROUP_ID, createMockHass } from '../dev/mock-hass';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { buildLedGroupModel, watchedChanged } from '../src/cards/led-group/model';
 import { expandGroup, siblingEntities } from '../src/core/entities';
@@ -195,6 +195,39 @@ describe('buildLedGroupModel', () => {
     expect(model.members.map((m) => m.name)).toEqual(['Canape', 'Sideboard']);
     expect(model.detected).toHaveLength(3);
     expect(model.detected.find((m) => m.hidden)?.autoName).toBe('Ambilight');
+  });
+
+  it('handles a group of tunable white lights without WLED', () => {
+    const { hass } = createMockHass();
+    const model = buildLedGroupModel(
+      hass,
+      resolveConfig({ type: 'custom:vivid-led-group', entity: SPOTS_GROUP_ID }),
+    );
+    expect(model.isGroup).toBe(true);
+    expect(model.icon).toBe('mdi:ceiling-light-multiple');
+    expect(model.tileColorBar).toBe('temperature');
+    expect(model.hasLiveOverride).toBe(false);
+    expect(model.liveOverride).toBeUndefined();
+    expect(model.detected.map((m) => [m.name, m.icon, m.wled])).toEqual([
+      ['Spot 1', 'mdi:ceiling-light', false],
+      ['Spot 2', 'mdi:ceiling-light', false],
+    ]);
+    // Only the second spot has a power sensor, found on its device.
+    expect(model.detected.map((m) => m.power?.origin)).toEqual([undefined, 'device']);
+    expect(model.hasPower).toBe(true);
+  });
+
+  it('uses the card icon for every tile when one is set', () => {
+    const { hass } = createMockHass();
+    const model = buildLedGroupModel(
+      hass,
+      resolveConfig({ type: 'custom:vivid-led-group', entity: SPOTS_GROUP_ID, icon: 'mdi:lamp' }),
+    );
+    expect([model.icon, ...model.detected.map((m) => m.icon)]).toEqual([
+      'mdi:lamp',
+      'mdi:lamp',
+      'mdi:lamp',
+    ]);
   });
 
   it('watches every entity it reads', async () => {

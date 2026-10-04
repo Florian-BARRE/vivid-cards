@@ -64,7 +64,8 @@ export interface ResolvedLedGroupConfig {
   type: string;
   entity: string;
   name?: string;
-  icon: string;
+  /** Icon of every tile; `undefined` uses each light's own icon. */
+  icon?: string;
   tile: {
     state: StateText;
     colorBar: ColorBarMode;
@@ -247,7 +248,7 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
     type: config.type,
     entity,
     name: optionalString(config.name, 'name'),
-    icon: optionalString(config.icon, 'icon') ?? DEFAULT_ICON,
+    icon: optionalString(config.icon, 'icon'),
     tile: {
       state: optionalChoice(tile.state, 'tile.state', STATE_TEXTS) ?? 'brightness',
       colorBar: tileColorBar,

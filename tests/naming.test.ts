@@ -26,6 +26,15 @@ describe('shortenSiblingNames', () => {
     ]);
   });
 
+  it('gives a bare number the word before it', () => {
+    expect(shortenSiblingNames(['Cuisine Spot 1', 'Cuisine Spot 2'])).toEqual(['Spot 1', 'Spot 2']);
+    expect(shortenSiblingNames(['spot-1', 'spot-2', 'spot-ilot'])).toEqual([
+      'Spot 1',
+      'Spot 2',
+      'Spot ilot',
+    ]);
+  });
+
   it('always keeps at least one word', () => {
     expect(shortenSiblingNames(['salon-wled', 'salon-wled'])).toEqual(['Wled', 'Wled']);
     expect(shortenSiblingNames(['kitchen', 'kitchen-island'])).toEqual([

@@ -66,7 +66,7 @@ export class VividLedGroupDetails extends LitElement {
     return html`<section>
       <vivid-light-header
         .hass=${this.hass}
-        .icon=${config.icon}
+        .icon=${strip.icon}
         .name=${strip.name}
         .lightEntity=${strip.entityId}
         .available=${strip.available}
@@ -83,7 +83,7 @@ export class VividLedGroupDetails extends LitElement {
       <vivid-light-tile
         .hass=${this.hass}
         .entityId=${strip.entityId}
-        .icon=${config.icon}
+        .icon=${strip.icon}
         .name=${strip.name}
         .showEffects=${config.details.effects}
         .showState=${config.tile.state !== 'none'}

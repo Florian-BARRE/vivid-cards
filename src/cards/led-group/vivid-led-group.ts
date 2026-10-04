@@ -15,9 +15,9 @@ import {
   type LedGroupCardConfig,
   type ResolvedLedGroupConfig,
 } from './config';
-import { ledGroupConfigForm } from './editor';
 import { buildLedGroupModel, watchedChanged, type LedGroupModel } from './model';
 import './vivid-led-group-details';
+import './vivid-led-group-editor';
 
 const NAVIGATION_EVENTS = ['location-changed', 'popstate', 'hashchange'] as const;
 
@@ -40,8 +40,8 @@ export class VividLedGroup extends LitElement {
   /** The details hash was pushed by this card, so closing goes back in history. */
   private pushedHash = false;
 
-  static getConfigForm() {
-    return ledGroupConfigForm;
+  static getConfigElement(): HTMLElement {
+    return document.createElement('vivid-led-group-editor');
   }
 
   static getStubConfig(hass?: HomeAssistant): Partial<LedGroupCardConfig> {
@@ -235,7 +235,7 @@ export class VividLedGroup extends LitElement {
       <div class="card">
         <vivid-light-header
           .hass=${this.hass}
-          .icon=${config.icon}
+          .icon=${model.icon}
           .name=${model.name}
           name-interactive
           .lightEntity=${model.entityId}
@@ -254,7 +254,7 @@ export class VividLedGroup extends LitElement {
         <vivid-light-tile
           .hass=${this.hass}
           .entityId=${model.entityId}
-          .icon=${config.icon}
+          .icon=${model.icon}
           .name=${model.name}
           .showEffects=${config.tile.effects}
           .showState=${config.tile.state !== 'none'}

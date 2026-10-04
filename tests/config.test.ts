@@ -11,9 +11,9 @@ const base = { type: 'custom:vivid-led-group', entity: 'light.salon_leds' };
 describe('resolveConfig', () => {
   it('applies defaults', () => {
     const config = resolveConfig(base);
+    expect(config.icon).toBeUndefined();
     expect(config).toMatchObject({
       entity: 'light.salon_leds',
-      icon: 'mdi:led-strip-variant',
       tile: {
         state: 'brightness',
         colorBar: 'auto',
