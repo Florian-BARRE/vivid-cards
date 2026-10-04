@@ -1,7 +1,9 @@
 import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
 import { runAction, type ActionConfig } from '../../core/action-handler';
 import { openMoreInfo } from '../../core/actions';
 import { domainOf } from '../../core/entities';
+import { GLOW_FACTORS } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
@@ -57,11 +59,14 @@ export class VividLedGroup extends LitElement {
   }
 
   getCardSize(): number {
-    return 3;
+    const config = this._config;
+    if (!config) return 3;
+    return (config.appearance.header ? 1 : 0) + 2 + (config.tile.favorites.length ? 1 : 0);
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, min_columns: 6, rows: 3, min_rows: 3 };
+    const rows = this.getCardSize();
+    return { columns: 12, min_columns: 6, rows, min_rows: Math.min(rows, 2) };
   }
 
   static override styles = [
@@ -121,6 +126,21 @@ export class VividLedGroup extends LitElement {
     // Covers a page opened directly on the details hash, before `hass` was set.
     if (!this.dialog?.isConnected) this.syncWithLocation();
     else this.renderDialogContent();
+  }
+
+  /** CSS variables of the appearance options, for the card and its dialog. */
+  private appearanceVars(): Record<string, string> {
+    const appearance = this._config?.appearance;
+    if (!appearance) return {};
+    return {
+      '--vivid-glow': String(GLOW_FACTORS[appearance.glow]),
+      '--vivid-glow-play': appearance.glow === 'off' ? 'paused' : 'running',
+      ...(appearance.compact ? { '--vivid-card-chip-height': '30px' } : {}),
+    };
+  }
+
+  private get lightOptions() {
+    return { transition: this._config?.tile.transition };
   }
 
   /* ----------------------------- details dialog ----------------------------- */
@@ -185,6 +205,11 @@ export class VividLedGroup extends LitElement {
     if (!this.dialog || !this.model) return;
     this.dialog.label = this.model.name;
     this.dialog.closeLabel = localize(this.hass, 'close');
+    this.dialog.wide = this.model.members.length > 1;
+    this.dialog.removeAttribute('style');
+    for (const [name, value] of Object.entries(this.appearanceVars())) {
+      this.dialog.style.setProperty(name, value);
+    }
     this.dialog.content = html`<vivid-led-group-details
       .hass=${this.hass}
       .model=${this.model}
@@ -231,9 +256,8 @@ export class VividLedGroup extends LitElement {
     if (!model || !this.hass.states[config.entity]) {
       return html`<ha-card><div class="warning">Entity not found: ${config.entity}</div></ha-card>`;
     }
-    return html`<ha-card>
-      <div class="card">
-        <vivid-light-header
+    const header = config.appearance.header
+      ? html`<vivid-light-header
           .hass=${this.hass}
           .icon=${model.icon}
           .name=${model.name}
@@ -242,6 +266,8 @@ export class VividLedGroup extends LitElement {
           .available=${model.available}
           .isOn=${model.isOn}
           .rgb=${model.rgb}
+          .colors=${model.colors}
+          .lightOptions=${this.lightOptions}
           .showPower=${config.power.enabled}
           .hasPower=${model.hasPower}
           .watts=${model.watts}
@@ -250,7 +276,11 @@ export class VividLedGroup extends LitElement {
           .liveOverride=${model.liveOverride}
           @vivid-name-click=${this.openDetails}
           @vivid-more-info=${this.onMoreInfo}
-        ></vivid-light-header>
+        ></vivid-light-header>`
+      : nothing;
+    return html`<ha-card>
+      <div class="card" style=${styleMap(this.appearanceVars())}>
+        ${header}
         <vivid-light-tile
           .hass=${this.hass}
           .entityId=${model.entityId}
@@ -260,6 +290,13 @@ export class VividLedGroup extends LitElement {
           .showState=${config.tile.state !== 'none'}
           .colorBar=${model.tileColorBar}
           .doubleTap=${config.tile.doubleTapAction.action !== 'none'}
+          .favorites=${config.tile.favorites}
+          .badges=${model.badges}
+          @vivid-more-info=${this.onMoreInfo}
+          .brightnessMin=${config.tile.brightnessMin}
+          .brightnessStep=${config.tile.brightnessStep}
+          .lightOptions=${this.lightOptions}
+          .animateEffects=${config.appearance.animateEffects}
           @vivid-gesture=${this.onTileGesture}
         ></vivid-light-tile>
       </div>

@@ -2,20 +2,26 @@ import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import {
+  applyColor,
   fireEvent,
   haptic,
   setBrightness,
   setColorTemperature,
   setEffect,
   setHue,
+  type ColorPreset,
+  type LightCallOptions,
 } from '../core/actions';
-import { clamp, lightColor } from '../core/color';
+import type { BadgeModel } from '../core/badges';
+import { clamp, colorDistance, kelvinToRgb, lightColor, rgbCss } from '../core/color';
+import { activeTone } from '../core/glow';
 import { isAvailable } from '../core/entities';
 import type { HomeAssistant, LightAttributes } from '../core/hass-types';
 import { temperatureRange, type ColorBar } from '../core/light';
 import { defineElement } from '../core/register';
 import { localize } from '../i18n';
 import { tokens } from './shared-styles';
+import './vivid-chip';
 import './vivid-color-bar';
 import './vivid-select-chip';
 
@@ -39,10 +45,21 @@ type Gesture = {
   holdTimer?: number;
 };
 
+/** Close enough to count as the current color of the light. */
+const SAME_COLOR_DISTANCE = 24;
+
+/** Brightness actually sent for a drag to `percent` (0 turns off). */
+export function snapBrightness(percent: number, min = 1, step = 1): number {
+  if (percent <= 0) return 0;
+  const stepped = step > 1 ? Math.round(percent / step) * step : Math.round(percent);
+  return clamp(Math.max(stepped, min, 1), 1, 100);
+}
+
 /**
  * Brightness tile for a light. Dragging horizontally dims it; taps, holds and
  * double taps are reported as `vivid-gesture` (`{ gesture, entityId }`) so the
- * card decides what they do. Optional effect picker and color bar.
+ * card decides what they do. Optional effect picker, color bar and favorite
+ * colors, and entity badges next to the state.
  */
 export class VividLightTile extends LitElement {
   static override properties = {
@@ -55,6 +72,12 @@ export class VividLightTile extends LitElement {
     showState: { type: Boolean, attribute: 'show-state' },
     colorBar: { attribute: 'color-bar' },
     doubleTap: { type: Boolean, attribute: 'double-tap' },
+    favorites: { attribute: false },
+    badges: { attribute: false },
+    brightnessMin: { type: Number, attribute: 'brightness-min' },
+    brightnessStep: { type: Number, attribute: 'brightness-step' },
+    lightOptions: { attribute: false },
+    animateEffects: { type: Boolean, attribute: 'animate-effects' },
     _preview: { state: true },
   };
 
@@ -68,6 +91,14 @@ export class VividLightTile extends LitElement {
   declare colorBar: ColorBar;
   /** Waits for a possible second tap before reporting a tap. */
   declare doubleTap: boolean;
+  declare favorites: ColorPreset[];
+  /** Entity badges shown next to the state; a tap opens their dialog. */
+  declare badges: BadgeModel[];
+  declare brightnessMin: number;
+  declare brightnessStep: number;
+  declare lightOptions?: LightCallOptions;
+  /** Shimmer while an effect runs. */
+  declare animateEffects: boolean;
   /** Brightness shown while dragging or until Home Assistant confirms the change. */
   declare _preview?: number;
 
@@ -84,6 +115,11 @@ export class VividLightTile extends LitElement {
     this.showState = true;
     this.colorBar = 'hue';
     this.doubleTap = false;
+    this.favorites = [];
+    this.badges = [];
+    this.brightnessMin = 1;
+    this.brightnessStep = 1;
+    this.animateEffects = true;
   }
 
   static override styles = [
@@ -118,11 +154,86 @@ export class VividLightTile extends LitElement {
       .tile.sliding .fill {
         transition: background-color 0.4s ease;
       }
+      .tile.effect .fill::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          100deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.16) 45%,
+          rgba(var(--tile-rgb, 255, 214, 170), 0.35) 55%,
+          transparent 80%
+        );
+        background-size: 250% 100%;
+        animation: vivid-shimmer 3.2s ease-in-out infinite;
+      }
+      @keyframes vivid-shimmer {
+        0% {
+          background-position: 120% 0;
+        }
+        100% {
+          background-position: -120% 0;
+        }
+      }
+      .favorites {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 2px;
+      }
+      .swatch {
+        appearance: none;
+        border: none;
+        margin: 0;
+        padding: 0;
+        width: calc(var(--vivid-chip-height) - 6px);
+        height: calc(var(--vivid-chip-height) - 6px);
+        border-radius: 50%;
+        background: var(--swatch);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.12s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .swatch:active {
+        transform: scale(0.9);
+      }
+      .swatch:focus-visible {
+        outline: 2px solid var(--vivid-focus);
+        outline-offset: 2px;
+      }
+      .swatch.current {
+        box-shadow:
+          0 0 0 2px var(--vivid-layer-1),
+          0 0 0 4px var(--primary-text-color);
+      }
+      .swatch .level {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--level-color);
+      }
+      .badges {
+        display: flex;
+        gap: 6px;
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .swatch:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
       .surface {
         display: flex;
         align-items: center;
         gap: 10px;
-        min-height: 40px;
+        min-height: calc(var(--vivid-chip-height) + 4px);
         border-radius: 16px;
         cursor: pointer;
         touch-action: pan-y;
@@ -138,8 +249,8 @@ export class VividLightTile extends LitElement {
         flex: none;
         display: grid;
         place-items: center;
-        width: 40px;
-        height: 40px;
+        width: calc(var(--vivid-chip-height) + 4px);
+        height: calc(var(--vivid-chip-height) + 4px);
         border-radius: 50%;
         background: var(--vivid-layer-2);
         color: var(--vivid-muted);
@@ -186,8 +297,13 @@ export class VividLightTile extends LitElement {
       }
       @media (prefers-reduced-motion: reduce) {
         .fill,
-        .icon {
+        .icon,
+        .swatch {
           transition: none;
+        }
+        .tile.effect .fill::after {
+          animation: none;
+          display: none;
         }
       }
     `,
@@ -266,11 +382,16 @@ export class VividLightTile extends LitElement {
     this.pendingTimer = window.setTimeout(() => (this._preview = undefined), PENDING_TIMEOUT_MS);
   }
 
+  private snap(percent: number): number {
+    return snapBrightness(percent, this.brightnessMin, this.brightnessStep);
+  }
+
   private commitBrightness(percent: number): void {
     if (!this.hass || !this.entityId) return;
-    this._preview = percent;
+    const value = this.snap(percent);
+    this._preview = value;
     this.holdPending();
-    void setBrightness(this.hass, this.entityId, percent);
+    void setBrightness(this.hass, this.entityId, value, this.lightOptions);
   }
 
   private resetGesture(): void {
@@ -320,7 +441,7 @@ export class VividLightTile extends LitElement {
       window.clearTimeout(gesture.holdTimer);
       this.renderRoot.querySelector('.tile')?.classList.add('sliding');
     }
-    this._preview = this.percentAt(event.clientX);
+    this._preview = this.snap(this.percentAt(event.clientX));
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
@@ -342,6 +463,8 @@ export class VividLightTile extends LitElement {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    // Keys pressed on a badge or the effect picker belong to them.
+    if (event.target !== event.currentTarget) return;
     if (!this.available || !this.hass || !this.entityId) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -349,11 +472,12 @@ export class VividLightTile extends LitElement {
       return;
     }
     const current = this._preview ?? this.currentBrightness();
+    const step = Math.max(this.brightnessStep, KEY_STEP);
     const next =
       event.key === 'ArrowRight' || event.key === 'ArrowUp'
-        ? current + KEY_STEP
+        ? current + step
         : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-          ? current - KEY_STEP
+          ? current - step
           : event.key === 'Home'
             ? 0
             : event.key === 'End'
@@ -370,19 +494,79 @@ export class VividLightTile extends LitElement {
   };
 
   private readonly onEffectChanged = (event: CustomEvent<{ value: string }>): void => {
-    if (this.hass && this.entityId) void setEffect(this.hass, this.entityId, event.detail.value);
+    if (this.hass && this.entityId) {
+      void setEffect(this.hass, this.entityId, event.detail.value);
+    }
   };
 
   private readonly onColorChanged = (event: CustomEvent<{ value: number }>): void => {
     if (!this.hass || !this.entityId) return;
     if (this.colorBar === 'temperature') {
-      void setColorTemperature(this.hass, this.entityId, event.detail.value);
+      void setColorTemperature(this.hass, this.entityId, event.detail.value, this.lightOptions);
       return;
     }
     const hs = (this.stateObj?.attributes as LightAttributes | undefined)?.hs_color;
     const saturation = Array.isArray(hs) && typeof hs[1] === 'number' && hs[1] > 0 ? hs[1] : 100;
-    void setHue(this.hass, this.entityId, event.detail.value, saturation);
+    void setHue(this.hass, this.entityId, event.detail.value, saturation, this.lightOptions);
   };
+
+  private renderBadges() {
+    if (this.badges.length === 0) return nothing;
+    return html`<div class="badges" @pointerdown=${(event: Event) => event.stopPropagation()}>
+      ${this.badges.map(
+        (badge) =>
+          html`<vivid-chip
+            .icon=${badge.icon}
+            .label=${badge.label}
+            .tooltip=${badge.label ? `${badge.name} : ${badge.label}` : badge.name}
+            .tone=${badge.label === undefined ? activeTone(badge.active) : undefined}
+            ?disabled=${!badge.available}
+            @click=${(event: Event) => {
+              event.stopPropagation();
+              fireEvent(this, 'vivid-more-info', { entityId: badge.entityId });
+            }}
+          ></vivid-chip>`,
+      )}
+    </div>`;
+  }
+
+  private applyFavorite(preset: ColorPreset): void {
+    if (!this.hass || !this.entityId) return;
+    haptic(this, 'light');
+    void applyColor(this.hass, this.entityId, preset, this.lightOptions);
+  }
+
+  private renderFavorites(isOn: boolean, available: boolean) {
+    if (this.favorites.length === 0) return nothing;
+    const current = isOn ? lightColor(this.stateObj) : undefined;
+    return html`<div class="favorites" role="group" aria-label=${localize(this.hass, 'favorites')}>
+      ${this.favorites.map((preset) => {
+        const rgb = preset.rgb ?? kelvinToRgb(preset.kelvin ?? 2700);
+        const label = preset.rgb
+          ? `rgb(${preset.rgb.join(', ')})`
+          : `${Math.round(preset.kelvin ?? 0)} K`;
+        const level = preset.brightness !== undefined ? `${Math.round(preset.brightness)}` : '';
+        const luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+        return html`<button
+          type="button"
+          class=${classMap({
+            swatch: true,
+            current: current !== undefined && colorDistance(current, rgb) < SAME_COLOR_DISTANCE,
+          })}
+          style=${styleMap({
+            '--swatch': rgbCss(rgb),
+            '--level-color': luminance > 0.6 ? 'rgba(0, 0, 0, 0.65)' : '#ffffff',
+          })}
+          title=${level ? `${label} · ${level} %` : label}
+          aria-label=${level ? `${label} · ${level} %` : label}
+          ?disabled=${!available}
+          @click=${() => this.applyFavorite(preset)}
+        >
+          ${level ? html`<span class="level">${level}</span>` : nothing}
+        </button>`;
+      })}
+    </div>`;
+  }
 
   private renderColorBar(isOn: boolean, available: boolean) {
     if (this.colorBar === 'none') return nothing;
@@ -428,8 +612,15 @@ export class VividLightTile extends LitElement {
       '--tile-rgb': rgb ? rgb.join(', ') : undefined,
     });
 
+    const effect = attributes.effect;
+    const effectActive =
+      this.animateEffects &&
+      isOn &&
+      typeof effect === 'string' &&
+      !['solid', 'none', 'off', ''].includes(effect.toLowerCase());
+
     return html`<div
-      class=${classMap({ tile: true, on: lit, unavailable: !available })}
+      class=${classMap({ tile: true, on: lit, unavailable: !available, effect: effectActive })}
       style=${tileStyle}
     >
       <div class="fill"></div>
@@ -455,6 +646,7 @@ export class VividLightTile extends LitElement {
           ${this.showName && this.name ? html`<span class="name">${this.name}</span>` : nothing}
           ${this.showState ? html`<span class="state">${stateText}</span>` : nothing}
         </div>
+        ${this.renderBadges()}
         ${
           this.showEffects && effects.length > 0
             ? html`<vivid-select-chip
@@ -469,7 +661,7 @@ export class VividLightTile extends LitElement {
             : nothing
         }
       </div>
-      ${this.renderColorBar(isOn, available)}
+      ${this.renderColorBar(isOn, available)} ${this.renderFavorites(isOn, available)}
     </div>`;
   }
 }

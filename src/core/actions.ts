@@ -18,10 +18,28 @@ export function haptic(node: EventTarget, type: HapticType): void {
   fireEvent(node, 'haptic', type);
 }
 
-export function toggleEntity(hass: HomeAssistant, entityId: string): Promise<unknown> {
+export function toggleEntity(
+  hass: HomeAssistant,
+  entityId: string,
+  options?: LightCallOptions,
+): Promise<unknown> {
   const domain = domainOf(entityId);
   const service = domain === 'light' || domain === 'switch' ? domain : 'homeassistant';
-  return hass.callService(service, 'toggle', {}, { entity_id: entityId });
+  const data = domain === 'light' ? lightData({}, options) : {};
+  return hass.callService(service, 'toggle', data, { entity_id: entityId });
+}
+
+/** Options added to every light service call. */
+export interface LightCallOptions {
+  /** Seconds; omitted when undefined. */
+  transition?: number;
+}
+
+function lightData(
+  data: Record<string, unknown>,
+  options: LightCallOptions = {},
+): Record<string, unknown> {
+  return options.transition === undefined ? data : { ...data, transition: options.transition };
 }
 
 /** 0 % turns the light off. */
@@ -29,12 +47,15 @@ export function setBrightness(
   hass: HomeAssistant,
   entityId: string,
   percent: number,
+  options?: LightCallOptions,
 ): Promise<unknown> {
-  if (percent <= 0) return hass.callService('light', 'turn_off', {}, { entity_id: entityId });
+  if (percent <= 0) {
+    return hass.callService('light', 'turn_off', lightData({}, options), { entity_id: entityId });
+  }
   return hass.callService(
     'light',
     'turn_on',
-    { brightness_pct: Math.round(percent) },
+    lightData({ brightness_pct: Math.round(percent) }, options),
     { entity_id: entityId },
   );
 }
@@ -44,13 +65,35 @@ export function setHue(
   entityId: string,
   hue: number,
   saturation: number,
+  options?: LightCallOptions,
 ): Promise<unknown> {
   return hass.callService(
     'light',
     'turn_on',
-    { hs_color: [Math.round(hue), Math.round(saturation)] },
+    lightData({ hs_color: [Math.round(hue), Math.round(saturation)] }, options),
     { entity_id: entityId },
   );
+}
+
+/** A color preset: an RGB color or a color temperature, with an optional brightness. */
+export interface ColorPreset {
+  rgb?: [number, number, number];
+  kelvin?: number;
+  /** Percent. */
+  brightness?: number;
+}
+
+export function applyColor(
+  hass: HomeAssistant,
+  entityId: string,
+  preset: ColorPreset,
+  options?: LightCallOptions,
+): Promise<unknown> {
+  const data: Record<string, unknown> = {};
+  if (preset.rgb) data.rgb_color = preset.rgb;
+  else if (preset.kelvin !== undefined) data.color_temp_kelvin = Math.round(preset.kelvin);
+  if (preset.brightness !== undefined) data.brightness_pct = Math.round(preset.brightness);
+  return hass.callService('light', 'turn_on', lightData(data, options), { entity_id: entityId });
 }
 
 export function setEffect(hass: HomeAssistant, entityId: string, effect: string): Promise<unknown> {
@@ -70,11 +113,20 @@ export function setColorTemperature(
   hass: HomeAssistant,
   entityId: string,
   kelvin: number,
+  options?: LightCallOptions,
 ): Promise<unknown> {
   return hass.callService(
     'light',
     'turn_on',
-    { color_temp_kelvin: Math.round(kelvin) },
+    lightData({ color_temp_kelvin: Math.round(kelvin) }, options),
     { entity_id: entityId },
   );
+}
+
+export function setNumber(hass: HomeAssistant, entityId: string, value: number): Promise<unknown> {
+  return hass.callService('number', 'set_value', { value }, { entity_id: entityId });
+}
+
+export function pressButton(hass: HomeAssistant, entityId: string): Promise<unknown> {
+  return hass.callService('button', 'press', {}, { entity_id: entityId });
 }

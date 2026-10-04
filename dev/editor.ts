@@ -23,8 +23,10 @@ const SCENARIOS: Scenario[] = [
     config: {
       entity: GROUP_ID,
       name: 'LEDs',
-      power: { sensor_pattern: 'sensor.{object_id}_puissance', max: 34 },
+      power: { sensor_pattern: 'sensor.{object_id}_puissance', voltage: 5 },
       details: { hash: 'salon-leds-details' },
+      badges: ['sensor.salon_temperature'],
+      tile: { favorites: ['#ff8a3d', '#8a2be2', { kelvin: 2700, brightness: 40 }] },
     },
   },
   {

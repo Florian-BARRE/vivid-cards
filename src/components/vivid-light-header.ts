@@ -1,7 +1,14 @@
 import { LitElement, css, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
-import { fireEvent, haptic, selectOption, toggleEntity } from '../core/actions';
-import { lightTone, powerTone, toggleTone, type PowerScale } from '../core/glow';
+import {
+  fireEvent,
+  haptic,
+  selectOption,
+  toggleEntity,
+  type LightCallOptions,
+} from '../core/actions';
+import type { BadgeModel } from '../core/badges';
+import { activeTone, lightTone, powerTone, toggleTone, type PowerScale } from '../core/glow';
 import type { HomeAssistant, Rgb } from '../core/hass-types';
 import { defineElement } from '../core/register';
 import { formatNumber, localize } from '../i18n';
@@ -34,6 +41,9 @@ export class VividLightHeader extends LitElement {
     available: { type: Boolean },
     isOn: { type: Boolean, attribute: 'is-on' },
     rgb: { attribute: false },
+    colors: { attribute: false },
+    badges: { attribute: false },
+    lightOptions: { attribute: false },
     showPower: { type: Boolean, attribute: 'show-power' },
     hasPower: { type: Boolean, attribute: 'has-power' },
     watts: { type: Number },
@@ -52,6 +62,10 @@ export class VividLightHeader extends LitElement {
   declare available: boolean;
   declare isOn: boolean;
   declare rgb?: Rgb;
+  /** Colors of the power button; several make a gradient. Defaults to `rgb`. */
+  declare colors?: Rgb[];
+  declare badges?: BadgeModel[];
+  declare lightOptions?: LightCallOptions;
   declare showPower: boolean;
   declare hasPower: boolean;
   declare watts?: number;
@@ -119,9 +133,15 @@ export class VividLightHeader extends LitElement {
       }
       .chips {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         align-items: center;
         gap: 8px;
-        flex: none;
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      :host([variant='summary']) .chips {
+        justify-content: center;
       }
       .muted {
         opacity: 0.55;
@@ -147,8 +167,22 @@ export class VividLightHeader extends LitElement {
   private readonly onToggleClick = (): void => {
     if (!this.hass || !this.lightEntity) return;
     haptic(this, 'light');
-    void toggleEntity(this.hass, this.lightEntity);
+    void toggleEntity(this.hass, this.lightEntity, this.lightOptions);
   };
+
+  private renderBadges() {
+    return (this.badges ?? []).map(
+      (badge) =>
+        html`<vivid-chip
+          class=${classMap({ muted: !badge.available })}
+          .icon=${badge.icon}
+          .label=${badge.label}
+          .tooltip=${badge.label ? `${badge.name} : ${badge.label}` : badge.name}
+          .tone=${badge.label === undefined ? activeTone(badge.active) : undefined}
+          @click=${() => fireEvent(this, 'vivid-more-info', { entityId: badge.entityId })}
+        ></vivid-chip>`,
+    );
+  }
 
   private renderTitle() {
     if (this.variant === 'summary') return nothing;
@@ -188,14 +222,16 @@ export class VividLightHeader extends LitElement {
     const target = this.liveOverride;
     if (!this.showLiveOverride || !target) return nothing;
     const usable = target.available.length > 0;
+    // Ambilight is on while WLED shows the realtime stream, i.e. the override is off.
+    const ambilightOn = !target.active;
     const tooltip = !usable
       ? localize(this.hass, 'live_override_unavailable')
-      : localize(this.hass, target.active ? 'live_override_on' : 'live_override_off');
+      : localize(this.hass, ambilightOn ? 'ambilight_on' : 'ambilight_off');
     return html`<vivid-chip
       .icon=${'mdi:television-ambient-light'}
       .tooltip=${tooltip}
-      .tone=${toggleTone(target.active)}
-      .pressed=${target.active}
+      .tone=${toggleTone(ambilightOn && usable)}
+      .pressed=${ambilightOn}
       ?disabled=${!usable}
       @click=${this.onLiveOverrideClick}
     ></vivid-chip>`;
@@ -205,12 +241,12 @@ export class VividLightHeader extends LitElement {
     return html`<div class="row">
       ${this.renderTitle()}
       <div class="chips">
-        ${this.renderPower()} ${this.renderLiveOverride()}
+        ${this.renderBadges()} ${this.renderPower()} ${this.renderLiveOverride()}
         <vivid-chip
           wide
           .icon=${'mdi:power'}
           .tooltip=${localize(this.hass, this.isOn ? 'power_off' : 'power_on')}
-          .tone=${lightTone(this.rgb, this.isOn)}
+          .tone=${lightTone(this.colors?.length ? this.colors : this.rgb, this.isOn)}
           .pressed=${this.isOn}
           ?disabled=${!this.available}
           @click=${this.onToggleClick}

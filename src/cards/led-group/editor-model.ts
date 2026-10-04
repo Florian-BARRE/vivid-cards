@@ -1,12 +1,19 @@
-import type { LedGroupCardConfig, LedGroupMemberConfig } from './config';
+import {
+  MAX_FAVORITES,
+  type BadgeInput,
+  type FavoriteInput,
+  type LedGroupCardConfig,
+  type LedGroupMemberConfig,
+} from './config';
 
-type Section = 'tile' | 'power' | 'ambilight' | 'details';
+type Section = 'tile' | 'power' | 'ambilight' | 'details' | 'appearance';
 
 function isEmpty(value: unknown): boolean {
   return (
     value === undefined ||
     value === null ||
     value === '' ||
+    (Array.isArray(value) && value.length === 0) ||
     (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
   );
 }
@@ -93,6 +100,37 @@ export function memberOverride(
   entity: string,
 ): LedGroupMemberConfig | undefined {
   return config.members?.find((member) => member.entity === entity);
+}
+
+/** Adds a favorite color (ignored once the list is full). */
+export function addFavorite(config: LedGroupCardConfig, color: FavoriteInput): LedGroupCardConfig {
+  const favorites = config.tile?.favorites ?? [];
+  if (favorites.length >= MAX_FAVORITES) return config;
+  return setOption(config, 'tile', 'favorites', [...favorites, color]);
+}
+
+export function removeFavorite(config: LedGroupCardConfig, index: number): LedGroupCardConfig {
+  const favorites = (config.tile?.favorites ?? []).filter((_, position) => position !== index);
+  return setOption(config, 'tile', 'favorites', favorites);
+}
+
+/** Adds a badge, unless that entity already has one. */
+export function addBadge(config: LedGroupCardConfig, entity: string): LedGroupCardConfig {
+  const badges = config.badges ?? [];
+  if (badges.some((badge) => badgeEntity(badge) === entity)) return config;
+  return { ...config, badges: [...badges, entity] };
+}
+
+export function removeBadge(config: LedGroupCardConfig, index: number): LedGroupCardConfig {
+  const badges = (config.badges ?? []).filter((_, position) => position !== index);
+  const next = { ...config };
+  if (badges.length === 0) delete next.badges;
+  else next.badges = badges;
+  return next;
+}
+
+export function badgeEntity(badge: BadgeInput): string {
+  return typeof badge === 'string' ? badge : badge.entity;
 }
 
 /** Cycles an optional boolean whose default is `true`: unset → false → unset. */

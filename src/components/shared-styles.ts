@@ -21,7 +21,8 @@ export const tokens = css`
     --vivid-layer-2: color-mix(in srgb, var(--vivid-layer-0) 70%, var(--vivid-layer-1));
     --vivid-line-color: var(--vivid-layer-1);
     --vivid-muted: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
-    --vivid-chip-height: 36px;
+    /* Set --vivid-card-chip-height on a card to resize every control (compact layout). */
+    --vivid-chip-height: var(--vivid-card-chip-height, 36px);
     --vivid-tile-radius: var(--vivid-card-tile-radius, 22px);
     --vivid-focus: var(--primary-color, #03a9f4);
   }

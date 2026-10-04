@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { hsToRgb, kelvinToRgb, lightColor } from '../src/core/color';
-import { lightTone, powerColor, powerRatio, powerTone, toggleTone } from '../src/core/glow';
-import type { HassEntity } from '../src/core/hass-types';
+import {
+  colorDistance,
+  hsToRgb,
+  kelvinToRgb,
+  lightColor,
+  parseColor,
+  rgbHex,
+} from '../src/core/color';
+import {
+  lightTone,
+  meanColor,
+  powerColor,
+  powerRatio,
+  powerTone,
+  toggleTone,
+} from '../src/core/glow';
+import type { HassEntity, Rgb } from '../src/core/hass-types';
 
 const scale = { idle: 3, max: 40, steps: [10, 25] as const };
 
@@ -29,8 +43,8 @@ describe('power glow', () => {
   it('glows brighter, wider and pulses faster when drawing more', () => {
     const low = powerTone(4, scale);
     const high = powerTone(40, scale);
-    expect(low.shadow).toBe('0 0 7px rgba(255, 213, 79, 0.26)');
-    expect(high.shadow).toBe('0 0 28px rgba(255, 112, 67, 0.75)');
+    expect(low.shadow).toBe('0 0 calc(7px * var(--vivid-glow, 1)) rgba(255, 213, 79, 0.26)');
+    expect(high.shadow).toBe('0 0 calc(28px * var(--vivid-glow, 1)) rgba(255, 112, 67, 0.75)');
     expect(Number.parseFloat(high.pulse ?? '0')).toBeLessThan(Number.parseFloat(low.pulse ?? '0'));
     expect(high.iconColor).toBe('var(--primary-text-color)');
   });
@@ -45,9 +59,33 @@ describe('light and toggle tones', () => {
     expect(lightTone([255, 0, 0], true)).toEqual({
       background: 'rgb(255, 0, 0)',
       iconColor: '#ffffff',
-      shadow: '0 0 14px rgba(255, 0, 0, 0.45)',
+      shadow: '0 0 calc(14px * var(--vivid-glow, 1)) rgba(255, 0, 0, 0.45)',
     });
     expect(lightTone([255, 0, 0], false)).toEqual({});
+    expect(lightTone([[255, 0, 0]], true)).toEqual(lightTone([255, 0, 0], true));
+  });
+
+  it('turns several colors into a gradient haloed with their mean', () => {
+    const tone = lightTone(
+      [
+        [255, 0, 0],
+        [0, 0, 255],
+      ],
+      true,
+    );
+    expect(tone.background).toBe('linear-gradient(120deg, rgb(255, 0, 0) 0%, rgb(0, 0, 255) 100%)');
+    expect(tone.shadow).toContain('rgba(128, 0, 128, 0.45)');
+    expect(meanColor([])).toEqual([0, 0, 0]);
+  });
+
+  it('uses custom power colors', () => {
+    const colors: [Rgb, Rgb, Rgb] = [
+      [0, 255, 0],
+      [0, 0, 255],
+      [255, 0, 0],
+    ];
+    expect(powerColor(30, { ...scale, colors })).toEqual([255, 0, 0]);
+    expect(powerColor(5, { ...scale, colors })).toEqual([0, 255, 0]);
   });
 
   it('is amber when active and muted otherwise', () => {
@@ -63,6 +101,17 @@ describe('colors', () => {
     expect(hsToRgb(240, 100)).toEqual([0, 0, 255]);
     expect(hsToRgb(0, 0)).toEqual([255, 255, 255]);
     expect(hsToRgb(-120, 100)).toEqual([0, 0, 255]);
+  });
+
+  it('parses hex and rgb colors', () => {
+    expect(parseColor('#ff8800')).toEqual([255, 136, 0]);
+    expect(parseColor('f80')).toEqual([255, 136, 0]);
+    expect(parseColor([1.4, 2, 3])).toEqual([1, 2, 3]);
+    expect(parseColor('#ff88')).toBeUndefined();
+    expect(parseColor([300, 0, 0])).toBeUndefined();
+    expect(parseColor(42)).toBeUndefined();
+    expect(rgbHex([255, 136, 0])).toBe('#ff8800');
+    expect(colorDistance([0, 0, 0], [3, 4, 0])).toBe(5);
   });
 
   it('approximates color temperatures', () => {

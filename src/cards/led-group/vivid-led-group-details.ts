@@ -7,13 +7,18 @@ import { defineElement } from '../../core/register';
 import { tokens } from '../../components/shared-styles';
 import '../../components/vivid-light-header';
 import '../../components/vivid-light-tile';
+import '../../components/vivid-power-history';
+import type { PowerSeriesSource } from '../../components/vivid-power-history';
+import '../../components/vivid-wled-controls';
+import '../../components/vivid-wled-health';
 import type { ResolvedLedGroupConfig } from './config';
 import type { LedGroupModel, StripModel } from './model';
 
 /**
  * Content of the details dialog: group badges on top, then one header and tile
- * per strip. A tap toggles a strip, a hold asks for its more-info dialog
- * (`vivid-more-info`).
+ * per strip, with its WLED controls and device facts. Two columns when the
+ * dialog is wide enough. A tap toggles a strip, a hold asks for its more-info
+ * dialog (`vivid-more-info`).
  */
 export class VividLedGroupDetails extends LitElement {
   static override properties = {
@@ -33,14 +38,54 @@ export class VividLedGroupDetails extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 18px;
+        container-type: inline-size;
       }
       .summary {
         padding: 4px 0 2px;
+      }
+      /*
+       * One column keeps the group order; two columns (wide dialogs) take every
+       * other strip, so opening a device panel never moves a strip across.
+       */
+      .columns {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .column {
+        display: contents;
+      }
+      section {
+        order: var(--order, 0);
+      }
+      @container (min-width: 760px) {
+        .columns {
+          flex-direction: row;
+          align-items: flex-start;
+          gap: 20px;
+        }
+        .column {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          flex: 1;
+          min-width: 0;
+        }
       }
       section {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        min-width: 0;
+      }
+      .extras {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+        border-radius: var(--vivid-tile-radius);
+        background: var(--vivid-layer-1);
+        --vivid-chip-context: var(--vivid-layer-2);
       }
     `,
   ];
@@ -51,11 +96,62 @@ export class VividLedGroupDetails extends LitElement {
     event.stopPropagation();
     const { gesture, entityId } = event.detail;
     if (!entityId || !this.hass) return;
-    if (gesture === 'tap') void toggleEntity(this.hass, entityId);
+    if (gesture === 'tap') void toggleEntity(this.hass, entityId, this.lightOptions);
     else if (gesture === 'hold') fireEvent(this, 'vivid-more-info', { entityId });
   };
 
-  private renderStrip(strip: StripModel, config: ResolvedLedGroupConfig) {
+  private get lightOptions() {
+    return { transition: this.config?.tile.transition };
+  }
+
+  /** Consumption sources of every light, in watts. */
+  private historySources(model: LedGroupModel): PowerSeriesSource[] {
+    return model.detected.flatMap((strip) => {
+      const source = strip.power;
+      if (!source) return [];
+      const unit = this.hass?.states[source.entityId]?.attributes.unit_of_measurement;
+      const factor = source.kind === 'current' ? source.voltage / 1000 : unit === 'kW' ? 1000 : 1;
+      return [{ entityId: source.entityId, factor, name: strip.name }];
+    });
+  }
+
+  private renderHistory(model: LedGroupModel, config: ResolvedLedGroupConfig) {
+    if (!config.details.history || !config.power.enabled || !model.hasPower) return nothing;
+    return html`<vivid-power-history
+      .hass=${this.hass}
+      .sources=${this.historySources(model)}
+      .price=${config.power.price}
+      .currency=${config.power.currency}
+    ></vivid-power-history>`;
+  }
+
+  private renderExtras(strip: StripModel, config: ResolvedLedGroupConfig) {
+    if (!strip.wled || !strip.available) return nothing;
+    const controls = config.details.wledControls;
+    const health = config.details.health;
+    if (!controls && !health) return nothing;
+    return html`<div class="extras">
+      ${
+        controls
+          ? html`<vivid-wled-controls
+              .hass=${this.hass}
+              .entities=${strip.wledEntities}
+              .effectActive=${strip.effectActive}
+            ></vivid-wled-controls>`
+          : nothing
+      }
+      ${
+        health
+          ? html`<vivid-wled-health
+              .hass=${this.hass}
+              .entities=${strip.wledEntities}
+            ></vivid-wled-health>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  private renderStrip(strip: StripModel, config: ResolvedLedGroupConfig, order: number) {
     const liveOverride =
       strip.ambilight && strip.liveOverride
         ? {
@@ -63,7 +159,7 @@ export class VividLedGroupDetails extends LitElement {
             active: strip.liveOverride.active,
           }
         : undefined;
-    return html`<section>
+    return html`<section style=${`--order: ${order}`}>
       <vivid-light-header
         .hass=${this.hass}
         .icon=${strip.icon}
@@ -75,7 +171,8 @@ export class VividLedGroupDetails extends LitElement {
         .showPower=${config.power.enabled}
         .hasPower=${strip.power !== undefined}
         .watts=${strip.watts}
-        .scale=${this.model?.stripScale}
+        .scale=${strip.scale}
+        .lightOptions=${this.lightOptions}
         .powerEntity=${strip.power?.entityId}
         .showLiveOverride=${config.ambilight.enabled}
         .liveOverride=${liveOverride}
@@ -88,8 +185,14 @@ export class VividLedGroupDetails extends LitElement {
         .showEffects=${config.details.effects}
         .showState=${config.tile.state !== 'none'}
         .colorBar=${resolveColorBar(config.details.colorBar, this.hass?.states[strip.entityId])}
+        .favorites=${config.details.favorites && strip.available ? config.tile.favorites : []}
+        .brightnessMin=${config.tile.brightnessMin}
+        .brightnessStep=${config.tile.brightnessStep}
+        .lightOptions=${this.lightOptions}
+        .animateEffects=${config.appearance.animateEffects}
         @vivid-gesture=${this.onTileGesture}
       ></vivid-light-tile>
+      ${this.renderExtras(strip, config)}
     </section>`;
   }
 
@@ -97,12 +200,25 @@ export class VividLedGroupDetails extends LitElement {
     const model = this.model;
     const config = this.config;
     if (!model || !config) return nothing;
+    const columns = [0, 1].map((column) =>
+      model.members
+        .map((strip, order) => ({ strip, order }))
+        .filter(({ order }) => order % 2 === column),
+    );
     return html`${config.details.summary ? this.renderSummary(model, config) : nothing}
-    ${repeat(
-      model.members,
-      (strip) => strip.entityId,
-      (strip) => this.renderStrip(strip, config),
-    )}`;
+      ${this.renderHistory(model, config)}
+      <div class="columns">
+        ${columns.map(
+          (items) =>
+            html`<div class="column">
+              ${repeat(
+                items,
+                ({ strip }) => strip.entityId,
+                ({ strip, order }) => this.renderStrip(strip, config, order),
+              )}
+            </div>`,
+        )}
+      </div>`;
   }
 
   private renderSummary(model: LedGroupModel, config: ResolvedLedGroupConfig) {
@@ -114,6 +230,9 @@ export class VividLedGroupDetails extends LitElement {
       .available=${model.available}
       .isOn=${model.isOn}
       .rgb=${model.rgb}
+      .colors=${model.colors}
+      .badges=${model.badges}
+      .lightOptions=${this.lightOptions}
       .showPower=${config.power.enabled}
       .hasPower=${model.hasPower}
       .watts=${model.watts}

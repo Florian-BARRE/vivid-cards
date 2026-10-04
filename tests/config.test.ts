@@ -62,11 +62,13 @@ describe('resolveConfig', () => {
       colorBar: 'temperature',
       holdAction: { action: 'more-info' },
     });
-    expect(config.power).toEqual({
+    expect(config.power).toMatchObject({
       enabled: true,
       sensorPattern: 'sensor.{object_id}_puissance',
       voltage: 5,
       scale: { idle: 3, max: 30, steps: [8, 20] },
+      autoMax: false,
+      autoSteps: false,
     });
     expect(config.ambilight.enabled).toBe(false);
     expect(config.details).toMatchObject({

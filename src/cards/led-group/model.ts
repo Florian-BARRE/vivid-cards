@@ -1,4 +1,5 @@
 import type { ActionConfig } from '../../core/action-handler';
+import { badgeModel, type BadgeModel } from '../../core/badges';
 import { lightColor } from '../../core/color';
 import { expandGroup, friendlyName, isAvailable } from '../../core/entities';
 import type { PowerScale } from '../../core/glow';
@@ -9,7 +10,9 @@ import { readWatts, resolvePowerSource, type PowerSource } from '../../integrati
 import {
   findWledEntities,
   liveOverrideState,
+  maxWatts,
   type LiveOverrideState,
+  type WledEntities,
 } from '../../integrations/wled';
 import { DEFAULT_ICON, type ResolvedLedGroupConfig } from './config';
 
@@ -23,6 +26,8 @@ export interface LightModel {
   /** 0–100, 0 when off. */
   brightness: number;
   rgb: Rgb | undefined;
+  /** An animated effect is running (anything but Solid). */
+  effectActive: boolean;
 }
 
 export interface StripModel extends LightModel {
@@ -38,6 +43,10 @@ export interface StripModel extends LightModel {
   liveOverride?: LiveOverrideState;
   /** Shows an ambilight badge and answers the group ambilight badge. */
   ambilight: boolean;
+  /** WLED companions (empty for other lights). */
+  wledEntities: WledEntities;
+  /** Glow scale of this light's consumption badge. */
+  scale: PowerScale;
 }
 
 export interface GroupLiveOverride {
@@ -60,8 +69,10 @@ export interface LedGroupModel extends LightModel {
   hasPower: boolean;
   /** At least one strip has a WLED live override. */
   hasLiveOverride: boolean;
-  stripScale: PowerScale;
   groupScale: PowerScale;
+  /** Colors of the lit lights, for the power button gradient. */
+  colors: Rgb[];
+  badges: BadgeModel[];
   liveOverride: GroupLiveOverride | undefined;
   detailsEnabled: boolean;
   tileColorBar: ColorBar;
@@ -82,6 +93,7 @@ function lightModel(
   const isOn = available && state.state === 'on';
   const raw = (state?.attributes as LightAttributes | undefined)?.brightness;
   const brightness = isOn ? (typeof raw === 'number' ? Math.round((raw / 255) * 100) : 100) : 0;
+  const effect = (state?.attributes as LightAttributes | undefined)?.effect;
   return {
     entityId,
     name,
@@ -90,15 +102,43 @@ function lightModel(
     isOn,
     brightness,
     rgb: isOn ? lightColor(state) : undefined,
+    effectActive: isOn && typeof effect === 'string' && !STATIC_EFFECTS.has(effect.toLowerCase()),
   };
 }
 
-function scaleFor(scale: PowerScale, count: number): PowerScale {
-  const factor = Math.max(count, 1);
+const STATIC_EFFECTS = new Set(['solid', 'none', 'off', '']);
+
+/**
+ * Scale of one light. Without an explicit `power.max`, WLED's current limit ×
+ * voltage gives the real maximum; the color steps then follow it.
+ */
+function stripScale(
+  hass: HomeAssistant,
+  config: ResolvedLedGroupConfig,
+  wled: WledEntities,
+  voltage: number | undefined,
+): PowerScale {
+  const base = config.power.scale;
+  const auto = config.power.autoMax ? maxWatts(hass, wled, voltage) : undefined;
+  if (auto === undefined) return base;
+  const ratio = auto / base.max;
   return {
-    idle: scale.idle * factor,
-    max: scale.max * factor,
-    steps: [scale.steps[0] * factor, scale.steps[1] * factor],
+    ...base,
+    max: auto,
+    steps: config.power.autoSteps ? [base.steps[0] * ratio, base.steps[1] * ratio] : base.steps,
+  };
+}
+
+/** The group scale adds up the scales of the lights that report a consumption. */
+function sumScales(base: PowerScale, scales: readonly PowerScale[]): PowerScale {
+  if (scales.length === 0) return base;
+  const total = (pick: (scale: PowerScale) => number) =>
+    scales.reduce((sum, scale) => sum + pick(scale), 0);
+  return {
+    idle: total((scale) => scale.idle),
+    max: total((scale) => scale.max),
+    steps: [total((scale) => scale.steps[0]), total((scale) => scale.steps[1])],
+    colors: base.colors,
   };
 }
 
@@ -115,14 +155,20 @@ export function buildLedGroupModel(
   const detected: StripModel[] = memberIds.map((entityId, index) => {
     const override = config.members.get(entityId);
     const autoName = autoNames[index] ?? entityId;
+    const wledEntities = findWledEntities(hass, entityId);
     const strip: StripModel = {
-      ...lightModel(hass, entityId, override?.name ?? autoName, config.icon),
+      ...lightModel(hass, entityId, override?.name ?? autoName, override?.icon ?? config.icon),
       autoName,
       hidden: override?.hidden ?? false,
       wled: hass.entities?.[entityId]?.platform === 'wled',
       watts: undefined,
       ambilight: false,
+      wledEntities,
+      scale: stripScale(hass, config, wledEntities, override?.voltage ?? config.power.voltage),
     };
+    for (const companion of Object.values(wledEntities)) {
+      if (companion) watched.add(companion);
+    }
 
     if (config.power.enabled) {
       strip.power = resolvePowerSource(hass, entityId, config.power, {
@@ -136,7 +182,7 @@ export function buildLedGroupModel(
       }
     }
 
-    const liveOverride = findWledEntities(hass, entityId).liveOverride;
+    const liveOverride = wledEntities.liveOverride;
     if (liveOverride) {
       strip.liveOverride = liveOverrideState(hass, liveOverride);
       strip.ambilight = config.ambilight.enabled && override?.ambilight !== false;
@@ -147,6 +193,13 @@ export function buildLedGroupModel(
 
   if (config.details.sort === 'name') {
     detected.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (config.details.sort === 'custom') {
+    // Listed lights first, in the given order; the others keep the group order.
+    const rank = (id: string) => {
+      const index = config.details.order.indexOf(id);
+      return index === -1 ? config.details.order.length : index;
+    };
+    detected.sort((a, b) => rank(a.entityId) - rank(b.entityId));
   }
 
   const powered = detected.filter((m) => m.power !== undefined);
@@ -177,6 +230,14 @@ export function buildLedGroupModel(
     config.name ?? friendlyName(hass, config.entity),
     config.icon,
   );
+  const lit = detected.filter((strip) => strip.rgb !== undefined);
+  const colors =
+    isGroup && config.appearance.gradient && lit.length > 1
+      ? lit.map((strip) => strip.rgb as Rgb)
+      : group.rgb
+        ? [group.rgb]
+        : [];
+  for (const badge of config.badges) watched.add(badge.entity);
 
   return {
     ...group,
@@ -186,8 +247,12 @@ export function buildLedGroupModel(
     watts,
     hasPower: powered.length > 0,
     hasLiveOverride: detected.some((m) => m.liveOverride !== undefined),
-    stripScale: config.power.scale,
-    groupScale: scaleFor(config.power.scale, powered.length),
+    groupScale: sumScales(
+      config.power.scale,
+      powered.map((strip) => strip.scale),
+    ),
+    colors,
+    badges: config.badges.map((badge) => badgeModel(hass, badge)),
     liveOverride,
     detailsEnabled,
     tileColorBar: resolveColorBar(config.tile.colorBar, groupState),

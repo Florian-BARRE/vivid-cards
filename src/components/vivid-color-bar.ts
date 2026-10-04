@@ -56,8 +56,8 @@ export class VividColorBar extends LitElement {
       }
       .track {
         position: relative;
-        height: 34px;
-        border-radius: 17px;
+        height: calc(var(--vivid-chip-height) - 2px);
+        border-radius: calc(var(--vivid-chip-height) / 2 - 1px);
         cursor: pointer;
         touch-action: pan-y;
         -webkit-tap-highlight-color: transparent;

@@ -78,6 +78,9 @@ export interface HomeAssistant {
     serviceData?: Record<string, unknown>,
     target?: ServiceTarget,
   ): Promise<unknown>;
+  /** Websocket command; resolves with its result. */
+  callWS?<T>(message: Record<string, unknown>): Promise<T>;
+  config?: { currency?: string; time_zone?: string };
 }
 
 export interface LovelaceCardConfig {
