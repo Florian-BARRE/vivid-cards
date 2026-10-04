@@ -1,9 +1,10 @@
 name: HACS validation
 
+# HACS installs the bundle from a GitHub release asset, so the check only makes
+# sense once a release exists: it runs on each published release and on demand.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
