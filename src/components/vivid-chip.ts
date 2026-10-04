@@ -103,6 +103,7 @@ export class VividChip extends LitElement {
       }
       .chip.pulse .icon {
         animation: vivid-pulse var(--chip-pulse, 2s) ease-in-out infinite;
+        animation-play-state: var(--vivid-glow-play, running);
       }
       @keyframes vivid-pulse {
         0%,

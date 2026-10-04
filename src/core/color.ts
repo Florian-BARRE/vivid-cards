@@ -76,3 +76,24 @@ export function rgbCss(rgb: Rgb, alpha = 1): string {
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/** `"#ff8800"`, `"#f80"`, `"ff8800"` or `[255, 136, 0]`; `undefined` when invalid. */
+export function parseColor(value: unknown): Rgb | undefined {
+  if (isRgb(value)) {
+    return value.every((c) => c >= 0 && c <= 255) ? (value.map(Math.round) as Rgb) : undefined;
+  }
+  if (typeof value !== 'string') return undefined;
+  const hex = value.trim().replace(/^#/, '');
+  const full = /^[0-9a-f]{3}$/i.test(hex) ? [...hex].map((c) => c + c).join('') : hex;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return undefined;
+  return [0, 2, 4].map((index) => Number.parseInt(full.slice(index, index + 2), 16)) as Rgb;
+}
+
+export function rgbHex([r, g, b]: Rgb): string {
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Euclidean distance between two colors, 0–441. */
+export function colorDistance(a: Rgb, b: Rgb): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}

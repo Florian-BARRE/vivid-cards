@@ -1,7 +1,9 @@
 import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
-import type { PowerScale } from '../../core/glow';
-import type { LovelaceCardConfig } from '../../core/hass-types';
+import type { ColorPreset } from '../../core/actions';
+import { parseColor } from '../../core/color';
+import { DEFAULT_POWER_COLORS, type GlowLevel, type PowerScale } from '../../core/glow';
+import type { LovelaceCardConfig, Rgb } from '../../core/hass-types';
 import type { PowerDefaults, PowerMode } from '../../integrations/power';
 
 export const CARD_TYPE = 'vivid-led-group';
@@ -14,10 +16,25 @@ export const COLOR_BAR_MODES: ColorBarMode[] = ['auto', 'hue', 'temperature', 'n
 export const STATE_TEXTS: StateText[] = ['brightness', 'none'];
 export const MEMBER_ORDERS: MemberOrder[] = ['name', 'group'];
 export const POWER_MODES: PowerMode[] = ['auto', 'sensor', 'voltage', 'none'];
+export const GLOW_LEVELS: GlowLevel[] = ['off', 'soft', 'normal', 'strong'];
+
+/** `"#ff8800"`, `[255, 136, 0]` or `{ rgb | color | kelvin, brightness }`. */
+export type FavoriteInput =
+  string | Rgb | { rgb?: Rgb; color?: string; kelvin?: number; brightness?: number };
+
+/** An entity id, or an entity with its own name and icon. */
+export type BadgeInput = string | { entity: string; name?: string; icon?: string };
+
+export interface BadgeConfig {
+  entity: string;
+  name?: string;
+  icon?: string;
+}
 
 export interface LedGroupMemberConfig {
   entity: string;
   name?: string;
+  icon?: string;
   hidden?: boolean;
   /** Responds to the ambilight (WLED live override) buttons. */
   ambilight?: boolean;
@@ -37,7 +54,19 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     tap_action?: unknown;
     hold_action?: unknown;
     double_tap_action?: unknown;
+    favorites?: FavoriteInput[];
+    brightness_min?: number;
+    brightness_step?: number;
+    transition?: number;
   };
+  appearance?: {
+    glow?: GlowLevel;
+    header?: boolean;
+    compact?: boolean;
+    gradient?: boolean;
+    animate_effects?: boolean;
+  };
+  badges?: BadgeInput[];
   power?: {
     enabled?: boolean;
     sensor_pattern?: string;
@@ -45,6 +74,7 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     idle?: number;
     max?: number;
     steps?: [number, number];
+    colors?: [FavoriteInput, FavoriteInput, FavoriteInput];
   };
   ambilight?: {
     enabled?: boolean;
@@ -56,6 +86,9 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     summary?: boolean;
     effects?: boolean;
     color_bar?: ColorBarMode;
+    favorites?: boolean;
+    wled_controls?: boolean;
+    health?: boolean;
   };
   members?: LedGroupMemberConfig[];
 }
@@ -74,11 +107,29 @@ export interface ResolvedLedGroupConfig {
     /** `undefined` means: details for a group, more-info for a single light. */
     holdAction?: ActionConfig;
     doubleTapAction: ActionConfig;
+    favorites: ColorPreset[];
+    /** Lowest brightness (percent) a drag sets; dragging to 0 still turns off. */
+    brightnessMin: number;
+    brightnessStep: number;
+    /** Seconds, sent with every light call when set. */
+    transition?: number;
   };
+  appearance: {
+    glow: GlowLevel;
+    header: boolean;
+    compact: boolean;
+    gradient: boolean;
+    animateEffects: boolean;
+  };
+  badges: BadgeConfig[];
   power: PowerDefaults & {
     enabled: boolean;
-    /** Scale of one strip; the group total scales with the number of strips. */
+    /** Scale of one strip; the group total adds up its strips. */
     scale: PowerScale;
+    /** `max` was not set: use WLED's current limit × voltage when known. */
+    autoMax: boolean;
+    /** `steps` were not set: they follow `max`. */
+    autoSteps: boolean;
   };
   ambilight: { enabled: boolean };
   details: {
@@ -89,12 +140,22 @@ export interface ResolvedLedGroupConfig {
     summary: boolean;
     effects: boolean;
     colorBar: ColorBarMode;
+    favorites: boolean;
+    wledControls: boolean;
+    health: boolean;
   };
   members: Map<string, LedGroupMemberConfig>;
 }
 
 export const DEFAULT_ICON = 'mdi:led-strip-variant';
-export const DEFAULT_SCALE: PowerScale = { idle: 3, max: 40, steps: [10, 25] };
+export const DEFAULT_SCALE: PowerScale = {
+  idle: 3,
+  max: 40,
+  steps: [10, 25],
+  colors: DEFAULT_POWER_COLORS,
+};
+/** Most favorites shown; more would not fit on a phone. */
+export const MAX_FAVORITES = 8;
 
 function fail(message: string): never {
   throw new Error(`${CARD_TYPE}: ${message}`);
@@ -205,7 +266,73 @@ function resolveScale(power: Record<string, unknown>): PowerScale {
     }
     steps = [low, high];
   }
-  return { idle, max, steps };
+  let colors = DEFAULT_POWER_COLORS;
+  if (power.colors !== undefined) {
+    const raw = power.colors;
+    if (!Array.isArray(raw) || raw.length !== 3) fail('"power.colors" must be three colors.');
+    const parsed = raw.map((value) => favorite(value, 'power.colors').rgb);
+    if (parsed.some((rgb) => !rgb)) fail('"power.colors" must be three RGB colors.');
+    colors = parsed as [Rgb, Rgb, Rgb];
+  }
+  return { idle, max, steps, colors };
+}
+
+function favorite(value: unknown, field: string): ColorPreset {
+  if (typeof value === 'string' || Array.isArray(value)) {
+    const rgb = parseColor(value);
+    if (!rgb) fail(`"${field}" has an invalid color: ${JSON.stringify(value)}.`);
+    return { rgb };
+  }
+  if (typeof value !== 'object' || value === null) {
+    fail(`"${field}" must be colors such as "#ff8800" or { kelvin: 2700 }.`);
+  }
+  const item = value as Record<string, unknown>;
+  const brightness = optionalNumber(item.brightness, `${field}.brightness`);
+  if (brightness !== undefined && (brightness < 1 || brightness > 100)) {
+    fail(`"${field}.brightness" must be between 1 and 100.`);
+  }
+  const kelvin = optionalNumber(item.kelvin, `${field}.kelvin`);
+  const color = item.rgb ?? item.color;
+  if (color !== undefined) {
+    const rgb = parseColor(color);
+    if (!rgb) fail(`"${field}" has an invalid color: ${JSON.stringify(color)}.`);
+    return { rgb, brightness };
+  }
+  if (kelvin !== undefined) return { kelvin, brightness };
+  fail(`"${field}" needs "rgb", "color" or "kelvin".`);
+}
+
+function resolveFavorites(value: unknown): ColorPreset[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) fail('"tile.favorites" must be a list of colors.');
+  return value.slice(0, MAX_FAVORITES).map((item) => favorite(item, 'tile.favorites'));
+}
+
+function resolveBadges(value: unknown): BadgeConfig[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) fail('"badges" must be a list of entities.');
+  return value.map((item) => {
+    if (typeof item === 'string' && item.includes('.')) return { entity: item };
+    if (typeof item === 'object' && item !== null) {
+      const badge = item as Record<string, unknown>;
+      const entity = optionalString(badge.entity, 'badges.entity');
+      if (entity?.includes('.')) {
+        return {
+          entity,
+          name: optionalString(badge.name, 'badges.name'),
+          icon: optionalString(badge.icon, 'badges.icon'),
+        };
+      }
+    }
+    fail('each badge must be an entity id or { entity: … }.');
+  });
+}
+
+function percent(value: unknown, field: string, fallback: number): number {
+  const number = optionalNumber(value, field);
+  if (number === undefined) return fallback;
+  if (number < 1 || number > 100) fail(`"${field}" must be between 1 and 100.`);
+  return number;
 }
 
 function resolveMembers(raw: unknown): Map<string, LedGroupMemberConfig> {
@@ -220,6 +347,7 @@ function resolveMembers(raw: unknown): Map<string, LedGroupMemberConfig> {
     members.set(entity, {
       entity,
       name: optionalString(member.name, 'members.name'),
+      icon: optionalString(member.icon, 'members.icon'),
       hidden: optionalBoolean(member.hidden, 'members.hidden'),
       ambilight: optionalBoolean(member.ambilight, 'members.ambilight'),
       power_mode: optionalChoice(member.power_mode, 'members.power_mode', POWER_MODES),
@@ -241,6 +369,7 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
   const power = section(config.power, 'power');
   const ambilight = section(config.ambilight, 'ambilight');
   const details = section(config.details, 'details');
+  const appearance = section(config.appearance, 'appearance');
   const tileColorBar = optionalChoice(tile.color_bar, 'tile.color_bar', COLOR_BAR_MODES) ?? 'auto';
   const tileEffects = optionalBoolean(tile.effects, 'tile.effects') ?? true;
 
@@ -258,12 +387,27 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       doubleTapAction: action(tile.double_tap_action, 'tile.double_tap_action') ?? {
         action: 'none',
       },
+      favorites: resolveFavorites(tile.favorites),
+      brightnessMin: percent(tile.brightness_min, 'tile.brightness_min', 1),
+      brightnessStep: percent(tile.brightness_step, 'tile.brightness_step', 1),
+      transition: optionalNumber(tile.transition, 'tile.transition'),
     },
+    appearance: {
+      glow: optionalChoice(appearance.glow, 'appearance.glow', GLOW_LEVELS) ?? 'normal',
+      header: optionalBoolean(appearance.header, 'appearance.header') ?? true,
+      compact: optionalBoolean(appearance.compact, 'appearance.compact') ?? false,
+      gradient: optionalBoolean(appearance.gradient, 'appearance.gradient') ?? true,
+      animateEffects:
+        optionalBoolean(appearance.animate_effects, 'appearance.animate_effects') ?? true,
+    },
+    badges: resolveBadges(config.badges),
     power: {
       enabled: optionalBoolean(power.enabled, 'power.enabled') ?? true,
       sensorPattern: optionalString(power.sensor_pattern, 'power.sensor_pattern'),
       voltage: optionalNumber(power.voltage, 'power.voltage'),
       scale: resolveScale(power),
+      autoMax: power.max === undefined || power.max === null || power.max === '',
+      autoSteps: power.steps === undefined || power.steps === null,
     },
     ambilight: { enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true },
     details: {
@@ -274,6 +418,9 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       effects: optionalBoolean(details.effects, 'details.effects') ?? tileEffects,
       colorBar:
         optionalChoice(details.color_bar, 'details.color_bar', COLOR_BAR_MODES) ?? tileColorBar,
+      favorites: optionalBoolean(details.favorites, 'details.favorites') ?? true,
+      wledControls: optionalBoolean(details.wled_controls, 'details.wled_controls') ?? true,
+      health: optionalBoolean(details.health, 'details.health') ?? true,
     },
     members: resolveMembers(config.members),
   };

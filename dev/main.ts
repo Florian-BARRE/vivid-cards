@@ -6,7 +6,7 @@ import type { VividLedGroup } from '../src/cards/led-group/vivid-led-group';
 defineHaStubs();
 await import('../src/vivid-cards');
 
-let language = 'en';
+let language = new URLSearchParams(location.search).get('lang') ?? 'en';
 let mock = createMockHass(language);
 const cards: VividLedGroup[] = [];
 
@@ -20,14 +20,26 @@ function mount(container: HTMLElement, config: Record<string, unknown>): void {
 const baseConfig = {
   entity: GROUP_ID,
   name: 'LEDs',
-  details_hash: 'salon-leds-details',
-  power: { sensor_pattern: 'sensor.{object_id}_puissance', max: 34 },
+  power: { sensor_pattern: 'sensor.{object_id}_puissance', voltage: 5 },
+  details: { hash: 'salon-leds-details' },
+  badges: ['sensor.salon_temperature'],
+  tile: {
+    favorites: ['#ff8a3d', '#8a2be2', '#00b4d8', { kelvin: 2700, brightness: 40 }],
+    transition: 0.6,
+  },
 };
 
 mount(document.getElementById('phone')!, baseConfig);
 mount(document.getElementById('wide')!, {
   entity: 'light.salon_canape_wled',
-  power: { voltage: 5, max: 34 },
+  power: { voltage: 5 },
+  appearance: { glow: 'strong' },
+});
+mount(document.getElementById('wide')!, {
+  entity: 'light.cuisine_spots',
+  name: 'Spots',
+  appearance: { compact: true, header: false },
+  tile: { favorites: [{ kelvin: 2700 }, { kelvin: 4000 }, { kelvin: 6000 }] },
 });
 
 let unsubscribe = mock.subscribe((hass: HomeAssistant) => {

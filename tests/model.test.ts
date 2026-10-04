@@ -30,11 +30,29 @@ describe('registry helpers', () => {
 
   it('finds WLED companions by translation key', () => {
     const { hass } = createMockHass();
+    const id = (domain: string, suffix: string) => `${domain}.salon_buffet_wled_${suffix}`;
     expect(findWledEntities(hass, 'light.salon_buffet_wled')).toEqual({
-      liveOverride: 'select.salon_buffet_wled_live_override',
-      estimatedCurrent: 'sensor.salon_buffet_wled_estimated_current',
-      preset: 'select.salon_buffet_wled_preset',
+      liveOverride: id('select', 'live_override'),
+      estimatedCurrent: id('sensor', 'estimated_current'),
+      maxCurrent: id('sensor', 'max_current'),
+      ledCount: id('sensor', 'led_count'),
+      preset: id('select', 'preset'),
+      playlist: id('select', 'playlist'),
+      palette: id('select', 'color_palette'),
+      speed: id('number', 'speed'),
+      intensity: id('number', 'intensity'),
+      nightlight: id('switch', 'nightlight'),
+      syncSend: id('switch', 'sync_send'),
+      syncReceive: id('switch', 'sync_receive'),
+      wifiSignal: id('sensor', 'wi_fi_signal'),
+      wifiRssi: id('sensor', 'wi_fi_rssi'),
+      freeHeap: id('sensor', 'free_memory'),
+      ip: id('sensor', 'ip'),
+      uptime: id('sensor', 'uptime'),
+      restart: id('button', 'restart'),
+      update: id('update', 'firmware'),
     });
+    expect(findWledEntities(hass, 'light.cuisine_spot_2')).toEqual({});
   });
 });
 
@@ -120,7 +138,7 @@ describe('buildLedGroupModel', () => {
 
     // The offline strip adds no watts; the scale grows with every strip that has a sensor.
     expect(model.watts).toBeCloseTo((buffet?.watts ?? 0) + (model.members[2]?.watts ?? 0), 5);
-    expect(model.groupScale).toEqual({ idle: 9, max: 120, steps: [30, 75] });
+    expect(model.groupScale).toMatchObject({ idle: 9, max: 120, steps: [30, 75] });
   });
 
   it('aggregates the live override of available strips only', () => {

@@ -19,12 +19,15 @@ export class VividDialog extends LitElement {
     content: { attribute: false },
     open: { type: Boolean, reflect: true },
     closeLabel: { attribute: 'close-label' },
+    wide: { type: Boolean, reflect: true },
   };
 
   declare label?: string;
   declare content?: TemplateResult;
   declare open: boolean;
   declare closeLabel?: string;
+  /** Room for two columns on large screens. */
+  declare wide: boolean;
 
   private hideTimer?: number;
   private previousFocus?: Element | null;
@@ -34,6 +37,7 @@ export class VividDialog extends LitElement {
   constructor() {
     super();
     this.open = false;
+    this.wide = false;
   }
 
   static override styles = [
@@ -87,6 +91,11 @@ export class VividDialog extends LitElement {
       :host([open]) .sheet {
         opacity: 1;
         transform: translate(-50%, -50%);
+      }
+      @media (min-width: 601px) {
+        :host([wide]) .sheet {
+          width: min(920px, calc(100vw - 32px));
+        }
       }
       .handle {
         flex: none;
