@@ -1,6 +1,6 @@
 import { html } from 'lit';
 import { domainOf } from '../../core/entities';
-import { GLOW_BASE, lightTone, softLightTone } from '../../core/glow';
+import { lightTone, softLightTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { localize } from '../../i18n';
@@ -77,12 +77,6 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
         : localize(hass, 'off'),
       watched: model.watched,
       unavailable: model.total === 0,
-      glowBase:
-        this.kind === 'led'
-          ? GLOW_BASE.led
-          : this.kind === 'lamp' || model.white
-            ? GLOW_BASE.lamp
-            : GLOW_BASE.led,
     };
   }
 

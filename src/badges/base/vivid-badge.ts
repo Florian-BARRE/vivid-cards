@@ -11,7 +11,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { runAction, type ActionConfig } from '../../core/action-handler';
 import { haptic, openMoreInfo } from '../../core/actions';
-import { GLOW_BASE, glowVars, type ChipTone } from '../../core/glow';
+import { GLOW_REFERENCE_PX, glowSize, glowVars, type ChipTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { buttonReset, tokens } from '../../components/shared-styles';
 import { VividPopover } from '../../components/vivid-popover';
@@ -22,8 +22,8 @@ const HOLD_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 /** Durations on badges ("open for 12 min") refresh at this pace. */
 const TICK_MS = 30_000;
-/** Halos are scaled down next to the card's: a badge is a much smaller surface. */
-export const BADGE_GLOW = 0.6;
+/** Diameter (px) of the icon disc, where the halo of the disc look sits. */
+const DISC_PX = 28;
 
 /** What the badge shows, computed from `hass` and the config by each badge. */
 export interface BadgeView {
@@ -55,8 +55,6 @@ export interface BadgeView {
   ticking?: boolean;
   /** Nothing can be read: the badge is dimmed. */
   unavailable?: boolean;
-  /** What 100 % of `glow` is (see `GLOW_BASE`); the status base by default. */
-  glowBase?: number;
 }
 
 /** CSS variables of a view for a look. */
@@ -65,10 +63,11 @@ export function lookVars(
   look: BadgeLook,
   glow: number,
 ): Record<string, string | undefined> {
-  const vars: Record<string, string | undefined> = glowVars(
-    glow * (view.glowBase ?? GLOW_BASE.status),
-    BADGE_GLOW,
-  );
+  const vars: Record<string, string | undefined> = {
+    ...glowVars(glow),
+    // The pill glows around the whole badge, the disc around its icon.
+    '--vivid-glow-size': glowSize(look === 'pill' ? GLOW_REFERENCE_PX : DISC_PX),
+  };
   const tone = view.active ? view.tone : undefined;
   if (!tone) return vars;
   // White ink only: dark ink is chosen precisely because the surface is light.
@@ -428,9 +427,7 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
   protected refreshDetails(): void {
     const popover = this.detailsPopover;
     if (!popover || !this.view || !this._config) return;
-    for (const [name, value] of Object.entries(
-      glowVars(this._config.glow * (this.view.glowBase ?? GLOW_BASE.status)),
-    )) {
+    for (const [name, value] of Object.entries(glowVars(this._config.glow))) {
       popover.style.setProperty(name, value);
     }
     popover.label = this.view.name;

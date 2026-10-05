@@ -4,7 +4,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo, toggleEntity } from '../../core/actions';
 import { domainOf } from '../../core/entities';
-import { GLOW_BASE, glowVars } from '../../core/glow';
+import { glowSize, glowVars } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
 import {
   energyWh,
@@ -231,6 +231,7 @@ export class VividLampGroup extends LitElement {
         position: relative;
         display: grid;
         place-items: center;
+        --vivid-glow-size: var(--lamp-disc-glow);
         width: var(--lamp-disc);
         height: var(--lamp-disc);
         margin-bottom: var(--lamp-disc-gap, 4px);
@@ -365,6 +366,7 @@ export class VividLampGroup extends LitElement {
         position: relative;
         display: grid;
         place-items: center;
+        --vivid-glow-size: var(--lamp-mini-glow);
         width: var(--lamp-mini);
         height: var(--lamp-mini);
         border-radius: 50%;
@@ -668,7 +670,7 @@ export class VividLampGroup extends LitElement {
     dialog.label = model.name;
     dialog.closeLabel = localize(this.hass, 'close');
     dialog.removeAttribute('style');
-    for (const [name, value] of Object.entries(glowVars(config.glow * GLOW_BASE.lamp))) {
+    for (const [name, value] of Object.entries(glowVars(config.glow))) {
       dialog.style.setProperty(name, value);
     }
     dialog.content = html`<vivid-lamp-group-details
@@ -689,11 +691,13 @@ export class VividLampGroup extends LitElement {
     const size = SIZES[config.size];
     const labels = config.showNames || config.showStatus;
     return {
-      ...glowVars(config.glow * GLOW_BASE.lamp),
+      ...glowVars(config.glow),
       '--lamp-disc': `${size.disc}px`,
       '--lamp-icon': `${size.icon}px`,
       '--lamp-mini': `${size.mini}px`,
       '--lamp-mini-icon': `${size.miniIcon}px`,
+      '--lamp-disc-glow': glowSize(size.disc),
+      '--lamp-mini-glow': glowSize(size.mini),
       '--lamp-warn': `${size.warn}px`,
       // Icons only: buttons sit closer, no room kept for the names.
       ...(labels ? {} : { '--lamp-min': '0px', '--lamp-disc-gap': '0px' }),
