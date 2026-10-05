@@ -1,5 +1,5 @@
 import { defineHaStubs } from './ha-stubs';
-import { GROUP_ID, LAMPS_GROUP_ID, createMockHass } from './mock-hass';
+import { GROUP_ID, LAMPS_GROUP_ID, PLUGS_GROUP_ID, createMockHass } from './mock-hass';
 import type { HomeAssistant } from '../src/core/hass-types';
 import type { VividLightBadge } from '../src/badges/light/vivid-light-badge';
 
@@ -48,6 +48,7 @@ const layout = params.get('layout') ?? 'list';
 const halo = {
   ...(params.has('glow') ? { glow: Number(params.get('glow')) } : {}),
   ...(params.has('boost') ? { glow_boost: Number(params.get('boost')) } : {}),
+  ...(params.has('zero') ? { show_zero: true } : {}),
 };
 for (const look of looks) {
   const block = document.createElement('div');
@@ -65,6 +66,11 @@ for (const look of looks) {
       native('mdi:flash', '5 W', '#ffb74d'),
       native('mdi:motion-sensor', '2 min', '#64b5f6'),
       native('mdi:battery', '100 %', '#81c784'),
+    ]),
+    row('Chambre', [
+      badge({ entity: PLUGS_GROUP_ID, look, layout, ...halo }),
+      native('mdi:window-closed-variant', '0'),
+      native('mdi:thermometer', '19,5 °C', '#ff8a65'),
     ]),
   );
   stage.append(block);

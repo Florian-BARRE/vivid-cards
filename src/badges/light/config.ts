@@ -5,6 +5,9 @@ import type { LovelaceCardConfig } from '../../core/hass-types';
 
 export const BADGE_TYPE = 'vivid-light-badge';
 
+/** Lights, plugs driving lamps, and groups of either. */
+export const ENTITY_DOMAINS = ['light', 'switch', 'group'];
+
 /** How the colors show while on: a filled disc behind the icon, or the whole badge filled. */
 export type BadgeLook = 'disc' | 'pill';
 export const BADGE_LOOKS: BadgeLook[] = ['disc', 'pill'];
@@ -23,6 +26,8 @@ export interface LightBadgeConfig extends LovelaceCardConfig {
   icon_off?: string;
   /** "2/3" (or "78 %" for one light) next to the icon while on. */
   show_count?: boolean;
+  /** "0/3" (or "0 %") next to the crossed-out icon while everything is off. */
+  show_zero?: boolean;
   /** Halo strength in percent (100 = default), or off / soft / normal / strong. */
   glow?: GlowSetting;
   /** How much the halo grows with the brightness, in percent (100 = default). */
@@ -42,6 +47,7 @@ export interface ResolvedLightBadgeConfig {
   icon?: string;
   iconOff?: string;
   showCount: boolean;
+  showZero: boolean;
   /** Percent. */
   glow: number;
   /** Percent. */
@@ -76,9 +82,13 @@ export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig 
   const config = raw as LightBadgeConfig;
   const entity = text(config.entity, 'entity');
   if (!entity) fail('set "entity" to a light or a light group.');
-  if (domainOf(entity) !== 'light') fail(`"${entity}" is not a light entity.`);
-  if (config.show_count !== undefined && typeof config.show_count !== 'boolean') {
-    fail('"show_count" must be true or false.');
+  if (!ENTITY_DOMAINS.includes(domainOf(entity))) {
+    fail(`"${entity}" must be a light, a switch or a group of them.`);
+  }
+  for (const key of ['show_count', 'show_zero'] as const) {
+    if (config[key] !== undefined && typeof config[key] !== 'boolean') {
+      fail(`"${key}" must be true or false.`);
+    }
   }
   const glow = config.glow === undefined ? 100 : glowPercent(config.glow);
   if (glow === undefined) {
@@ -111,6 +121,7 @@ export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig 
     icon: text(config.icon, 'icon'),
     iconOff: text(config.icon_off, 'icon_off'),
     showCount: config.show_count ?? true,
+    showZero: config.show_zero ?? false,
     glow,
     glowBoost: boost ?? 100,
     look: config.look ?? 'disc',

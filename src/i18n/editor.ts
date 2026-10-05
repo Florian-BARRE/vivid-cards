@@ -4,6 +4,7 @@ import { languageOf } from './index';
 /** Strings of the visual editors. `{name}` placeholders are filled by `editorText`. */
 const en = {
   entity: 'Light or group',
+  badge_entity: 'Light, switch or group',
   entity_missing: 'Pick a light or a light group to start.',
   entity_not_found: 'Entity not found: {entity}',
   group_detected: 'Group detected',
@@ -158,6 +159,7 @@ const en = {
   layout_list: 'List with sliders',
   layout_compact: 'Compact',
   show_count: 'Show the count (2/3) or the brightness',
+  show_zero: 'Also show it when everything is off (0/3)',
   badge_tap_default: 'Default (turn all on / off)',
   badge_hold_default: 'Default (lights under the badge)',
   badge_details_title: 'Title of the details',
@@ -168,6 +170,7 @@ export type EditorStringKey = keyof EditorStrings;
 
 const fr: EditorStrings = {
   entity: 'Lumière ou groupe',
+  badge_entity: 'Lumière, prise ou groupe',
   entity_missing: 'Choisis une lumière ou un groupe de lumières pour commencer.',
   entity_not_found: 'Entité introuvable : {entity}',
   group_detected: 'Groupe détecté',
@@ -323,6 +326,7 @@ const fr: EditorStrings = {
   layout_list: 'Liste avec sliders',
   layout_compact: 'Compact',
   show_count: 'Afficher le compte (2/3) ou la luminosité',
+  show_zero: 'L’afficher aussi quand tout est éteint (0/3)',
   badge_tap_default: 'Par défaut (tout allumer / éteindre)',
   badge_hold_default: 'Par défaut (lumières sous le badge)',
   badge_details_title: 'Titre du détail',

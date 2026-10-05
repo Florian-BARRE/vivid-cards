@@ -3,6 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { runAction } from '../../core/action-handler';
 import { haptic, openMoreInfo } from '../../core/actions';
+import { domainOf } from '../../core/entities';
 import { glowVars, lightTone, softLightTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
@@ -206,6 +207,9 @@ export class VividLightBadge extends LitElement {
         transform: rotate(-45deg);
         box-shadow: 0 0 0 1.5px var(--ha-card-background, var(--card-background-color, #1c1c1c));
       }
+      .zero {
+        color: var(--secondary-text-color);
+      }
       .unavailable {
         opacity: 0.5;
       }
@@ -318,8 +322,13 @@ export class VividLightBadge extends LitElement {
     const config = this._config;
     if (!config || !this.hass || !this.model) return;
     const service = this.model.on > 0 ? 'turn_off' : 'turn_on';
-    const data = config.transition === undefined ? {} : { transition: config.transition };
-    void this.hass.callService('light', service, data, { entity_id: config.entity });
+    const isLight = domainOf(config.entity) === 'light';
+    // Switches and old-style groups have no transition.
+    const data =
+      isLight && config.transition !== undefined ? { transition: config.transition } : {};
+    void this.hass.callService(isLight ? 'light' : 'homeassistant', service, data, {
+      entity_id: config.entity,
+    });
   }
 
   /* --------------------------------- details -------------------------------- */
@@ -377,7 +386,7 @@ export class VividLightBadge extends LitElement {
     const model = this.model;
     if (!config || !this.hass || !model) return nothing;
     const on = model.on > 0;
-    const count = on && config.showCount;
+    const count = config.showCount && (on || config.showZero);
     const label = model.isGroup
       ? `${model.on}/${model.total}`
       : `${model.lights[0]?.brightness ?? 0} %`;
@@ -411,7 +420,7 @@ export class VividLightBadge extends LitElement {
         <ha-icon .icon=${on ? model.icon : model.iconOff}></ha-icon>
         ${!on && model.strike ? html`<span class="strike"></span>` : nothing}
       </span>
-      ${count ? html`<span>${label}</span>` : nothing}
+      ${count ? html`<span class=${on ? 'label' : 'label zero'}>${label}</span>` : nothing}
     </button>`;
   }
 }
@@ -422,7 +431,7 @@ registerBadge({
   type: BADGE_TYPE,
   name: 'Vivid light badge',
   description:
-    'A light group at a glance: lights on out of the total, their colors and glow. Tap to toggle them all, hold for every light.',
+    'LED strips, lamps or lamps on plugs at a glance: lights on out of the total, their colors and glow. Tap to toggle them all, hold for every light.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-light-badge`,
 });

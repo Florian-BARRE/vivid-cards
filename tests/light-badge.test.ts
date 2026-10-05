@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GROUP_ID, LAMPS_GROUP_ID, SPOTS_GROUP_ID, createMockHass } from '../dev/mock-hass';
+import {
+  GROUP_ID,
+  LAMPS_GROUP_ID,
+  PLUGS_GROUP_ID,
+  SPOTS_GROUP_ID,
+  createMockHass,
+} from '../dev/mock-hass';
 import { resolveLightBadgeConfig } from '../src/badges/light/config';
 import { buildLightBadgeModel } from '../src/badges/light/model';
 import { iconOn, lightTone, luminance } from '../src/core/glow';
@@ -29,7 +35,8 @@ describe('light badge config', () => {
   });
 
   it('rejects what it cannot use', () => {
-    expect(() => config({ entity: 'switch.salon' })).toThrow(/not a light/);
+    expect(() => config({ entity: 'sensor.salon' })).toThrow(/light, a switch/);
+    expect(() => config({ show_zero: 'yes' })).toThrow(/show_zero/);
     expect(() => config({ entity: undefined })).toThrow(/set "entity"/);
     expect(() => config({ glow: 'huge' })).toThrow(/glow/);
     expect(() => config({ look: 'neon' })).toThrow(/look/);
@@ -147,5 +154,29 @@ describe('light badge halo and white lights', () => {
     const leds = buildLightBadgeModel(hass, config());
     expect(leds.white).toBe(false);
     expect(leds.lights.every((light) => !light.white)).toBe(true);
+  });
+});
+
+describe('light badge on plugs', () => {
+  it('counts lamps on smart plugs grouped as a switch group', async () => {
+    const mock = createMockHass();
+    const plugs = config({ entity: PLUGS_GROUP_ID });
+    expect(plugs).toMatchObject({ showZero: false });
+    const off = buildLightBadgeModel(mock.hass, plugs);
+    expect([off.isGroup, off.on, off.total]).toEqual([true, 0, 2]);
+    expect(off.icon).toBe('mdi:lamps');
+    expect(off.strike).toBe(true);
+    expect(off.lights.every((light) => !light.dimmable && light.white)).toBe(true);
+    await mock.hass.callService('homeassistant', 'turn_on', {}, { entity_id: PLUGS_GROUP_ID });
+    const on = buildLightBadgeModel(mock.hass, plugs);
+    expect([on.on, on.total, on.white]).toEqual([2, 2, true]);
+    expect(on.colors).toEqual([
+      [255, 193, 7],
+      [255, 193, 7],
+    ]);
+  });
+
+  it('reads show_zero', () => {
+    expect(config({ show_zero: true })).toMatchObject({ showZero: true });
   });
 });

@@ -2,6 +2,7 @@ import type { HomeAssistant } from '../core/hass-types';
 
 const en = {
   off: 'Off',
+  on: 'On',
   unavailable: 'Unavailable',
   power_on: 'Turn on',
   power_off: 'Turn off',
@@ -67,6 +68,7 @@ type Strings = typeof en;
 
 const fr: Strings = {
   off: 'Éteint',
+  on: 'Allumé',
   unavailable: 'Indisponible',
   power_on: 'Allumer',
   power_off: 'Éteindre',

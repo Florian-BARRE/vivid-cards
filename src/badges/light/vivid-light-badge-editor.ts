@@ -10,6 +10,7 @@ import { tokens } from '../../components/shared-styles';
 import {
   BADGE_LOOKS,
   DETAILS_LAYOUTS,
+  ENTITY_DOMAINS,
   resolveLightBadgeConfig,
   type LightBadgeConfig,
 } from './config';
@@ -21,11 +22,12 @@ const DEFAULT = 'default';
 const CUSTOM = 'custom';
 
 const LABELS: Record<string, EditorStringKey> = {
-  entity: 'entity',
+  entity: 'badge_entity',
   name: 'badge_details_title',
   icon: 'icon_on',
   icon_off: 'icon_off',
   show_count: 'show_count',
+  show_zero: 'show_zero',
   look: 'badge_look',
   layout: 'badge_layout',
   glow: 'glow',
@@ -156,6 +158,7 @@ export class VividLightBadgeEditor extends LitElement {
     set('icon', value.icon);
     set('icon_off', value.icon_off);
     set('show_count', value.show_count, true);
+    set('show_zero', value.show_zero, false);
     // A named level written in YAML stays until the slider moves.
     if (value.glow !== glowPercent(previous.glow ?? 100)) set('glow', value.glow, 100);
     set('glow_boost', value.glow_boost, 100);
@@ -185,7 +188,7 @@ export class VividLightBadgeEditor extends LitElement {
       ? this.t('icon_auto_struck', { icon: autoOff })
       : this.t('icon_auto', { icon: autoOff });
     const schema = [
-      { name: 'entity', required: true, selector: { entity: { domain: 'light' } } },
+      { name: 'entity', required: true, selector: { entity: { domain: ENTITY_DOMAINS } } },
       { name: 'name', selector: { text: {} } },
       {
         type: 'grid',
@@ -220,6 +223,7 @@ export class VividLightBadgeEditor extends LitElement {
         },
       },
       { name: 'show_count', selector: { boolean: {} } },
+      { name: 'show_zero', selector: { boolean: {} } },
     ];
     const data: FormData = {
       entity: config.entity,
@@ -227,6 +231,7 @@ export class VividLightBadgeEditor extends LitElement {
       icon: config.icon,
       icon_off: config.icon_off,
       show_count: config.show_count ?? true,
+      show_zero: config.show_zero ?? false,
       glow: glowPercent(config.glow ?? 100) ?? 100,
       glow_boost: config.glow_boost ?? 100,
       look: config.look ?? 'disc',
