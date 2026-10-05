@@ -22,6 +22,12 @@ export const GROUP_ID = 'light.salon_leds';
 export const SPOTS_GROUP_ID = 'light.cuisine_spots';
 /** Three plain lamps (no WLED) with an icon that has no crossed-out variant. */
 export const LAMPS_GROUP_ID = 'light.salon_lampes';
+/** Two lamps on smart plugs, grouped as a switch group. */
+export const PLUGS_GROUP_ID = 'switch.chambre_lampes';
+const PLUGS = [
+  { key: 'chambre_lampe_chevet', name: 'Chambre Lampe Chevet', on: false },
+  { key: 'chambre_guirlande', name: 'Chambre Guirlande', on: false },
+];
 
 const EFFECTS = ['Solid', 'Rainbow', 'Colorloop', 'Breathe', 'Candle', 'Fire 2012', 'Aurora'];
 
@@ -210,6 +216,7 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
   }));
   const spots = SPOTS.map((spec) => ({ ...spec }));
   const lamps = LAMPS.map((spec) => ({ ...spec }));
+  const plugs = PLUGS.map((spec) => ({ ...spec }));
   const listeners = new Set<(hass: HomeAssistant) => void>();
   const calls: MockHass['calls'] = [];
 
@@ -599,6 +606,21 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
         icon: 'mdi:lamps',
       }),
     );
+    for (const plug of plugs) {
+      put(
+        entity(`switch.${plug.key}`, plug.on ? 'on' : 'off', {
+          friendly_name: plug.name,
+          device_class: 'outlet',
+        }),
+      );
+    }
+    put(
+      entity(PLUGS_GROUP_ID, plugs.some((p) => p.on) ? 'on' : 'off', {
+        friendly_name: 'Chambre Lampes',
+        entity_id: plugs.map((p) => `switch.${p.key}`),
+        icon: 'mdi:lamps',
+      }),
+    );
     states = next;
   };
 
@@ -632,6 +654,23 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
 
   const callService: HomeAssistant['callService'] = async (domain, service, data = {}, target) => {
     calls.push({ domain, service, data, target });
+    const plugIds = [target?.entity_id]
+      .flat()
+      .flatMap((id) => (id === PLUGS_GROUP_ID ? plugs.map((p) => `switch.${p.key}`) : [id]));
+    const plugsHit = plugs.filter((p) => plugIds.includes(`switch.${p.key}`));
+    if (plugsHit.length) {
+      const anyPlugOn = plugsHit.some((p) => p.on);
+      for (const plug of plugsHit) {
+        plug.on =
+          service === 'toggle'
+            ? plugsHit.length > 1
+              ? !anyPlugOn
+              : !plug.on
+            : service === 'turn_on';
+      }
+      publish();
+      return;
+    }
     const ids = targets(target);
     const groupToggle = [GROUP_ID, SPOTS_GROUP_ID, LAMPS_GROUP_ID].includes(
       String(target?.entity_id),

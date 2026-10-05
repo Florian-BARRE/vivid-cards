@@ -355,7 +355,9 @@ export class VividLightBadgeDetails extends LitElement {
 
   private stateText(light: BadgeLight, level: number): string {
     if (!light.available) return localize(this.hass, 'unavailable');
-    return light.isOn || level > 0 ? `${level} %` : localize(this.hass, 'off');
+    if (!light.isOn && level === 0) return localize(this.hass, 'off');
+    // A plug or an on/off lamp has no level to show.
+    return light.dimmable ? `${level} %` : localize(this.hass, 'on');
   }
 
   private dotStyle(light: BadgeLight) {
@@ -400,42 +402,49 @@ export class VividLightBadgeDetails extends LitElement {
         @contextmenu=${(event: Event) => event.preventDefault()}
         >${light.name}</span
       >
-      <div
-        class=${classMap({ bar: true, static: !dimmable })}
-        role="slider"
-        tabindex=${dimmable ? 0 : -1}
-        aria-label=${`${light.name} ${localize(this.hass, 'brightness')}`}
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow=${level}
-        aria-valuetext=${state}
-        aria-disabled=${String(!dimmable)}
-        style=${styleMap({
-          '--level': lit ? `${level}%` : '0%',
-          '--rgb': (light.rgb ?? WARM_WHITE).join(', '),
-        })}
-        @pointerdown=${(event: PointerEvent) => {
-          if (dimmable) this.startPress(event, light, false);
-        }}
-        @pointermove=${(event: PointerEvent) => {
-          if (!this.sliding(event)) return;
-          const bar = event.currentTarget as HTMLElement;
-          this._preview = {
-            ...this._preview,
-            [light.entityId]: snapBrightness(this.percentAt(bar, event.clientX)),
-          };
-        }}
-        @pointerup=${(event: PointerEvent) => {
-          if (!this.endPress(event)) return;
-          const bar = event.currentTarget as HTMLElement;
-          // A tap sets the level where it lands, a drag where it ends.
-          this.commitBrightness(light.entityId, snapBrightness(this.percentAt(bar, event.clientX)));
-        }}
-        @pointercancel=${() => this.cancelPress()}
-        @keydown=${(event: KeyboardEvent) => this.onKeyDim(event, light)}
-      >
-        <div class="fill"></div>
-      </div>
+      ${
+        light.dimmable
+          ? html`<div
+              class=${classMap({ bar: true, static: !dimmable })}
+              role="slider"
+              tabindex=${dimmable ? 0 : -1}
+              aria-label=${`${light.name} ${localize(this.hass, 'brightness')}`}
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow=${level}
+              aria-valuetext=${state}
+              aria-disabled=${String(!dimmable)}
+              style=${styleMap({
+                '--level': lit ? `${level}%` : '0%',
+                '--rgb': (light.rgb ?? WARM_WHITE).join(', '),
+              })}
+              @pointerdown=${(event: PointerEvent) => {
+                if (dimmable) this.startPress(event, light, false);
+              }}
+              @pointermove=${(event: PointerEvent) => {
+                if (!this.sliding(event)) return;
+                const bar = event.currentTarget as HTMLElement;
+                this._preview = {
+                  ...this._preview,
+                  [light.entityId]: snapBrightness(this.percentAt(bar, event.clientX)),
+                };
+              }}
+              @pointerup=${(event: PointerEvent) => {
+                if (!this.endPress(event)) return;
+                const bar = event.currentTarget as HTMLElement;
+                // A tap sets the level where it lands, a drag where it ends.
+                this.commitBrightness(
+                  light.entityId,
+                  snapBrightness(this.percentAt(bar, event.clientX)),
+                );
+              }}
+              @pointercancel=${() => this.cancelPress()}
+              @keydown=${(event: KeyboardEvent) => this.onKeyDim(event, light)}
+            >
+              <div class="fill"></div>
+            </div>`
+          : html`<span></span>`
+      }
       <span class=${classMap({ percent: true, off: !lit })}>${state}</span>
     </div>`;
   }
@@ -486,7 +495,11 @@ export class VividLightBadgeDetails extends LitElement {
       }}
     >
       <span class="dot" style=${this.dotStyle(light)}>
-        ${lit && light.available ? html`${level}` : html`<ha-icon .icon=${'mdi:power'}></ha-icon>`}
+        ${
+          lit && light.available && light.dimmable
+            ? html`${level}`
+            : html`<ha-icon .icon=${'mdi:power'}></ha-icon>`
+        }
       </span>
       <span class="name" title=${light.name}>${light.name}</span>
     </div>`;

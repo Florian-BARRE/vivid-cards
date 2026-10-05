@@ -394,13 +394,15 @@ are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
 ## vivid-light-badge
 
 A badge for the badge bar of a dashboard (Home Assistant 2024.8 or later). Point
-it at a light group, or a single light.
+it at a light group, a single light, or lamps on smart plugs (a `switch` or a
+group of switches): the same badge serves LED strips and lamps.
 
 <p>
   <img src="docs/assets/light-badge.png" alt="Vivid light badge with its details open" width="400" />
 </p>
 
-- **Everything off**: the crossed-out icon, greyed, nothing else. LED strips use
+- **Everything off**: the crossed-out icon, greyed (with `0/3` when `show_zero`
+  is on). LED strips use
   the crossed-out strip icon, bulbs the crossed-out bulb; other icons get a
   stroke drawn across them.
 - **Something on**: the icon in the colors of the lights that are on (a gradient
@@ -409,7 +411,7 @@ it at a light group, or a single light.
   on/off) take Home Assistant's amber, translucent; colored lights fill solid.
 - **Tap**: anything on turns everything off; everything off turns everything on.
 - **Hold**: every light under the badge, with its color, a switch and a
-  brightness slider. Hold a name for the light's Home Assistant dialog. A tap
+  brightness slider (on/off lamps and plugs have no slider). Hold a name for the light's Home Assistant dialog. A tap
   outside or Escape closes it.
 
 ```yaml
@@ -425,13 +427,14 @@ badges:
 
 | Option        | Default    | Description                                                                                       |
 | ------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| `entity`      | (required) | A light group or a light.                                                                         |
+| `entity`      | (required) | A light, a switch, or a group of either (light group, switch group or `group.`).                  |
 | `name`        | entity     | Title of the details.                                                                             |
 | `icon`        | auto       | Icon while on. Auto: the entity's icon, else an LED strip for WLED groups, else a bulb.           |
 | `icon_off`    | auto       | Icon while off. Auto: the crossed-out version of `icon`, or `icon` with a stroke.                 |
 | `look`        | `disc`     | `disc`: the colors on a disc behind the icon. `pill`: the whole badge filled.                     |
 | `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim). |
 | `show_count`  | `true`     | `2/3` (or the brightness of a single light) next to the icon while on.                            |
+| `show_zero`   | `false`    | Also show `0/3` next to the crossed-out icon when everything is off.                              |
 | `glow`        | `100`      | Halo strength in percent, 0 to 200, as on the card.                                               |
 | `glow_boost`  | `100`      | How much the halo grows with the brightness, 0 to 200, as on the card.                            |
 | `transition`  | none       | Seconds of fade sent with every command.                                                          |
