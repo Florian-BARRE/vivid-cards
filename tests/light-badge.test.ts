@@ -180,3 +180,36 @@ describe('light badge on plugs', () => {
     expect(config({ show_zero: true })).toMatchObject({ showZero: true });
   });
 });
+
+describe('dedicated light badges', () => {
+  it('keeps the LED and lamp icons whatever the entity', () => {
+    const { hass } = createMockHass();
+    const led = buildLightBadgeModel(
+      hass,
+      resolveLightBadgeConfig({ type: 'custom:vivid-led-badge', entity: LAMPS_GROUP_ID }),
+    );
+    expect(led.icon).toBe('mdi:led-strip-variant');
+    expect(led.iconOff).toBe('mdi:led-strip-variant-off');
+    const lamp = buildLightBadgeModel(
+      hass,
+      resolveLightBadgeConfig({ type: 'custom:vivid-lamp-badge', entity: GROUP_ID }),
+    );
+    expect(lamp.icon).toBe('mdi:lamps');
+    expect(lamp.strike).toBe(true);
+    const own = buildLightBadgeModel(
+      hass,
+      resolveLightBadgeConfig({
+        type: 'custom:vivid-lamp-badge',
+        entity: GROUP_ID,
+        icon: 'mdi:desk-lamp',
+      }),
+    );
+    expect([own.icon, own.iconOff]).toEqual(['mdi:desk-lamp', 'mdi:desk-lamp-off']);
+  });
+
+  it('names its errors after the badge', () => {
+    expect(() => resolveLightBadgeConfig({ type: 'custom:vivid-led-badge' })).toThrow(
+      /^vivid-led-badge:/,
+    );
+  });
+});

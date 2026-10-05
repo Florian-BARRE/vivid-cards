@@ -7,6 +7,7 @@ import {
   PLUGS_GROUP_ID,
   POWER_GROUP_ID,
   PRESENCE_GROUP_ID,
+  SPOTS_GROUP_ID,
   WINDOWS_GROUP_ID,
   createMockHass,
 } from './mock-hass';
@@ -72,8 +73,8 @@ for (const look of looks) {
   }
   block.append(
     row('Salon', [
-      badge({ entity: LAMPS_GROUP_ID, look, layout, ...halo }),
-      badge({ entity: GROUP_ID, look, layout, ...halo }),
+      badge({ entity: LAMPS_GROUP_ID, look, layout, ...halo }, 'vivid-lamp-badge'),
+      badge({ entity: GROUP_ID, look, layout, ...halo }, 'vivid-led-badge'),
       native('mdi:window-closed-variant', '0'),
       native('mdi:weather-night', '0'),
       native('mdi:flash', '5 W', '#ffb74d'),
@@ -81,13 +82,14 @@ for (const look of looks) {
       native('mdi:battery', '100 %', '#81c784'),
     ]),
     row('Chambre', [
-      badge({ entity: PLUGS_GROUP_ID, look, layout, ...halo }),
+      badge({ entity: PLUGS_GROUP_ID, look, layout, ...halo }, 'vivid-lamp-badge'),
+      badge({ entity: SPOTS_GROUP_ID, look, layout, ...halo }, 'vivid-light-badge'),
       native('mdi:window-closed-variant', '0'),
       native('mdi:thermometer', '19,5 °C', '#ff8a65'),
     ]),
     row('Maison', [
-      badge({ entity: WINDOWS_GROUP_ID, look, ...halo }, 'vivid-opening-badge'),
-      badge({ entity: DOORS_GROUP_ID, look, ...halo }, 'vivid-opening-badge'),
+      badge({ entity: WINDOWS_GROUP_ID, look, ...halo }, 'vivid-window-badge'),
+      badge({ entity: DOORS_GROUP_ID, look, ...halo }, 'vivid-door-badge'),
       badge({ entity: ILLUMINANCE_GROUP_ID, look, ...halo }, 'vivid-illuminance-badge'),
       badge({ entity: POWER_GROUP_ID, look, ...halo }, 'vivid-power-badge'),
       badge({ entity: 'binary_sensor.salon_presence', look, ...halo }, 'vivid-presence-badge'),

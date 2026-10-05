@@ -1,30 +1,64 @@
-# Vivid Cards
-
-Expressive Lovelace cards for Home Assistant. Badges glow with the state of what
-they show: a power button lit with the real color of your LEDs, a consumption
-badge that shines brighter the more a strip draws.
-
-<p>
-  <img src="docs/assets/led-group.png" alt="Vivid LED group card" width="420" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/banner.png" alt="Vivid Cards" width="100%" />
 </p>
 
+<p align="center">
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=for-the-badge" alt="HACS custom repository" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/releases/latest"><img src="https://img.shields.io/github/v/release/Florian-BARRE/vivid-cards?style=for-the-badge&color=ff5f6d" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-2024.11%2B-18BCF2?style=for-the-badge&logo=homeassistant&logoColor=white" alt="Home Assistant 2024.11 or later" />
+  <a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Florian-BARRE/vivid-cards?style=for-the-badge&color=8a3ffc" alt="License" /></a>
+</p>
+
+# Vivid Cards
+
+Expressive Lovelace cards and badges for Home Assistant. Everything glows with
+the state of what it shows: a power button lit with the real color of your
+LEDs, a window badge that warms up the longer it stays open, a battery that
+empties and turns red.
+
 - **No dependencies.** One JavaScript file, no other custom card required.
-- **Zero templating.** Point a card at a light or a group: members, WLED
+- **Zero templating.** Point a card or a badge at a group: members, WLED
   entities and power sensors are discovered from the Home Assistant registries.
 - **Visual editor.** Everything can be set without YAML, and the editor only
-  shows what applies to the light you picked.
+  shows what applies to what you picked.
 - **Theme aware.** Follows your Home Assistant theme, light or dark, in English
   and French.
 
-| Card                                                          | What it is for                                                                |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`vivid-led-group`](#vivid-led-group)                         | A light group or a single light, WLED aware, with details per light           |
-| [`vivid-light-badge`](#vivid-light-badge) (badge)             | Lights on out of the total; tap toggles them all, hold shows each light       |
-| [`vivid-opening-badge`](#vivid-opening-badge) (badge)         | Doors and windows open out of the total, warming up the longer they stay open |
-| [`vivid-presence-badge`](#vivid-presence-badge) (badge)       | Presence in a room, or rooms occupied, with the last hours of each            |
-| [`vivid-illuminance-badge`](#vivid-illuminance-badge) (badge) | Illuminance of a group, from the moon to the sun, with a gauge                |
-| [`vivid-power-badge`](#vivid-power-badge) (badge)             | Power of a group of devices, glowing brighter as it rises                     |
-| [`vivid-battery-badge`](#vivid-battery-badge) (badge)         | The lowest battery of a group or of the whole home                            |
+## Gallery
+
+<table>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group.png" alt="LED group card" width="400" /><br /><sub><b>LED group card</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/badges.png" alt="Badges" width="400" /><br /><sub><b>Badges</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-details.png" alt="Details of the LED group card" width="400" /><br /><sub><b>Details: every strip, consumption chart, WLED settings</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-editor.png" alt="Visual editor" width="300" /><br /><sub><b>Visual editor</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge details" width="400" /><br /><sub><b>LED badge: hold for every strip</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/window-badge.png" alt="Window badge details" width="400" /><br /><sub><b>Window badge: open first, with how long</b></sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/presence-badge.png" alt="Presence badge details" width="400" /><br /><sub><b>Presence: the last six hours of each room</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/battery-badge.png" alt="Battery badge details" width="400" /><br /><sub><b>Batteries: every battery from the lowest</b></sub></td>
+  </tr>
+</table>
+
+## What is inside
+
+| Card or badge                                         | What it is for                                                         |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`vivid-led-group`](#vivid-led-group) (card)          | A light group or a single light, WLED aware, with details per light    |
+| [`vivid-led-badge`](#vivid-led-badge)                 | LED strips on out of the total, in their colors; tap switches them all |
+| [`vivid-lamp-badge`](#vivid-lamp-badge)               | Lamps (bulbs or smart plugs) on out of the total, in amber             |
+| [`vivid-light-badge`](#vivid-light-badge)             | Any other lights (ceiling lights, spots…)                              |
+| [`vivid-window-badge`](#vivid-window-badge)           | Windows open out of the total, warming up the longer they stay open    |
+| [`vivid-door-badge`](#vivid-door-badge)               | Doors and garage doors open out of the total                           |
+| [`vivid-presence-badge`](#vivid-presence-badge)       | Presence in a room, or rooms occupied, with the last hours of each     |
+| [`vivid-illuminance-badge`](#vivid-illuminance-badge) | Illuminance of a group, from the moon to the sun, with a gauge         |
+| [`vivid-power-badge`](#vivid-power-badge)             | Power of a group of devices, glowing brighter as it rises              |
+| [`vivid-battery-badge`](#vivid-battery-badge)         | The lowest battery of a group or of the whole home                     |
 
 Temperature, humidity and pressure badges are on the [roadmap](#roadmap).
 
@@ -80,7 +114,7 @@ WLED strips also get the ambilight button, presets, palettes, effect speed and
 device information.
 
 <p>
-  <img src="docs/assets/led-group-details.png" alt="Details dialog of the LED group card" width="640" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-details.png" alt="Details dialog of the LED group card" width="640" />
 </p>
 
 ### What the card shows
@@ -106,7 +140,7 @@ device information.
 ### Visual editor
 
 <p>
-  <img src="docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
 </p>
 
 Pick a light or a group first: the editor shows what it detected and only
@@ -395,45 +429,69 @@ are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
 
-## vivid-light-badge
+## Light badges
 
-A badge for the badge bar of a dashboard (Home Assistant 2024.8 or later). Point
-it at a light group, a single light, or lamps on smart plugs (a `switch` or a
-group of switches): the same badge serves LED strips and lamps.
+Three badges for the badge bar of a dashboard (Home Assistant 2024.8 or later),
+one per kind of light, with the same gestures:
 
-<p>
-  <img src="docs/assets/light-badge.png" alt="Vivid light badge with its details open" width="400" />
+- [`vivid-led-badge`](#vivid-led-badge): LED strips. The crossed-out strip icon
+  when everything is off, the strips' colors (a gradient for a group) when on.
+- [`vivid-lamp-badge`](#vivid-lamp-badge): lamps, smart bulbs or lamps on
+  plugs (a `switch` or a switch group). The lamps icon crossed out when off,
+  Home Assistant's amber when on.
+- [`vivid-light-badge`](#vivid-light-badge): any other lights. Its icon follows
+  the entity (or a bulb).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge with every strip under it" width="400" />
 </p>
 
 - **Everything off**: the crossed-out icon, greyed (with `0/3` when `show_zero`
-  is on). LED strips use
-  the crossed-out strip icon, bulbs the crossed-out bulb; other icons get a
-  stroke drawn across them.
-- **Something on**: the icon in the colors of the lights that are on (a gradient
-  for a group) with `2/3` next to it, or the brightness for a single light. The
-  halo grows with the brightness. White lights (color temperature, dimmer or
-  on/off) take Home Assistant's amber, translucent; colored lights fill solid.
+  is on).
+- **Something on**: the icon in the lights' colors with `2/3` next to it, or the
+  brightness for a single light. The halo grows with the brightness. White
+  lights (color temperature, dimmer or on/off) take Home Assistant's amber,
+  translucent; colored lights fill solid.
 - **Tap**: anything on turns everything off; everything off turns everything on.
 - **Hold**: every light under the badge, with its color, a switch and a
-  brightness slider (on/off lamps and plugs have no slider). Hold a name for the light's Home Assistant dialog. A tap
-  outside or Escape closes it.
+  brightness slider (on/off lamps and plugs have no slider). Hold a name for the
+  light's Home Assistant dialog. A tap outside or Escape closes it.
 
 ```yaml
 badges:
-  - type: custom:vivid-light-badge
-    entity: light.salon_leds
-  - type: custom:vivid-light-badge
-    entity: light.salon_lamps
+  - type: custom:vivid-led-badge
+    entity: light.living_room_leds
+  - type: custom:vivid-lamp-badge
+    entity: light.living_room_lamps
     look: pill
     layout: compact
     glow: 50
 ```
 
+### vivid-led-badge
+
+LED strips. Icon `mdi:led-strip-variant`, crossed out when off.
+
+### vivid-lamp-badge
+
+Lamps. Icon `mdi:lamps`, with a stroke when off.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-badge.png" alt="Lamp badge with every lamp under it" width="400" />
+</p>
+
+### vivid-light-badge
+
+Any other lights: the entity's own icon, else an LED strip for a WLED group,
+else a bulb.
+
+Options of the three light badges:
+
 | Option        | Default    | Description                                                                                       |
 | ------------- | ---------- | ------------------------------------------------------------------------------------------------- |
 | `entity`      | (required) | A light, a switch, or a group of either (light group, switch group or `group.`).                  |
 | `name`        | entity     | Title of the details.                                                                             |
-| `icon`        | auto       | Icon while on. Auto: the entity's icon, else an LED strip for WLED groups, else a bulb.           |
+| `icon`        | auto       | Icon while on.                                                                                    |
 | `icon_off`    | auto       | Icon while off. Auto: the crossed-out version of `icon`, or `icon` with a stroke.                 |
 | `look`        | `disc`     | `disc`: the colors on a disc behind the icon. `pill`: the whole badge filled.                     |
 | `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim). |
@@ -450,14 +508,14 @@ unavailable in the details.
 
 ## Status badges
 
-Five badges share the look and gestures of the light badge: an icon on a disc
+Six badges share the look and gestures of the light badges: an icon on a disc
 (`look: disc`) or the whole badge filled (`look: pill`), a halo that follows
 the situation (`glow`, 0 to 200 %), and details under the badge with one row
 per entity; a row opens that entity's Home Assistant dialog. They only show
 things, so a tap and a hold both open the details by default.
 
-<p>
-  <img src="docs/assets/status-badges.png" alt="Opening, illuminance, power, presence and battery badges" width="420" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/badges.png" alt="Window, door, illuminance, power, presence and battery badges" width="420" />
 </p>
 
 Point a badge at a group (a binary sensor group or a sensor group made with the
@@ -468,36 +526,51 @@ type.
 
 Options of every status badge:
 
-| Option        | Default   | Description                              |
-| ------------- | --------- | ---------------------------------------- |
-| `entity`      | —         | A group or an entity.                    |
-| `entities`    | —         | Several entities, instead of a group.    |
-| `name`        | entity    | Title of the details.                    |
-| `icon`        | auto      | Icon while active.                       |
-| `icon_off`    | auto      | Icon at rest (opening, presence, power). |
-| `look`        | `disc`    | `disc` or `pill`.                        |
-| `glow`        | `100`     | Halo strength in percent, 0 to 200.      |
-| `tap_action`  | `details` | Any card action.                         |
-| `hold_action` | `details` | Any card action.                         |
+| Option        | Default   | Description                                     |
+| ------------- | --------- | ----------------------------------------------- |
+| `entity`      | —         | A group or an entity.                           |
+| `entities`    | —         | Several entities, instead of a group.           |
+| `name`        | entity    | Title of the details.                           |
+| `icon`        | auto      | Icon while active.                              |
+| `icon_off`    | auto      | Icon at rest (windows, doors, presence, power). |
+| `look`        | `disc`    | `disc` or `pill`.                               |
+| `glow`        | `100`     | Halo strength in percent, 0 to 200.             |
+| `tap_action`  | `details` | Any card action.                                |
+| `hold_action` | `details` | Any card action.                                |
 
-### vivid-opening-badge
+### vivid-window-badge
 
-Doors and windows: `3/7` open. Everything closed: the closed icon, greyed. The
-color follows the oldest opening: blue, amber after `warn_after` minutes, red and
-pulsing after `alert_after`. The icon follows the device classes: windows,
-doors (a garage door counts as a door), garage, or a lock for a mix. One sensor
-shows how long it has been open.
+Windows: `3/7` open. Everything closed: the closed window, greyed. The color
+follows the oldest opening: blue, amber after `warn_after` minutes, red and
+pulsing after `alert_after`. One sensor shows how long it has been open. The
+details list open windows first, with how long.
 
-<p>
-  <img src="docs/assets/opening-badge.png" alt="Opening badge with its details" width="400" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/window-badge.png" alt="Window badge with its details" width="400" />
 </p>
 
 ```yaml
-- type: custom:vivid-opening-badge
+- type: custom:vivid-window-badge
   entity: binary_sensor.windows
   warn_after: 20
   alert_after: 60
 ```
+
+### vivid-door-badge
+
+Doors: the same, with doors opening and closing (garage doors keep their own
+icon in the details).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/door-badge.png" alt="Door badge with its details" width="400" />
+</p>
+
+```yaml
+- type: custom:vivid-door-badge
+  entity: binary_sensor.doors
+```
+
+Options of the window and door badges:
 
 | Option        | Default | Description                                           |
 | ------------- | ------- | ----------------------------------------------------- |
@@ -506,11 +579,18 @@ shows how long it has been open.
 | `show_count`  | `true`  | `3/7` next to the icon (the duration for one sensor). |
 | `show_zero`   | `false` | `0/7` when everything is closed.                      |
 
+`vivid-opening-badge` from 0.6.0 (windows and doors mixed) keeps working but is
+no longer offered in the badge picker: use the window and door badges instead.
+
 ### vivid-presence-badge
 
 One room: present for `12 min` (blue, a ring pulsing like a radar), or seen
 `2 min` ago (greyed). A group: rooms occupied, `2/4`. The details draw each
 room's last six hours from the history.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/presence-badge.png" alt="Presence badge with its details" width="400" />
+</p>
 
 ```yaml
 - type: custom:vivid-presence-badge
@@ -528,6 +608,10 @@ room's last six hours from the history.
 The mean of a group by default. The icon goes from the moon to the sun, the
 color from night indigo to sunlight, and a ring around the icon fills on a log
 scale (1 lx to `max`), so 20 lx and 200 lx stay apart.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/illuminance-badge.png" alt="Illuminance badge with its details" width="400" />
+</p>
 
 ```yaml
 - type: custom:vivid-illuminance-badge
@@ -547,6 +631,10 @@ The sum of a group by default, in W or kW (kW sensors are converted). Same glow
 as the LED card's consumption badge: neutral below `idle`, then yellow, amber
 and orange, pulsing from half of `max`. The details sort devices by power.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/power-badge.png" alt="Power badge with its details" width="400" />
+</p>
+
 ```yaml
 - type: custom:vivid-power-badge
   entity: sensor.home_power
@@ -565,6 +653,10 @@ The lowest battery of a group, or of every battery of the home when no entity
 is set (sensors with the `battery` device class in %, and low-battery binary
 sensors). The icon empties with the level; green, amber below `warn`, red and
 pulsing below `low`. The details sort batteries from the lowest.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/battery-badge.png" alt="Battery badge with its details" width="400" />
+</p>
 
 ```yaml
 - type: custom:vivid-battery-badge

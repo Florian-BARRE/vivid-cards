@@ -211,7 +211,13 @@ export interface MockHass {
   readonly hass: HomeAssistant;
   readonly calls: { domain: string; service: string; data: unknown; target: unknown }[];
   subscribe(listener: (hass: HomeAssistant) => void): () => void;
-  setState(entityId: string, state: string, attributes?: HassEntity['attributes']): void;
+  /** Replaces a state; `minutesAgo` sets its last change relative to now. */
+  setState(
+    entityId: string,
+    state: string,
+    attributes?: HassEntity['attributes'],
+    minutesAgo?: number,
+  ): void;
 }
 
 export function createMockHass(language = 'en', options: { allOnline?: boolean } = {}): MockHass {
@@ -986,12 +992,14 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
       listener(hass);
       return () => listeners.delete(listener);
     },
-    setState(entityId, state, attributes) {
+    setState(entityId, state, attributes, minutesAgo) {
       const current = states[entityId];
-      states = {
-        ...states,
-        [entityId]: entity(entityId, state, attributes ?? current?.attributes ?? {}),
-      };
+      const next = entity(entityId, state, attributes ?? current?.attributes ?? {});
+      if (minutesAgo !== undefined) {
+        next.last_changed = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+        next.last_updated = next.last_changed;
+      }
+      states = { ...states, [entityId]: next };
       hass = { ...hass, states };
       for (const listener of listeners) listener(hass);
     },

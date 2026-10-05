@@ -10,9 +10,11 @@ import { badgeEditor, type BadgeEditorSpec } from '../base/vivid-badge-editor';
 import '../base/vivid-badge-rows';
 import {
   OPENING_BADGE,
+  OPENING_TAGS,
+  KIND_DEVICE_CLASSES,
   DOMAINS,
-  DEVICE_CLASSES,
   CLOSED_ROWS,
+  type OpeningKind,
   type ResolvedOpeningBadge,
   resolveOpeningBadge,
   ICONS,
@@ -26,30 +28,20 @@ import {
  * pulsing after `alert_after`); the details list them, open ones first.
  */
 export class VividOpeningBadge extends VividBadge<ResolvedOpeningBadge> {
+  /** Windows, doors, or both (the former opening badge). */
+  protected kind: OpeningKind = 'any';
   private model?: OpeningModel;
 
   static getConfigElement(): HTMLElement {
-    return badgeEditor(OPENING_EDITOR);
+    return badgeEditor(openingEditor('any'));
   }
 
   static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
-    const states = Object.values(hass?.states ?? {});
-    const group = states.find(
-      (state) =>
-        state.entity_id.startsWith('binary_sensor.') &&
-        Array.isArray(state.attributes.entity_id) &&
-        DEVICE_CLASSES.includes(String(state.attributes.device_class)),
-    );
-    const single = states.find(
-      (state) =>
-        state.entity_id.startsWith('binary_sensor.') &&
-        DEVICE_CLASSES.includes(String(state.attributes.device_class)),
-    );
-    return { entity: (group ?? single)?.entity_id ?? 'binary_sensor.windows' };
+    return openingStub(hass, 'any');
   }
 
   protected resolveConfig(raw: unknown): ResolvedOpeningBadge {
-    return resolveOpeningBadge(raw);
+    return resolveOpeningBadge(raw, this.kind);
   }
 
   protected buildView(hass: HomeAssistant, config: ResolvedOpeningBadge): BadgeView {
@@ -135,10 +127,49 @@ export class VividOpeningBadge extends VividBadge<ResolvedOpeningBadge> {
   }
 }
 
-export const OPENING_EDITOR: BadgeEditorSpec = {
-  type: `custom:${OPENING_BADGE}`,
+/** First group (else first sensor) of the badge's device classes. */
+function openingStub(hass: HomeAssistant | undefined, kind: OpeningKind): Record<string, unknown> {
+  const classes = KIND_DEVICE_CLASSES[kind];
+  const states = Object.values(hass?.states ?? {}).filter(
+    (state) =>
+      state.entity_id.startsWith('binary_sensor.') &&
+      classes.includes(String(state.attributes.device_class)),
+  );
+  const group = states.find((state) => Array.isArray(state.attributes.entity_id));
+  const fallback = kind === 'door' ? 'binary_sensor.doors' : 'binary_sensor.windows';
+  return { entity: (group ?? states[0])?.entity_id ?? fallback };
+}
+
+/** Windows only: window icons, the windows' device class in the editor. */
+export class VividWindowBadge extends VividOpeningBadge {
+  protected override kind: OpeningKind = 'window';
+
+  static override getConfigElement(): HTMLElement {
+    return badgeEditor(openingEditor('window'));
+  }
+
+  static override getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
+    return openingStub(hass, 'window');
+  }
+}
+
+/** Doors only (garage doors included): door icons, opening and closing. */
+export class VividDoorBadge extends VividOpeningBadge {
+  protected override kind: OpeningKind = 'door';
+
+  static override getConfigElement(): HTMLElement {
+    return badgeEditor(openingEditor('door'));
+  }
+
+  static override getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
+    return openingStub(hass, 'door');
+  }
+}
+
+export const openingEditor = (kind: OpeningKind): BadgeEditorSpec => ({
+  type: `custom:${OPENING_TAGS[kind]}`,
   domain: DOMAINS,
-  deviceClass: DEVICE_CLASSES,
+  deviceClass: KIND_DEVICE_CLASSES[kind],
   iconOff: true,
   fields: [
     {
@@ -159,22 +190,35 @@ export const OPENING_EDITOR: BadgeEditorSpec = {
     { name: 'show_count', label: 'show_open_count', selector: { boolean: {} }, default: true },
     { name: 'show_zero', label: 'show_zero_closed', selector: { boolean: {} }, default: false },
   ],
-  validate: (config) => void resolveOpeningBadge(config),
-};
+  validate: (config) => void resolveOpeningBadge(config, kind),
+});
 
+// The opening badge (doors and windows mixed) still works but is no longer offered.
 defineElement(OPENING_BADGE, VividOpeningBadge);
+defineElement(OPENING_TAGS.window, VividWindowBadge);
+defineElement(OPENING_TAGS.door, VividDoorBadge);
 
 registerBadge({
-  type: OPENING_BADGE,
-  name: 'Vivid opening badge',
+  type: OPENING_TAGS.window,
+  name: 'Vivid window badge',
   description:
-    'Doors and windows: how many are open, in a color that warms up the longer they stay open. Tap for the list.',
+    'Windows: how many are open, in a color that warms up the longer they stay open. Tap for each window.',
   preview: true,
-  documentationURL: `${REPOSITORY_URL}#vivid-opening-badge`,
+  documentationURL: `${REPOSITORY_URL}#vivid-window-badge`,
+});
+registerBadge({
+  type: OPENING_TAGS.door,
+  name: 'Vivid door badge',
+  description:
+    'Doors and garage doors: how many are open, in a color that warms up the longer they stay open. Tap for each door.',
+  preview: true,
+  documentationURL: `${REPOSITORY_URL}#vivid-door-badge`,
 });
 
 declare global {
   interface HTMLElementTagNameMap {
     'vivid-opening-badge': VividOpeningBadge;
+    'vivid-window-badge': VividWindowBadge;
+    'vivid-door-badge': VividDoorBadge;
   }
 }

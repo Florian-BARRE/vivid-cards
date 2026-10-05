@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-05
+
+### Added
+
+- Dedicated badges: `vivid-led-badge` (LED strips, crossed-out strip icon),
+  `vivid-lamp-badge` (lamps, bulbs or plugs, in amber), `vivid-window-badge`
+  (window icons) and `vivid-door-badge` (door icons; garage doors keep theirs
+  in the details). Each has its own name in the badge picker and suggests a
+  matching group.
+- README: banner, logo, badges, a gallery of screenshots and one per badge.
+
+### Changed
+
+- `vivid-light-badge` is now for any other lights; its icon follows the entity.
+- `vivid-opening-badge` keeps working but is no longer offered in the badge
+  picker: use the window and door badges.
+
+### Fixed
+
+- README images use absolute links, so they show in HACS.
+
 ## [0.6.0] - 2026-10-05
 
 ### Added
@@ -170,6 +191,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.7.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.6.0
 [0.5.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.0
