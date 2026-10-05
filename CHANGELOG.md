@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-10-05
+
+### Changed
+
+- One halo for every card and badge: a thin rim and a soft bloom, sized to
+  each element (a badge disc, a lamp button, a power button keep the same
+  proportions) and with an opacity that follows the color (amber glows more
+  than purple at the same opacity, so darker colors get more). Calibrated on
+  the lamp badge as validated on a real dashboard. `glow` now scales it the
+  same way everywhere: one value looks alike on every component. The LED card
+  follows it too, so its halo is lighter than before.
+- A `glow` set by hand to compensate the previous defaults should go back to
+  100 %.
+
+### Added
+
+- `dev/glow.html`: every glowing element side by side at full level.
+
 ## [0.9.1] - 2026-10-05
 
 ### Changed
@@ -225,6 +243,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.9.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.2
 [0.9.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.1
 [0.9.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.0
 [0.8.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.8.0
