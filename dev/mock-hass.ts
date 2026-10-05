@@ -34,6 +34,55 @@ const PLUGS = [
   { key: 'chambre_guirlande', name: 'Chambre Guirlande', on: false },
 ];
 
+/** Four lamps on smart plugs with power metering (the lamp card). */
+export const LAMP_PLUGS_GROUP_ID = 'switch.salon_prises';
+export const LAMP_SCENE_ID = 'scene.salon_soiree';
+interface LampPlugSpec {
+  key: string;
+  name: string;
+  icon: string;
+  on: boolean;
+  /** Watts drawn while on. */
+  watts: number;
+  /** Minutes since the last switch, when the mock is created. */
+  minutes: number;
+}
+const LAMP_PLUGS: LampPlugSpec[] = [
+  {
+    key: 'salon_lustre',
+    name: 'Salon Lustre',
+    icon: 'mdi:chandelier',
+    on: true,
+    watts: 18,
+    minutes: 35,
+  },
+  {
+    key: 'salon_lampadaire',
+    name: 'Salon Lampadaire',
+    icon: 'mdi:floor-lamp',
+    on: true,
+    watts: 9,
+    minutes: 128,
+  },
+  {
+    key: 'salon_suspension',
+    name: 'Salon Suspension',
+    icon: 'mdi:ceiling-light',
+    on: false,
+    watts: 12,
+    minutes: 190,
+  },
+  // On but drawing nothing: the bulb is out.
+  {
+    key: 'salon_liseuse',
+    name: 'Salon Liseuse',
+    icon: 'mdi:desk-lamp',
+    on: true,
+    watts: 0.3,
+    minutes: 5,
+  },
+];
+
 const EFFECTS = ['Solid', 'Rainbow', 'Colorloop', 'Breathe', 'Candle', 'Fire 2012', 'Aurora'];
 
 interface StripSpec {
@@ -228,6 +277,12 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
   const spots = SPOTS.map((spec) => ({ ...spec }));
   const lamps = LAMPS.map((spec) => ({ ...spec }));
   const plugs = PLUGS.map((spec) => ({ ...spec }));
+  const lampPlugs = LAMP_PLUGS.map((spec) => ({
+    ...spec,
+    changed: Date.now() - spec.minutes * 60_000,
+  }));
+  /** When the scene was last activated (the state of a scene). */
+  let sceneActivated = Date.now() - 6 * 3_600_000;
   const listeners = new Set<(hass: HomeAssistant) => void>();
   const calls: MockHass['calls'] = [];
 
@@ -340,6 +395,25 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
     };
   }
   entities[LAMPS_GROUP_ID] = { entity_id: LAMPS_GROUP_ID, platform: 'group', labels: [] };
+  for (const plug of lampPlugs) {
+    const deviceId = `device_${plug.key}`;
+    devices[deviceId] = {
+      id: deviceId,
+      name: plug.name,
+      name_by_user: null,
+      manufacturer: 'Nous',
+      model: 'A1Z smart plug',
+      area_id: 'salon',
+    };
+    for (const id of [`switch.${plug.key}`, `sensor.${plug.key}_power`]) {
+      entities[id] = { entity_id: id, device_id: deviceId, platform: 'zha', labels: [] };
+    }
+  }
+  entities[LAMP_PLUGS_GROUP_ID] = {
+    entity_id: LAMP_PLUGS_GROUP_ID,
+    platform: 'group',
+    labels: [],
+  };
 
   let states: Record<string, HassEntity> = {};
 
@@ -772,6 +846,51 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
         }),
       );
     }
+    for (const plug of lampPlugs) {
+      const changed = new Date(plug.changed).toISOString();
+      put({
+        entity_id: `switch.${plug.key}`,
+        state: plug.on ? 'on' : 'off',
+        attributes: { friendly_name: plug.name, device_class: 'outlet', icon: plug.icon },
+        last_changed: changed,
+        last_updated: changed,
+      });
+      put({
+        entity_id: `sensor.${plug.key}_power`,
+        state: String(plug.on ? plug.watts : 0),
+        attributes: {
+          friendly_name: `${plug.name} Puissance`,
+          device_class: 'power',
+          unit_of_measurement: 'W',
+          state_class: 'measurement',
+        },
+        last_changed: changed,
+        last_updated: changed,
+      });
+    }
+    put(
+      entity(LAMP_PLUGS_GROUP_ID, lampPlugs.some((p) => p.on) ? 'on' : 'off', {
+        friendly_name: 'Lampes',
+        entity_id: lampPlugs.map((p) => `switch.${p.key}`),
+        icon: 'mdi:lamps',
+      }),
+    );
+    put(
+      entity(LAMP_SCENE_ID, new Date(sceneActivated).toISOString(), {
+        friendly_name: 'Salon Soirée',
+        entity_id: ['switch.salon_lustre', 'switch.salon_lampadaire'],
+        icon: 'mdi:sofa',
+      }),
+    );
+    put(
+      entity('input_number.prix_kwh', '0.2516', {
+        friendly_name: 'Prix du kWh',
+        unit_of_measurement: 'EUR/kWh',
+        min: 0,
+        max: 1,
+        step: 0.0001,
+      }),
+    );
     put(
       entity(PLUGS_GROUP_ID, plugs.some((p) => p.on) ? 'on' : 'off', {
         friendly_name: 'Chambre Lampes',
@@ -812,6 +931,40 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
 
   const callService: HomeAssistant['callService'] = async (domain, service, data = {}, target) => {
     calls.push({ domain, service, data, target });
+    if (domain === 'scene' && service === 'turn_on') {
+      if ([target?.entity_id].flat().includes(LAMP_SCENE_ID)) {
+        const wanted = ['salon_lustre', 'salon_lampadaire'];
+        for (const plug of lampPlugs) {
+          const on = wanted.includes(plug.key);
+          if (plug.on !== on) {
+            plug.on = on;
+            plug.changed = Date.now();
+          }
+        }
+        sceneActivated = Date.now();
+      }
+      publish();
+      return;
+    }
+    const lampIds = [target?.entity_id]
+      .flat()
+      .flatMap((id) =>
+        id === LAMP_PLUGS_GROUP_ID ? lampPlugs.map((p) => `switch.${p.key}`) : [id],
+      );
+    const lampsHit = lampPlugs.filter((p) => lampIds.includes(`switch.${p.key}`));
+    if (lampsHit.length) {
+      const anyOn = lampsHit.some((p) => p.on);
+      for (const plug of lampsHit) {
+        const on =
+          service === 'toggle' ? (lampsHit.length > 1 ? !anyOn : !plug.on) : service === 'turn_on';
+        if (plug.on !== on) {
+          plug.on = on;
+          plug.changed = Date.now();
+        }
+      }
+      publish();
+      return;
+    }
     const plugIds = [target?.entity_id]
       .flat()
       .flatMap((id) => (id === PLUGS_GROUP_ID ? plugs.map((p) => `switch.${p.key}`) : [id]));
@@ -896,6 +1049,36 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
     for (const entityId of entityIds) {
       const state = states[entityId];
       if (!state) continue;
+      const plug = lampPlugs.find(
+        (p) => entityId === `switch.${p.key}` || entityId === `sensor.${p.key}_power`,
+      );
+      if (plug) {
+        // Evenings and a morning hour, then the current state since its last change.
+        const seed = plug.key.length % 5;
+        const spans: [number, number][] = [
+          [6.5 + seed * 0.2, 8 + seed * 0.3],
+          [11.5 + seed * 0.4, 13.5 + seed * 0.3],
+        ];
+        const day = new Date(start);
+        day.setHours(0, 0, 0, 0);
+        const changes: { on: boolean; t: number }[] = [{ on: false, t: start }];
+        for (const [from, to] of spans) {
+          const a = day.getTime() + from * 3_600_000;
+          const b = day.getTime() + to * 3_600_000;
+          if (b < plug.changed && a > start) {
+            changes.push({ on: true, t: a }, { on: false, t: b });
+          }
+        }
+        changes.push({ on: plug.on, t: Math.max(plug.changed, start) });
+        const isPower = entityId.startsWith('sensor.');
+        result[entityId] = changes
+          .filter((change) => change.t <= end)
+          .map((change) => ({
+            s: isPower ? String(change.on ? plug.watts : 0) : change.on ? 'on' : 'off',
+            lu: change.t / 1000,
+          }));
+        continue;
+      }
       if (entityId.startsWith('binary_sensor.')) {
         // Presence-like pattern: on for a while every couple of hours, ending in the current state.
         const points: { s: string; lu: number }[] = [{ s: 'off', lu: start / 1000 }];
