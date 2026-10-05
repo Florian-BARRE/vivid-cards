@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-10-05
+
+### Added
+
+- `show_zero` on `vivid-light-badge`: `0/3` next to the crossed-out icon when
+  everything is off.
+- The light badge accepts lamps on smart plugs: a `switch`, a switch group or
+  an old-style `group.`. On/off lamps and plugs show no slider in the details.
+
 ## [0.5.0] - 2026-10-05
 
 ### Added
@@ -139,6 +148,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.5.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.0
 [0.4.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.0
