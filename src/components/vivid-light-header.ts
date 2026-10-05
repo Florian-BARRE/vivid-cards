@@ -8,7 +8,14 @@ import {
   type LightCallOptions,
 } from '../core/actions';
 import type { BadgeModel } from '../core/badges';
-import { activeTone, lightTone, powerTone, toggleTone, type PowerScale } from '../core/glow';
+import {
+  activeTone,
+  lightTone,
+  powerTone,
+  toggleTone,
+  type ChipTone,
+  type PowerScale,
+} from '../core/glow';
 import type { HomeAssistant, Rgb } from '../core/hass-types';
 import { defineElement } from '../core/register';
 import { formatNumber, localize } from '../i18n';
@@ -36,6 +43,8 @@ export class VividLightHeader extends LitElement {
     variant: { reflect: true },
     icon: {},
     name: {},
+    subtitle: {},
+    iconColor: { attribute: false },
     nameInteractive: { type: Boolean, attribute: 'name-interactive' },
     lightEntity: { attribute: 'light-entity' },
     available: { type: Boolean },
@@ -44,6 +53,7 @@ export class VividLightHeader extends LitElement {
     colors: { attribute: false },
     brightness: { type: Number },
     glowBoost: { type: Number, attribute: 'glow-boost' },
+    buttonTone: { attribute: false },
     badges: { attribute: false },
     lightOptions: { attribute: false },
     showPower: { type: Boolean, attribute: 'show-power' },
@@ -59,6 +69,10 @@ export class VividLightHeader extends LitElement {
   declare variant: 'row' | 'summary';
   declare icon?: string;
   declare name?: string;
+  /** Second line under the name ("3/4 on"). */
+  declare subtitle?: string;
+  /** Color of the title icon (a CSS value); the text color otherwise. */
+  declare iconColor?: string;
   declare nameInteractive: boolean;
   declare lightEntity?: string;
   declare available: boolean;
@@ -70,6 +84,8 @@ export class VividLightHeader extends LitElement {
   declare brightness?: number;
   /** How much the halo of the power button grows with the brightness, in percent. */
   declare glowBoost?: number;
+  /** Tone of the power button while on, instead of the light's colors. */
+  declare buttonTone?: ChipTone;
   declare badges?: BadgeModel[];
   declare lightOptions?: LightCallOptions;
   declare showPower: boolean;
@@ -122,6 +138,20 @@ export class VividLightHeader extends LitElement {
         flex: none;
         color: var(--primary-text-color);
       }
+      .names {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        text-align: left;
+      }
+      .subtitle {
+        font-size: 12px;
+        line-height: 1.3;
+        color: var(--secondary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .name {
         font-size: 16px;
         font-weight: 600;
@@ -170,9 +200,14 @@ export class VividLightHeader extends LitElement {
     void selectOption(this.hass, target.available, target.active ? '0' : '1');
   };
 
+  /** Without `lightEntity` the owner switches: `vivid-power-click`. */
   private readonly onToggleClick = (): void => {
-    if (!this.hass || !this.lightEntity) return;
+    if (!this.hass) return;
     haptic(this, 'light');
+    if (!this.lightEntity) {
+      fireEvent(this, 'vivid-power-click');
+      return;
+    }
     void toggleEntity(this.hass, this.lightEntity, this.lightOptions);
   };
 
@@ -192,8 +227,16 @@ export class VividLightHeader extends LitElement {
 
   private renderTitle() {
     if (this.variant === 'summary') return nothing;
-    const content = html`<ha-icon .icon=${this.icon}></ha-icon
-      ><span class="name">${this.name}</span>`;
+    const name = html`<span class="name">${this.name}</span>`;
+    const content = html`<ha-icon
+        .icon=${this.icon}
+        style=${this.iconColor ? `color: ${this.iconColor}` : ''}
+      ></ha-icon
+      >${
+        this.subtitle
+          ? html`<span class="names">${name}<span class="subtitle">${this.subtitle}</span></span>`
+          : name
+      }`;
     const title = this.nameInteractive
       ? html`<button
           type="button"
@@ -252,12 +295,18 @@ export class VividLightHeader extends LitElement {
           wide
           .icon=${'mdi:power'}
           .tooltip=${localize(this.hass, this.isOn ? 'power_off' : 'power_on')}
-          .tone=${lightTone(
-            this.colors?.length ? this.colors : this.rgb,
-            this.isOn,
-            this.brightness ?? 100,
-            this.glowBoost ?? 100,
-          )}
+          .tone=${
+            this.buttonTone
+              ? this.isOn
+                ? this.buttonTone
+                : {}
+              : lightTone(
+                  this.colors?.length ? this.colors : this.rgb,
+                  this.isOn,
+                  this.brightness ?? 100,
+                  this.glowBoost ?? 100,
+                )
+          }
           .pressed=${this.isOn}
           ?disabled=${!this.available}
           @click=${this.onToggleClick}

@@ -15,6 +15,7 @@ src/
     badges.ts           What an entity badge shows.
     history.ts          History and statistics fetching, integration (pure math).
     naming.ts           Sibling name shortening.
+    icons.ts            Resting (outline or crossed-out) variants of icons.
     ha-elements.ts      Loads Home Assistant's form elements for the editors.
     register.ts         Custom element and card picker registration.
   integrations/         Knowledge about specific integrations (WLED, power).
@@ -24,7 +25,7 @@ src/
   cards/<card>/         One folder per card: config, model, editor, elements.
   badges/<badge>/       One folder per badge, same structure as a card.
   i18n/                 Interface strings (en, fr).
-dev/                    Preview pages (cards, editors, badges) and the simulated
+dev/                    Preview pages (cards, editors, badges, lamps) and the simulated
                         Home Assistant.
 tests/                  Vitest unit tests.
 ```

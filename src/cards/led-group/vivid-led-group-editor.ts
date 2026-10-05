@@ -70,6 +70,7 @@ const LABELS: Record<string, EditorStringKey> = {
   idle: 'idle',
   max: 'max',
   price: 'price',
+  price_entity: 'price_entity',
   details_history: 'details_history',
   glow: 'glow',
   glow_boost: 'glow_boost',
@@ -369,12 +370,25 @@ export class VividLedGroupEditor extends LitElement {
                         },
                       },
                     },
+                    {
+                      name: 'price_entity',
+                      selector: { entity: { domain: ['sensor', 'input_number'] } },
+                    },
                   ],
                 },
               ],
-              { price: config.power?.price },
-              (value) => this.commit(setOption(config, 'power', 'price', value.price)),
-              (schema) => (schema.name === 'price' ? this.t('price_helper') : undefined),
+              { price: config.power?.price, price_entity: config.power?.price_entity },
+              (value) => {
+                let next = setOption(config, 'power', 'price', value.price);
+                next = setOption(next, 'power', 'price_entity', value.price_entity || undefined);
+                this.commit(next);
+              },
+              (schema) =>
+                schema.name === 'price'
+                  ? this.t('price_helper')
+                  : schema.name === 'price_entity'
+                    ? this.t('price_entity_helper')
+                    : undefined,
             )
           : nothing
       }`;
@@ -1047,8 +1061,10 @@ export class VividLedGroupEditor extends LitElement {
           }),
           config.power?.voltage !== undefined &&
             `${formatNumber(this.hass, config.power.voltage, 1)} V`,
-          config.power?.price !== undefined &&
-            `${formatNumber(this.hass, config.power.price, 4)} ${this.currency()}/kWh`,
+          config.power?.price_entity
+            ? config.power.price_entity
+            : config.power?.price !== undefined &&
+              `${formatNumber(this.hass, config.power.price, 4)} ${this.currency()}/kWh`,
         ])
       : this.describePower(single);
     return this.section(

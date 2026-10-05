@@ -88,6 +88,8 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     colors?: [FavoriteInput, FavoriteInput, FavoriteInput];
     /** Price of a kWh, to show what today cost. */
     price?: number;
+    /** A sensor or input_number holding the price of a kWh; wins over `price`. */
+    price_entity?: string;
     /** ISO 4217 code; defaults to Home Assistant's currency. */
     currency?: string;
   };
@@ -152,6 +154,7 @@ export interface ResolvedLedGroupConfig {
     /** `steps` were not set: they follow `max`. */
     autoSteps: boolean;
     price?: number;
+    priceEntity?: string;
     currency?: string;
   };
   ambilight: { enabled: boolean };
@@ -197,6 +200,14 @@ function optionalString(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   if (typeof value !== 'string') fail(`"${field}" must be text.`);
   return value.trim() || undefined;
+}
+
+function resolvePriceEntity(value: unknown): string | undefined {
+  const entity = optionalString(value, 'power.price_entity');
+  if (entity && !['sensor', 'input_number'].includes(domainOf(entity))) {
+    fail('"power.price_entity" must be a sensor or an input_number.');
+  }
+  return entity;
 }
 
 function optionalBoolean(value: unknown, field: string): boolean | undefined {
@@ -468,6 +479,7 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       autoMax: power.max === undefined || power.max === null || power.max === '',
       autoSteps: power.steps === undefined || power.steps === null,
       price: optionalNumber(power.price, 'power.price'),
+      priceEntity: resolvePriceEntity(power.price_entity),
       currency: resolveCurrency(power.currency),
     },
     ambilight: { enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true },

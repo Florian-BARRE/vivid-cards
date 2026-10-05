@@ -97,6 +97,15 @@ const en = {
   batteries_title: 'Batteries',
   illuminance_title: 'Illuminance',
   power_title: 'Power',
+  lamps_title: 'Lamps',
+  lamp_off: 'off',
+  lamp_on: 'on',
+  lamp_no_draw: 'draws nothing',
+  lamp_no_draw_hint: 'On but drawing less than {w}: a bulb out, or the lamp’s own switch off?',
+  lamps_warn_one: '1 draws nothing',
+  lamps_warn: '{n} draw nothing',
+  energy_today: 'Today: {e}',
+  all_lamps_off: 'All off',
 };
 
 type Strings = typeof en;
@@ -198,6 +207,16 @@ const fr: Strings = {
   batteries_title: 'Batteries',
   illuminance_title: 'Éclairement',
   power_title: 'Puissance',
+  lamps_title: 'Lampes',
+  lamp_off: 'éteinte',
+  lamp_on: 'allumée',
+  lamp_no_draw: 'ne consomme rien',
+  lamp_no_draw_hint:
+    'Allumée mais consomme moins de {w} : ampoule grillée, ou interrupteur de la lampe coupé ?',
+  lamps_warn_one: '1 ne consomme rien',
+  lamps_warn: '{n} ne consomment rien',
+  energy_today: 'Aujourd’hui : {e}',
+  all_lamps_off: 'Tout éteint',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };

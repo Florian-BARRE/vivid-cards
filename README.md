@@ -36,6 +36,10 @@ empties and turns red.
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-editor.png" alt="Visual editor" width="300" /><br /><sub><b>Visual editor</b></sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group.png" alt="Lamp group card" width="400" /><br /><sub><b>Lamp group card: lamps on plugs, presets</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="400" /><br /><sub><b>Lamp details: today's timeline, energy and cost</b></sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge details" width="400" /><br /><sub><b>LED badge: hold for every strip</b></sub></td>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/window-badge.png" alt="Window badge details" width="400" /><br /><sub><b>Window badge: open first, with how long</b></sub></td>
   </tr>
@@ -50,6 +54,7 @@ empties and turns red.
 | Card or badge                                         | What it is for                                                         |
 | ----------------------------------------------------- | ---------------------------------------------------------------------- |
 | [`vivid-led-group`](#vivid-led-group) (card)          | A light group or a single light, WLED aware, with details per light    |
+| [`vivid-lamp-group`](#vivid-lamp-group) (card)        | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
 | [`vivid-led-badge`](#vivid-led-badge)                 | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)               | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)             | Any other lights (ceiling lights, spots…)                              |
@@ -90,7 +95,7 @@ show up in HACS like any other download.
 ## Quick start
 
 1. Open a dashboard, **⋮ → Edit dashboard → Add card**, and search for
-   **Vivid LED group**.
+   **Vivid LED group** (or **Vivid lamp group** for lamps on plugs).
 2. Pick a light or a light group. The editor tells you what it found: how many
    lights, which ones are WLED, whether they do color or tunable white, and
    where their consumption comes from.
@@ -309,6 +314,7 @@ their value, on/off entities light up while on.
 | `sensor_pattern` | none    | Power sensor of each light. `{object_id}` is replaced by the light's object id: `sensor.{object_id}_power` finds `sensor.desk_power` for `light.desk`. |
 | `voltage`        | none    | Strip voltage. Turns the WLED estimated current into watts.                                                                                            |
 | `price`          | none    | Price of a kWh: the details show what today and the period cost.                                                                                       |
+| `price_entity`   | none    | A `sensor` or `input_number` holding the price of a kWh (a tariff that changes). It wins over `price`, which stays the fallback.                       |
 | `currency`       | HA's    | Currency code of the price, e.g. `EUR`.                                                                                                                |
 | `idle`           | `3`     | Watts per light under which the badge stays neutral.                                                                                                   |
 | `max`            | auto    | Watts per light at which the glow is the brightest. Without it, WLED's current limit × voltage when known, else 40.                                    |
@@ -428,6 +434,152 @@ are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
 | `show_effects`       | `tile.effects`         |
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
+
+## vivid-lamp-group
+
+Lamps on smart plugs, wall switches or plain on/off lights, where all you know
+is whether a lamp is on and what it draws. Each lamp gets a round button that
+glows with its consumption; quick presets switch several lamps at once.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group.png" alt="Lamp group card, ambiance layout" width="426" />
+</p>
+
+### What the card shows
+
+- **Header**: name, lamps on out of the total, the group's consumption and a
+  power button for the whole group (anything on turns everything off).
+- **Presets** (optional): buttons that turn some lamps on and the others off,
+  or activate a Home Assistant scene. A preset lights up while the lamps are as
+  it sets them.
+- **A button per lamp**: Home Assistant's amber with a halo that grows with
+  the watts, the lamp's name, and `18 W · 35 min` (or `off · 3 h`). Off, the
+  icon switches to its outline (or crossed-out) variant when one exists:
+  `mdi:floor-lamp` → `mdi:floor-lamp-outline`, `mdi:desk-lamp` →
+  `mdi:desk-lamp-off`.
+- **A red bulb** on a lamp that has been on for a minute but draws less than
+  `warn_below` (1 W): the bulb is out, or the lamp's own switch is off.
+- **Details** (hold a lamp, or tap the title): every lamp with its watts, how
+  long it has been on or off, when it was on today and a switch; the energy of
+  the day and its cost at the bottom.
+
+`layout: line` puts the whole group on one line, a small button per lamp:
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-line.png" alt="Lamp group card, one-line layout" width="426" />
+</p>
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="592" />
+</p>
+
+### Gestures
+
+| Where        | Tap                                                          | Hold             |
+| ------------ | ------------------------------------------------------------ | ---------------- |
+| A lamp       | Switch it                                                    | Open the details |
+| Title        | Open the details                                             | Open the details |
+| Power button | Anything on: all off; else all on                            |                  |
+| Preset       | Apply it                                                     |                  |
+| Details row  | Disc or switch: switch the lamp; name: Home Assistant dialog |                  |
+
+### Visual editor
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-editor.png" alt="Visual editor of the lamp group card" width="300" />
+</p>
+
+| Section           | What it sets                                                             |
+| ----------------- | ------------------------------------------------------------------------ |
+| **Lamps**         | Per lamp: name, icon on and off, power sensor, shown on the card         |
+| **Quick presets** | Name, icon, the lamps it turns on (none: all off) or a scene             |
+| **Consumption**   | Watts, durations, energy of the day, price or price entity, halo, alerts |
+| **Appearance**    | Halo strength                                                            |
+
+### Recipes
+
+```yaml
+type: custom:vivid-lamp-group
+entity: switch.living_room_lamps # a switch group of smart plugs
+price_entity: input_number.electricity_price
+scenes:
+  - name: Evening
+    icon: mdi:sofa
+    lamps: [switch.chandelier_plug, switch.floor_lamp_plug]
+  - name: Movie
+    scene: scene.movie
+  - name: All off
+    lamps: []
+members:
+  - entity: switch.chandelier_plug
+    name: Chandelier
+    icon: mdi:chandelier
+  - entity: switch.desk_plug
+    icon: mdi:desk-lamp
+    icon_off: mdi:desk-lamp-off
+    power_sensor: sensor.desk_plug_power
+```
+
+A few lamps without a group, on one line, without the watts:
+
+```yaml
+type: custom:vivid-lamp-group
+name: Bedroom
+layout: line
+show_power: false
+entities:
+  - switch.bedside_lamp
+  - light.garland
+```
+
+### Options
+
+| Option          | Default    | Description                                                                                              |
+| --------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `entity`        | required\* | A group of lamps (switch group, light group or `group.`), or one lamp.                                   |
+| `entities`      | none       | Lamps listed one by one, instead of `entity` (\*one of the two is required).                             |
+| `name`          | group name | Title of the card.                                                                                       |
+| `icon`          | group's    | Icon of the title (the group's own, else `mdi:lamps`); its outline variant while everything is off.      |
+| `layout`        | `ambiance` | `ambiance` (presets and a round button per lamp) or `line` (one line, a small button per lamp).          |
+| `show_power`    | `true`     | Watts of each lamp and of the group.                                                                     |
+| `show_duration` | `true`     | How long each lamp has been on or off.                                                                   |
+| `show_energy`   | `true`     | Energy of the day and its cost in the details.                                                           |
+| `price`         | none       | Price of a kWh, in Home Assistant's currency.                                                            |
+| `price_entity`  | none       | A `sensor` or `input_number` holding the price of a kWh; it wins over `price`, which stays the fallback. |
+| `max_watts`     | `60`       | Watts at which a lamp's halo is the brightest.                                                           |
+| `warn_below`    | `1`        | A lamp on for a minute but drawing less than this (W) gets a red bulb. `0` turns it off.                 |
+| `glow`          | `100`      | Halo strength in percent, 0 to 200, as on the LED card.                                                  |
+| `scenes`        | none       | Quick presets, see below.                                                                                |
+| `members`       | none       | Per-lamp overrides, see below.                                                                           |
+
+`scenes` entries:
+
+| Option  | Description                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------ |
+| `name`  | Label of the button (required).                                                                  |
+| `icon`  | Icon of the button.                                                                              |
+| `lamps` | Lamps turned on; every other lamp of the card is turned off. An empty list turns everything off. |
+| `scene` | A Home Assistant scene to activate instead of `lamps`.                                           |
+
+A preset with `lamps` is lit while exactly those lamps are on. Home Assistant
+only records when a scene was last activated, not what it sets, so a `scene`
+preset is lit until a lamp changes after it.
+
+`members` entries:
+
+| Option         | Description                                                               |
+| -------------- | ------------------------------------------------------------------------- |
+| `entity`       | The lamp to override.                                                     |
+| `name`         | Display name (by default the words all lamps share are dropped).          |
+| `icon`         | Icon while on (by default the entity's own icon, else `mdi:lamp`).        |
+| `icon_off`     | Icon while off (by default the outline or crossed-out variant of `icon`). |
+| `power_sensor` | Power sensor of this lamp, when it is not on the same device as the plug. |
+| `hidden`       | `true` leaves the lamp off the card; it still counts in the group.        |
+
+Consumption comes from `power_sensor`, else from a power sensor of the same
+device: a metering smart plug works without any setting. The energy of the day
+is computed from the power history, so it can differ slightly from an energy
+meter.
 
 ## Light badges
 
@@ -689,6 +841,11 @@ voltage, or pick a sensor for a light in **Detected lights**.
 give them `state_class: measurement` (template sensors accept it), and wait for
 Home Assistant to compile the first hours.
 
+**A red bulb on a lamp.** The lamp card flags a lamp on for a minute that
+draws less than `warn_below` (1 W): a bulb out, or the lamp's own switch off.
+Lower `warn_below` for lamps that really draw that little (some LED bulbs),
+or set it to `0`. Plugs without a power sensor are never flagged.
+
 **No ambilight button.** It only shows for WLED strips with their live override
 entity enabled, and when `ambilight.enabled` is on.
 
@@ -730,7 +887,7 @@ npm run build    # dist/vivid-cards.js
 The preview pages run the cards against an in-memory Home Assistant (three
 WLED strips with presets, diagnostics and history, two tunable white spots), so you can work on the UI without a
 server: `/dev/` for the cards, `/dev/editor.html` for the visual editor in
-several situations.
+several situations, `/dev/lamps.html` for the lamp card.
 
 ### Testing on your Home Assistant
 

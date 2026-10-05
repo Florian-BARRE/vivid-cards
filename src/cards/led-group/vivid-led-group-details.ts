@@ -130,7 +130,7 @@ export class VividLedGroupDetails extends LitElement {
     return html`<vivid-power-history
       .hass=${this.hass}
       .sources=${this.historySources(model)}
-      .price=${config.power.price}
+      .price=${model.price}
       .currency=${config.power.currency}
     ></vivid-power-history>`;
   }

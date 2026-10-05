@@ -1,7 +1,7 @@
 import type { ActionConfig } from '../../core/action-handler';
 import { badgeModel, type BadgeModel } from '../../core/badges';
 import { lightColor } from '../../core/color';
-import { expandGroup, friendlyName, isAvailable } from '../../core/entities';
+import { expandGroup, friendlyName, isAvailable, parseNumericState } from '../../core/entities';
 import type { PowerScale } from '../../core/glow';
 import type { HassEntity, HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
 import { resolveColorBar, type ColorBar } from '../../core/light';
@@ -77,6 +77,8 @@ export interface LedGroupModel extends LightModel {
   detailsEnabled: boolean;
   tileColorBar: ColorBar;
   holdAction: ActionConfig;
+  /** Price of a kWh: the price entity when it holds a number, else `power.price`. */
+  price?: number;
   /** Every entity the card reads; a change to any of them triggers a render. */
   watched: string[];
 }
@@ -238,6 +240,10 @@ export function buildLedGroupModel(
         ? [group.rgb]
         : [];
   for (const badge of config.badges) watched.add(badge.entity);
+  const priceEntity = config.power.priceEntity;
+  if (priceEntity) watched.add(priceEntity);
+  const price =
+    (priceEntity ? parseNumericState(hass.states[priceEntity]) : undefined) ?? config.power.price;
 
   return {
     ...group,
@@ -257,6 +263,7 @@ export function buildLedGroupModel(
     detailsEnabled,
     tileColorBar: resolveColorBar(config.tile.colorBar, groupState),
     holdAction: config.tile.holdAction ?? { action: detailsEnabled ? 'details' : 'more-info' },
+    price,
     watched: [...watched],
   };
 }
