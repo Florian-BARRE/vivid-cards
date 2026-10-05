@@ -258,3 +258,47 @@ describe('lamp card scenes switched over', () => {
     expect(buildLampGroupModel(mock.hass, config({ scenes })).scenes[0]?.active).toBe(false);
   });
 });
+
+describe('lamp card display options', () => {
+  it('fills the display defaults', () => {
+    expect(config()).toMatchObject({
+      showHeader: true,
+      showCount: true,
+      showToggleAll: true,
+      showNames: true,
+      showStatus: true,
+      size: 'medium',
+      columns: undefined,
+      tapAction: 'toggle',
+      holdAction: 'details',
+    });
+  });
+
+  it('reads icons only, a size, columns and gestures', () => {
+    expect(
+      config({
+        show_names: false,
+        show_status: false,
+        size: 'large',
+        columns: 3,
+        tap_action: 'more-info',
+        hold_action: { action: 'none' },
+      }),
+    ).toMatchObject({
+      showNames: false,
+      showStatus: false,
+      size: 'large',
+      columns: 3,
+      tapAction: 'more-info',
+      holdAction: 'none',
+    });
+  });
+
+  it('rejects what it cannot use', () => {
+    expect(() => config({ size: 'huge' })).toThrow(/size/);
+    expect(() => config({ columns: 2.5 })).toThrow(/columns/);
+    expect(() => config({ columns: 0 })).toThrow(/columns/);
+    expect(() => config({ tap_action: 'explode' })).toThrow(/tap_action/);
+    expect(() => config({ show_names: 'no' })).toThrow(/show_names/);
+  });
+});

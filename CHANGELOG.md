@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-10-05
+
+### Added
+
+- Lamp card display options: `show_names` and `show_status` (both off: icons
+  only), `size` (`small`, `medium`, `large`), `columns` (lamps per row),
+  `show_header`, `show_count` and `show_toggle_all`.
+- Lamp card gestures: `tap_action` and `hold_action` on a lamp (`toggle`,
+  `details`, `more-info` or `none`), with a Gestures section in the editor.
+
 ## [0.8.0] - 2026-10-05
 
 ### Added
@@ -206,6 +216,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.9.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.0
 [0.8.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.6.0

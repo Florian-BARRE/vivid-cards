@@ -475,13 +475,13 @@ glows with its consumption; quick presets switch several lamps at once.
 
 ### Gestures
 
-| Where        | Tap                                                          | Hold             |
-| ------------ | ------------------------------------------------------------ | ---------------- |
-| A lamp       | Switch it                                                    | Open the details |
-| Title        | Open the details                                             | Open the details |
-| Power button | Anything on: all off; else all on                            |                  |
-| Preset       | Apply it                                                     |                  |
-| Details row  | Disc or switch: switch the lamp; name: Home Assistant dialog |                  |
+| Where        | Tap                                                          | Hold                             |
+| ------------ | ------------------------------------------------------------ | -------------------------------- |
+| A lamp       | Switch it (`tap_action`)                                     | Open the details (`hold_action`) |
+| Title        | Open the details                                             | Open the details                 |
+| Power button | Anything on: all off; else all on                            |                                  |
+| Preset       | Apply it                                                     |                                  |
+| Details row  | Disc or switch: switch the lamp; name: Home Assistant dialog |                                  |
 
 ### Visual editor
 
@@ -494,7 +494,8 @@ glows with its consumption; quick presets switch several lamps at once.
 | **Lamps**         | Per lamp: name, icon on and off, power sensor, shown on the card         |
 | **Quick presets** | Name, icon, the lamps it turns on (none: all off) or a scene             |
 | **Consumption**   | Watts, durations, energy of the day, price or price entity, halo, alerts |
-| **Appearance**    | Halo strength                                                            |
+| **Appearance**    | Header, count, group button, names, status, size, columns, halo          |
+| **Gestures**      | Tap and hold on a lamp                                                   |
 
 ### Recipes
 
@@ -520,6 +521,17 @@ members:
     power_sensor: sensor.desk_plug_power
 ```
 
+Icons only, small, without the header:
+
+```yaml
+type: custom:vivid-lamp-group
+entity: switch.living_room_lamps
+show_header: false
+show_names: false
+show_status: false
+size: small
+```
+
 A few lamps without a group, on one line, without the watts:
 
 ```yaml
@@ -534,23 +546,32 @@ entities:
 
 ### Options
 
-| Option          | Default    | Description                                                                                              |
-| --------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
-| `entity`        | required\* | A group of lamps (switch group, light group or `group.`), or one lamp.                                   |
-| `entities`      | none       | Lamps listed one by one, instead of `entity` (\*one of the two is required).                             |
-| `name`          | group name | Title of the card.                                                                                       |
-| `icon`          | group's    | Icon of the title (the group's own, else `mdi:lamps`); its outline variant while everything is off.      |
-| `layout`        | `ambiance` | `ambiance` (presets and a round button per lamp) or `line` (one line, a small button per lamp).          |
-| `show_power`    | `true`     | Watts of each lamp and of the group.                                                                     |
-| `show_duration` | `true`     | How long each lamp has been on or off.                                                                   |
-| `show_energy`   | `true`     | Energy of the day and its cost in the details.                                                           |
-| `price`         | none       | Price of a kWh, in Home Assistant's currency.                                                            |
-| `price_entity`  | none       | A `sensor` or `input_number` holding the price of a kWh; it wins over `price`, which stays the fallback. |
-| `max_watts`     | `60`       | Watts at which a lamp's halo is the brightest.                                                           |
-| `warn_below`    | `1`        | A lamp on for a minute but drawing less than this (W) gets a red bulb. `0` turns it off.                 |
-| `glow`          | `100`      | Halo strength in percent, 0 to 200, as on the LED card.                                                  |
-| `scenes`        | none       | Quick presets, see below.                                                                                |
-| `members`       | none       | Per-lamp overrides, see below.                                                                           |
+| Option            | Default    | Description                                                                                              |
+| ----------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `entity`          | required\* | A group of lamps (switch group, light group or `group.`), or one lamp.                                   |
+| `entities`        | none       | Lamps listed one by one, instead of `entity` (\*one of the two is required).                             |
+| `name`            | group name | Title of the card.                                                                                       |
+| `icon`            | group's    | Icon of the title (the group's own, else `mdi:lamps`); its outline variant while everything is off.      |
+| `layout`          | `ambiance` | `ambiance` (presets and a round button per lamp) or `line` (one line, a small button per lamp).          |
+| `show_header`     | `true`     | Header row of the ambiance layout (name, count, consumption, power button).                              |
+| `show_count`      | `true`     | `3/4 on` under the title.                                                                                |
+| `show_toggle_all` | `true`     | Power button of the whole group.                                                                         |
+| `show_names`      | `true`     | Name under each lamp (ambiance). With `show_status: false` too, only the icons remain.                   |
+| `show_status`     | `true`     | Watts and duration under each lamp (ambiance).                                                           |
+| `size`            | `medium`   | Size of the lamp buttons: `small`, `medium` or `large`.                                                  |
+| `columns`         | auto       | Lamps per row (ambiance), 1 to 12. Auto: as many as fit.                                                 |
+| `tap_action`      | `toggle`   | Tap on a lamp: `toggle`, `details`, `more-info` (the lamp's Home Assistant dialog) or `none`.            |
+| `hold_action`     | `details`  | Hold on a lamp, same choices. The title always opens the details.                                        |
+| `show_power`      | `true`     | Watts of each lamp and of the group.                                                                     |
+| `show_duration`   | `true`     | How long each lamp has been on or off.                                                                   |
+| `show_energy`     | `true`     | Energy of the day and its cost in the details.                                                           |
+| `price`           | none       | Price of a kWh, in Home Assistant's currency.                                                            |
+| `price_entity`    | none       | A `sensor` or `input_number` holding the price of a kWh; it wins over `price`, which stays the fallback. |
+| `max_watts`       | `60`       | Watts at which a lamp's halo is the brightest.                                                           |
+| `warn_below`      | `1`        | A lamp on for a minute but drawing less than this (W) gets a red bulb. `0` turns it off.                 |
+| `glow`            | `100`      | Halo strength in percent, 0 to 200, as on the LED card.                                                  |
+| `scenes`          | none       | Quick presets, see below.                                                                                |
+| `members`         | none       | Per-lamp overrides, see below.                                                                           |
 
 `scenes` entries:
 
