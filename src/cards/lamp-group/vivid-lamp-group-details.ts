@@ -91,6 +91,8 @@ export class VividLampGroupDetails extends LitElement {
         position: relative;
         display: grid;
         place-items: center;
+        /* Halo proportions of a 40 px disc (see glowSize). */
+        --vivid-glow-size: 1.11;
         width: 40px;
         height: 40px;
         border-radius: 50%;

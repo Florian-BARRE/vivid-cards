@@ -97,6 +97,8 @@ export class VividLightBadgeDetails extends LitElement {
         opacity: 0.5;
       }
       .dot {
+        /* Halo proportions of a 32 px disc (see glowSize). */
+        --vivid-glow-size: 0.89;
         display: grid;
         place-items: center;
         flex: none;

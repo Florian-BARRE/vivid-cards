@@ -8,8 +8,11 @@ import {
   rgbHex,
 } from '../src/core/color';
 import {
+  glowAlpha,
   glowLevel,
   glowPercent,
+  glowShadow,
+  glowSize,
   glowVars,
   lightTone,
   meanColor,
@@ -48,12 +51,8 @@ describe('power glow', () => {
   it('glows brighter, wider and pulses faster when drawing more', () => {
     const low = powerTone(4, scale);
     const high = powerTone(40, scale);
-    expect(low.shadow).toBe(
-      '0 0 calc(7px * var(--vivid-glow, 1)) rgba(255, 213, 79, calc(0.26 * var(--vivid-glow-alpha, 1)))',
-    );
-    expect(high.shadow).toBe(
-      '0 0 calc(28px * var(--vivid-glow, 1)) rgba(255, 112, 67, calc(0.75 * var(--vivid-glow-alpha, 1)))',
-    );
+    expect(low.shadow).toBe(glowShadow([[255, 213, 79]], powerRatio(4, scale)));
+    expect(high.shadow).toBe(glowShadow([[255, 112, 67]], 1));
     expect(Number.parseFloat(high.pulse ?? '0')).toBeLessThan(Number.parseFloat(low.pulse ?? '0'));
     expect(high.iconColor).toBe('var(--primary-text-color)');
   });
@@ -68,9 +67,10 @@ describe('light and toggle tones', () => {
     const tone = lightTone([255, 0, 0], true);
     expect(tone.background).toBe('rgb(255, 0, 0)');
     expect(tone.iconColor).toBe('#ffffff');
+    // Red is dark: its halo gets more opacity than amber's (0.24) to read as strong.
     expect(tone.shadow).toBe(
-      '0 0 calc(18px * var(--vivid-glow, 1)) rgba(255, 0, 0, calc(0.8 * var(--vivid-glow-alpha, 1))), ' +
-        '0 0 calc(60px * var(--vivid-glow, 1)) calc(4px * var(--vivid-glow, 1)) rgba(255, 0, 0, calc(0.8 * var(--vivid-glow-alpha, 1)))',
+      '0 0 calc(4.2px * var(--vivid-glow, 1) * var(--vivid-glow-size, 1)) rgba(255, 0, 0, calc(0.52 * var(--vivid-glow-alpha, 1))), ' +
+        '0 0 calc(14px * var(--vivid-glow, 1) * var(--vivid-glow-size, 1)) calc(0.9px * var(--vivid-glow, 1) * var(--vivid-glow-size, 1)) rgba(255, 0, 0, calc(0.52 * var(--vivid-glow-alpha, 1)))',
     );
     expect(lightTone([255, 0, 0], false)).toEqual({});
     expect(lightTone([[255, 0, 0]], true)).toEqual(lightTone([255, 0, 0], true));
@@ -83,7 +83,7 @@ describe('light and toggle tones', () => {
     const full = blurs(lightTone([255, 0, 0], true, 100).shadow);
     expect(dim[0]).toBeLessThan(5);
     expect(dim[1]).toBeLessThan(10);
-    expect(full.slice(0, 2)).toEqual([18, 60]);
+    expect(full.slice(0, 2)).toEqual([4.2, 14]);
     const half = blurs(lightTone([255, 0, 0], true, 50).shadow);
     expect(half[1]).toBeGreaterThan(dim[1] ?? 0);
     expect(half[1]).toBeLessThan(full[1] ?? 0);
@@ -99,9 +99,11 @@ describe('light and toggle tones', () => {
       true,
     );
     expect(tone.background).toBe('linear-gradient(120deg, rgb(255, 0, 0) 0%, rgb(0, 0, 255) 100%)');
-    expect(tone.shadow).toContain('rgba(128, 0, 128, calc(0.8 * var(--vivid-glow-alpha, 1)))');
-    expect(tone.shadow).toContain('calc(-12px * var(--vivid-glow, 1)) 0 calc(60px');
-    expect(tone.shadow).toContain('rgba(0, 0, 255, calc(0.8 * var(--vivid-glow-alpha, 1)))');
+    expect(tone.shadow).toContain('rgba(128, 0, 128, calc(0.7 * var(--vivid-glow-alpha, 1)))');
+    expect(tone.shadow).toContain(
+      'calc(-3px * var(--vivid-glow, 1) * var(--vivid-glow-size, 1)) 0 calc(14px',
+    );
+    expect(tone.shadow).toContain('rgba(0, 0, 255, calc(0.7 * var(--vivid-glow-alpha, 1)))');
     expect(meanColor([])).toEqual([0, 0, 0]);
   });
 
@@ -171,13 +173,13 @@ describe('halo strength and boost', () => {
     expect(glowPercent('huge')).toBeUndefined();
   });
 
-  it('scales the size, and the opacity up to its full value', () => {
+  it('scales the size and the opacity alike', () => {
     expect(glowVars(50)).toEqual({
       '--vivid-glow': '0.5',
       '--vivid-glow-alpha': '0.5',
       '--vivid-glow-play': 'running',
     });
-    expect(glowVars(170, 0.6)).toMatchObject({ '--vivid-glow': '1.02', '--vivid-glow-alpha': '1' });
+    expect(glowVars(170)).toMatchObject({ '--vivid-glow': '1.7', '--vivid-glow-alpha': '1.7' });
     expect(glowVars(0)['--vivid-glow-play']).toBe('paused');
   });
 
@@ -207,5 +209,28 @@ describe('white lights', () => {
     expect(tone.iconColor).toContain('color-mix(in srgb, rgb(255, 193, 7) 78%');
     expect(tone.shadow).toBe(lightTone([255, 193, 7], true, 100).shadow);
     expect(softLightTone([255, 193, 7], false)).toEqual({});
+  });
+});
+
+describe('one halo for every element', () => {
+  it('gives every color about the same strength', () => {
+    // Amber is the reference; darker colors get more opacity, within bounds.
+    expect(glowAlpha([255, 193, 7])).toBe(0.24);
+    expect(glowAlpha([66, 165, 245])).toBeGreaterThan(0.24);
+    expect(glowAlpha([138, 43, 226])).toBe(0.7);
+    expect(glowAlpha([255, 255, 255])).toBe(0.16);
+  });
+
+  it('scales with the element size', () => {
+    expect(glowSize(36)).toBe('1');
+    expect(glowSize(56)).toBe('1.56');
+    expect(glowSize(28)).toBe('0.78');
+  });
+
+  it('is the same halo on a badge, a lamp and a light at full level', () => {
+    const amber: Rgb = [255, 193, 7];
+    expect(lightTone(amber, true, 100).shadow).toBe(glowShadow([amber], 1));
+    expect(softLightTone(amber, true, 100).shadow).toBe(glowShadow([amber], 1));
+    expect(glowShadow([], 1)).toBe('');
   });
 });

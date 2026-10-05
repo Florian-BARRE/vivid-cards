@@ -47,16 +47,15 @@ export function glowPercent(value: unknown): number | undefined {
 }
 
 /**
- * CSS variables carrying a halo strength (percent) to every halo below them.
- * The size follows the strength; the opacity too, up to its full value, so a
- * low strength gives a discreet halo rather than a tight bright one.
- * `sizeScale` shrinks the halos of small surfaces (badges).
+ * CSS variables carrying a halo strength (percent) to every halo below them:
+ * both the size and the opacity follow it, so 50 % is a discreet halo and
+ * 200 % a wide, bright one. The same value looks the same on every component.
  */
-export function glowVars(percent: number, sizeScale = 1): Record<string, string> {
+export function glowVars(percent: number): Record<string, string> {
   const factor = Math.max(0, percent) / 100;
   return {
-    '--vivid-glow': String(round2(factor * sizeScale)),
-    '--vivid-glow-alpha': String(round2(Math.min(1, factor))),
+    '--vivid-glow': String(round2(factor)),
+    '--vivid-glow-alpha': String(round2(factor)),
     '--vivid-glow-play': factor === 0 ? 'paused' : 'running',
   };
 }
@@ -66,27 +65,40 @@ function round2(value: number): number {
 }
 
 /**
- * Badges and the lamp card read their `glow` against a softer base than the
- * LED card: their halos sit on small surfaces, or on many buttons side by
- * side, where the full halo looks overdone. 100 % stays each one's default.
+ * Halo sizes are given for a 36 px control. Each glowing element sets
+ * `--vivid-glow-size` to its own size over 36 (a 56 px lamp button: 1.56),
+ * so a halo keeps the same proportions on a badge and on a big button.
  */
-export const SOFT_GLOW = 0.6;
+export const GLOW_REFERENCE_PX = 36;
+
+/** `--vivid-glow-size` of an element `px` wide. */
+export function glowSize(px: number): string {
+  return String(round2(px / GLOW_REFERENCE_PX));
+}
 
 /** A halo color whose opacity follows `--vivid-glow-alpha`. */
 function glowColor([r, g, b]: Rgb, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, calc(${round2(alpha)} * var(--vivid-glow-alpha, 1)))`;
 }
 
-/** Box shadow whose blur follows `--vivid-glow` and opacity `--vivid-glow-alpha` (0 removes it). */
-export function halo(blur: number, rgb: Rgb, alpha: number, spread = 0): string {
-  const grow = spread ? ` calc(${spread}px * var(--vivid-glow, 1))` : '';
-  return `0 0 calc(${blur}px * var(--vivid-glow, 1))${grow} ${glowColor(rgb, alpha)}`;
+/** A length (px for a 36 px element) scaled by the strength and the element size. */
+function glowLength(px: number): string {
+  return `calc(${px}px * var(--vivid-glow, 1) * var(--vivid-glow-size, 1))`;
 }
 
-/** Like `halo`, shifted sideways (the shift follows `--vivid-glow` too). */
+/**
+ * Box shadow whose blur follows `--vivid-glow` and `--vivid-glow-size`, and
+ * opacity `--vivid-glow-alpha` (0 removes it).
+ */
+export function halo(blur: number, rgb: Rgb, alpha: number, spread = 0): string {
+  const grow = spread ? ` ${glowLength(spread)}` : '';
+  return `0 0 ${glowLength(blur)}${grow} ${glowColor(rgb, alpha)}`;
+}
+
+/** Like `halo`, shifted sideways (the shift scales too). */
 function sideHalo(x: number, blur: number, rgb: Rgb, alpha: number, spread = 0): string {
-  const grow = spread ? ` calc(${spread}px * var(--vivid-glow, 1))` : '';
-  return `calc(${x}px * var(--vivid-glow, 1)) 0 calc(${blur}px * var(--vivid-glow, 1))${grow} ${glowColor(rgb, alpha)}`;
+  const grow = spread ? ` ${glowLength(spread)}` : '';
+  return `${glowLength(x)} 0 ${glowLength(blur)}${grow} ${glowColor(rgb, alpha)}`;
 }
 
 /**
@@ -166,7 +178,7 @@ export function powerTone(watts: number | undefined, scale: PowerScale): ChipTon
   return {
     background: rgbCss(rgb, 0.15 + 0.35 * ratio),
     iconColor: 'var(--primary-text-color)',
-    shadow: halo(Math.round(6 + 22 * ratio), rgb, 0.25 + 0.5 * ratio),
+    shadow: glowShadow([rgb], ratio),
     pulse: `${(2.6 - 1.8 * ratio).toFixed(2)}s`,
   };
 }
@@ -189,31 +201,65 @@ export function lightTone(
   const first = colors[0];
   if (!isOn || !first) return {};
   const level = glowLevel(brightness, boost);
-  const inner = (color: Rgb) => halo(round(4 + 14 * level), color, 0.3 + 0.5 * level);
-  const bloomBlur = round(8 + 52 * level);
-  const bloomSpread = round(4 * level);
-  const bloomAlpha = 0.08 + 0.72 * level;
   if (colors.length === 1) {
     return {
       background: rgbCss(first),
       iconColor: iconOn(first),
-      shadow: `${inner(first)}, ${halo(bloomBlur, first, bloomAlpha, bloomSpread)}`,
+      shadow: glowShadow(colors, level),
     };
   }
-  const last = colors[colors.length - 1] ?? first;
-  const shift = round(4 + 8 * level);
   const stops = colors.map(
     (color, index) => `${rgbCss(color)} ${Math.round((index / (colors.length - 1)) * 100)}%`,
   );
   return {
     background: `linear-gradient(120deg, ${stops.join(', ')})`,
     iconColor: iconOn(meanColor(colors)),
-    shadow: [
-      inner(meanColor(colors)),
-      sideHalo(-shift, bloomBlur, first, bloomAlpha, bloomSpread),
-      sideHalo(shift, bloomBlur, last, bloomAlpha, bloomSpread),
-    ].join(', '),
+    shadow: glowShadow(colors, level),
   };
+}
+
+/** Luminance of Home Assistant's amber, the reference of `glowAlpha`. */
+const AMBER_LUMINANCE = luminance(AMBER);
+
+/**
+ * The reference halo: the lamp badge with every lamp on, as validated on a
+ * real dashboard (0.9.1 at 50 %). On its 28 px disc that is a 3 px rim and an
+ * 11 px bloom at 0.24 opacity; the sizes below are for 36 px.
+ */
+const AMBER_ALPHA = 0.24;
+
+/**
+ * Opacity of a halo at full level. At the same opacity a bright color glows
+ * far more than a dark one (amber against purple), so the opacity follows the
+ * inverse of the luminance: every color reads about as strong.
+ */
+export function glowAlpha(rgb: Rgb): number {
+  const ratio = AMBER_LUMINANCE / Math.max(luminance(rgb), 0.01);
+  return round2(clamp(AMBER_ALPHA * ratio ** 0.75, 0.16, 0.7));
+}
+
+/**
+ * The one halo of every lit element: a thin rim and a bloom around it, both
+ * growing with `level` (0–1: brightness, consumption, severity…). Several
+ * colors (a group) bleed out on each side with the first and last.
+ */
+export function glowShadow(colors: readonly Rgb[], level: number): string {
+  const first = colors[0];
+  if (!first) return '';
+  const k = clamp(level, 0, 1);
+  const rim = (color: Rgb) =>
+    halo(round(1.5 + 2.7 * k), color, round2((0.35 + 0.65 * k) * glowAlpha(color)));
+  const blur = round(3 + 11 * k);
+  const spread = round(0.9 * k);
+  const bloom = (color: Rgb) => round2((0.1 + 0.9 * k) * glowAlpha(color));
+  if (colors.length === 1) return `${rim(first)}, ${halo(blur, first, bloom(first), spread)}`;
+  const last = colors[colors.length - 1] ?? first;
+  const shift = round(1 + 2 * k);
+  return [
+    rim(meanColor(colors)),
+    sideHalo(-shift, blur, first, bloom(first), spread),
+    sideHalo(shift, blur, last, bloom(last), spread),
+  ].join(', ');
 }
 
 function isRgbList(value: Rgb | readonly Rgb[]): value is readonly Rgb[] {
@@ -243,7 +289,7 @@ export function toggleTone(active: boolean): ChipTone {
   return {
     background: rgbCss(AMBER, 0.2),
     iconColor: `var(--amber-color, ${rgbCss(AMBER)})`,
-    shadow: halo(10, AMBER, 0.25),
+    shadow: glowShadow([AMBER], 0.35),
   };
 }
 
@@ -300,7 +346,7 @@ export function tintTone(rgb: Rgb, level: number): ChipTone {
   return {
     background: rgbCss(rgb, 0.24 + 0.16 * k),
     iconColor: `color-mix(in srgb, ${rgbCss(rgb)} 78%, var(--primary-text-color, #ffffff))`,
-    shadow: `${halo(round(4 + 14 * k), rgb, 0.3 + 0.5 * k)}, ${halo(round(8 + 52 * k), rgb, 0.08 + 0.72 * k, round(4 * k))}`,
+    shadow: glowShadow([rgb], k),
   };
 }
 
