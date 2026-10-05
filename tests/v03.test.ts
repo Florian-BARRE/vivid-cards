@@ -20,7 +20,8 @@ describe('v0.3 options', () => {
   it('has sensible defaults', () => {
     const config = resolveConfig(base);
     expect(config.appearance).toEqual({
-      glow: 'normal',
+      glow: 100,
+      glowBoost: 100,
       header: true,
       compact: false,
       gradient: true,
@@ -333,5 +334,16 @@ describe('WLED entities without a known key', () => {
     expect(findWledEntities(hass, 'light.salon_buffet_wled').uptime).toBe(
       'sensor.salon_buffet_wled_uptime',
     );
+  });
+});
+
+describe('halo settings of the card', () => {
+  it('accepts percentages and the former levels', () => {
+    const glow = (appearance: Record<string, unknown>) =>
+      resolveConfig({ ...base, appearance } as LedGroupCardConfig).appearance;
+    expect(glow({ glow: 'soft' })).toMatchObject({ glow: 50, glowBoost: 100 });
+    expect(glow({ glow: 60, glow_boost: 150 })).toMatchObject({ glow: 60, glowBoost: 150 });
+    expect(() => glow({ glow: 201 })).toThrow(/appearance.glow/);
+    expect(() => glow({ glow_boost: 201 })).toThrow(/appearance.glow_boost/);
   });
 });

@@ -1,4 +1,5 @@
 import { lightColor } from '../../core/color';
+import { whiteTone } from '../../core/glow';
 import { expandGroup, friendlyName, isAvailable } from '../../core/entities';
 import type { HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
 import { shortenSiblingNames } from '../../core/naming';
@@ -13,6 +14,8 @@ export interface BadgeLight {
   brightness: number;
   rgb?: Rgb;
   dimmable: boolean;
+  /** White light (temperature, brightness or on/off only): shown in amber tones. */
+  white: boolean;
 }
 
 export interface LightBadgeModel {
@@ -24,6 +27,8 @@ export interface LightBadgeModel {
   total: number;
   /** Colors of the lights that are on, for the gradient. */
   colors: Rgb[];
+  /** Every light that is on is a white light: the softer amber look applies. */
+  white: boolean;
   /** Mean brightness of the lights that are on. */
   brightness: number;
   icon: string;
@@ -69,6 +74,16 @@ const DIMMABLE_MODES = new Set([
   'white',
 ]);
 
+const COLOR_MODES = new Set(['hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
+
+/** No hue to show: color temperature, brightness or on/off lights. */
+function isWhite(attributes: LightAttributes | undefined): boolean {
+  const mode = attributes?.color_mode;
+  if (typeof mode === 'string' && mode) return !COLOR_MODES.has(mode);
+  const modes = attributes?.supported_color_modes;
+  return !(Array.isArray(modes) && modes.some((entry) => COLOR_MODES.has(entry)));
+}
+
 function isDimmable(attributes: LightAttributes | undefined): boolean {
   const modes = attributes?.supported_color_modes;
   return Array.isArray(modes) && modes.some((mode) => DIMMABLE_MODES.has(mode));
@@ -88,14 +103,21 @@ export function buildLightBadgeModel(
     const available = isAvailable(light);
     const isOn = available && light.state === 'on';
     const raw = attributes?.brightness;
+    const white = isWhite(attributes);
+    const kelvin = attributes?.color_temp_kelvin;
     return {
       entityId,
       name: names[index] ?? entityId,
       available,
       isOn,
       brightness: isOn ? (typeof raw === 'number' ? Math.round((raw / 255) * 100) : 100) : 0,
-      rgb: isOn ? lightColor(light) : undefined,
+      rgb: isOn
+        ? white
+          ? whiteTone(typeof kelvin === 'number' ? kelvin : undefined)
+          : lightColor(light)
+        : undefined,
       dimmable: isDimmable(attributes),
+      white,
     };
   });
   const lit = lights.filter((light) => light.isOn);
@@ -111,6 +133,7 @@ export function buildLightBadgeModel(
     on: lit.length,
     total: lights.filter((light) => light.available).length,
     colors: lit.map((light) => light.rgb).filter((rgb): rgb is Rgb => rgb !== undefined),
+    white: lit.length > 0 && lit.every((light) => light.white),
     brightness: lit.length
       ? Math.round(lit.reduce((sum, light) => sum + light.brightness, 0) / lit.length)
       : 0,

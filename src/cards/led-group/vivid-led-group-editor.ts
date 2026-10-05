@@ -4,6 +4,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { SIMPLE_ACTIONS, type ActionName } from '../../core/action-handler';
 import { fireEvent } from '../../core/actions';
 import { kelvinToRgb, parseColor, rgbCss, rgbHex } from '../../core/color';
+import { GLOW_SLIDER } from '../../core/glow';
 import { badgeModel } from '../../core/badges';
 import { parseNumericState } from '../../core/entities';
 import { ensureHaForm } from '../../core/ha-elements';
@@ -17,7 +18,6 @@ import { tokens } from '../../components/shared-styles';
 import { formatWatts } from '../../components/vivid-light-header';
 import {
   COLOR_BAR_MODES,
-  GLOW_LEVELS,
   MAX_FAVORITES,
   MEMBER_ORDERS,
   POWER_MODES,
@@ -72,6 +72,7 @@ const LABELS: Record<string, EditorStringKey> = {
   price: 'price',
   details_history: 'details_history',
   glow: 'glow',
+  glow_boost: 'glow_boost',
   header: 'show_header',
   compact: 'compact',
   gradient: 'gradient',
@@ -102,6 +103,7 @@ const ACTION_LABELS: Partial<Record<ActionName, EditorStringKey>> = {
 };
 
 const CUSTOM = 'custom';
+
 const DEFAULT = 'default';
 
 /** Simple action name of a config value, `custom` for anything richer. */
@@ -742,15 +744,8 @@ export class VividLedGroupEditor extends LitElement {
     const config = this._config ?? ({} as LedGroupCardConfig);
     return html`${this.form(
       [
-        {
-          name: 'glow',
-          selector: this.select(
-            GLOW_LEVELS.map((level) => ({
-              value: level,
-              label: this.t(`glow_${level}` as EditorStringKey),
-            })),
-          ),
-        },
+        { name: 'glow', selector: GLOW_SLIDER },
+        { name: 'glow_boost', selector: GLOW_SLIDER },
         { name: 'header', selector: { boolean: {} } },
         { name: 'compact', selector: { boolean: {} } },
         ...(model.isGroup ? [{ name: 'gradient', selector: { boolean: {} } }] : []),
@@ -758,19 +753,31 @@ export class VividLedGroupEditor extends LitElement {
       ],
       {
         glow: resolved.appearance.glow,
+        glow_boost: resolved.appearance.glowBoost,
         header: resolved.appearance.header,
         compact: resolved.appearance.compact,
         gradient: resolved.appearance.gradient,
         animate_effects: resolved.appearance.animateEffects,
       },
       (value) => {
-        let next = setOption(config, 'appearance', 'glow', value.glow, 'normal');
+        // A named level written in YAML stays until the slider moves.
+        let next =
+          value.glow === resolved.appearance.glow
+            ? config
+            : setOption(config, 'appearance', 'glow', value.glow, 100);
+        next = setOption(next, 'appearance', 'glow_boost', value.glow_boost, 100);
         next = setOption(next, 'appearance', 'header', value.header, true);
         next = setOption(next, 'appearance', 'compact', value.compact, false);
         if (model.isGroup) next = setOption(next, 'appearance', 'gradient', value.gradient, true);
         next = setOption(next, 'appearance', 'animate_effects', value.animate_effects, true);
         this.commit(next);
       },
+      (schema) =>
+        schema.name === 'glow'
+          ? this.t('glow_helper')
+          : schema.name === 'glow_boost'
+            ? this.t('glow_boost_helper')
+            : undefined,
     )}`;
   }
 
@@ -1134,7 +1141,8 @@ export class VividLedGroupEditor extends LitElement {
   private renderAppearanceSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const appearance = resolved.appearance;
     const summary = this.join([
-      `${this.t('glow')} : ${this.t(`glow_${appearance.glow}` as EditorStringKey).toLowerCase()}`,
+      `${this.t('glow')} : ${appearance.glow} %`,
+      appearance.glowBoost !== 100 && `${this.t('glow_boost')} : ${appearance.glowBoost} %`,
       appearance.compact && this.t('compact').toLowerCase(),
       !appearance.header && this.t('summary_no_header'),
       model.isGroup && !appearance.gradient && this.t('summary_no_gradient'),

@@ -45,6 +45,10 @@ function row(title: string, items: HTMLElement[]): HTMLElement {
 
 const looks = (params.get('looks') ?? 'disc').split(',');
 const layout = params.get('layout') ?? 'list';
+const halo = {
+  ...(params.has('glow') ? { glow: Number(params.get('glow')) } : {}),
+  ...(params.has('boost') ? { glow_boost: Number(params.get('boost')) } : {}),
+};
 for (const look of looks) {
   const block = document.createElement('div');
   if (looks.length > 1) {
@@ -54,8 +58,8 @@ for (const look of looks) {
   }
   block.append(
     row('Salon', [
-      badge({ entity: LAMPS_GROUP_ID, look, layout }),
-      badge({ entity: GROUP_ID, look, layout }),
+      badge({ entity: LAMPS_GROUP_ID, look, layout, ...halo }),
+      badge({ entity: GROUP_ID, look, layout, ...halo }),
       native('mdi:window-closed-variant', '0'),
       native('mdi:weather-night', '0'),
       native('mdi:flash', '5 W', '#ffb74d'),

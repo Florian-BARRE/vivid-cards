@@ -4,7 +4,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { fireEvent, haptic, setBrightness, toggleEntity } from '../../core/actions';
 import { clamp, WARM_WHITE } from '../../core/color';
-import { lightTone } from '../../core/glow';
+import { lightTone, softLightTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { defineElement } from '../../core/register';
 import { localize } from '../../i18n';
@@ -48,6 +48,7 @@ export class VividLightBadgeDetails extends LitElement {
     model: { attribute: false },
     transition: { type: Number },
     layout: {},
+    glowBoost: { type: Number },
     _preview: { state: true },
   };
 
@@ -55,6 +56,8 @@ export class VividLightBadgeDetails extends LitElement {
   declare model?: LightBadgeModel;
   declare transition?: number;
   declare layout: DetailsLayout;
+  /** Percent; see `glowLevel`. */
+  declare glowBoost?: number;
   /** Brightness shown while dragging, per light. */
   declare _preview: Record<string, number>;
 
@@ -356,7 +359,12 @@ export class VividLightBadgeDetails extends LitElement {
   }
 
   private dotStyle(light: BadgeLight) {
-    const tone = lightTone(light.rgb ?? WARM_WHITE, light.isOn, light.brightness);
+    const tone = (light.white ? softLightTone : lightTone)(
+      light.rgb ?? WARM_WHITE,
+      light.isOn,
+      light.brightness,
+      this.glowBoost,
+    );
     return styleMap({
       '--dot-bg': tone.background,
       '--dot-shadow': tone.shadow,

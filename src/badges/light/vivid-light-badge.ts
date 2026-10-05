@@ -3,7 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { runAction } from '../../core/action-handler';
 import { haptic, openMoreInfo } from '../../core/actions';
-import { GLOW_FACTORS, lightTone } from '../../core/glow';
+import { glowVars, lightTone, softLightTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { localize } from '../../i18n';
@@ -31,9 +31,15 @@ function badgeLook(
   config: ResolvedLightBadgeConfig,
   model: LightBadgeModel,
 ): Record<string, string | undefined> {
-  const glow = String(GLOW_FACTORS[config.glow] * BADGE_GLOW);
-  if (model.on === 0 || model.colors.length === 0) return { '--vivid-glow': glow };
-  const tone = lightTone(model.colors, true, model.brightness);
+  const glow = glowVars(config.glow, BADGE_GLOW);
+  if (model.on === 0 || model.colors.length === 0) return glow;
+  // White lights take Home Assistant's amber, translucent; colored lights fill solid.
+  const tone = (model.white ? softLightTone : lightTone)(
+    model.colors,
+    true,
+    model.brightness,
+    config.glowBoost,
+  );
   // White ink only: dark ink is chosen precisely because the surface is light.
   const ink =
     tone.iconColor === '#ffffff'
@@ -44,9 +50,12 @@ function badgeLook(
       : {};
   if (config.look === 'pill') {
     return {
+      ...glow,
       ...ink,
-      '--vivid-glow': glow,
-      '--badge-bg': tone.background,
+      // A translucent fill lies over the badge's own background.
+      '--badge-bg': model.white
+        ? `linear-gradient(${tone.background}, ${tone.background}), var(--ha-card-background, var(--card-background-color, #1c1c1c))`
+        : tone.background,
       '--badge-color': tone.iconColor,
       '--badge-shadow': tone.shadow,
       '--badge-border': 'transparent',
@@ -55,8 +64,8 @@ function badgeLook(
     };
   }
   return {
+    ...glow,
     ...ink,
-    '--vivid-glow': glow,
     '--icon-bg': tone.background,
     '--icon-color': tone.iconColor,
     '--icon-shadow': tone.shadow,
@@ -348,14 +357,16 @@ export class VividLightBadge extends LitElement {
 
   private renderDetails(): void {
     if (!this.detailsPopover || !this.model || !this._config) return;
-    const glow = this._config.glow;
-    this.detailsPopover.style.setProperty('--vivid-glow', String(GLOW_FACTORS[glow]));
+    for (const [name, value] of Object.entries(glowVars(this._config.glow))) {
+      this.detailsPopover.style.setProperty(name, value);
+    }
     this.detailsPopover.label = this.model.name;
     this.detailsPopover.content = html`<vivid-light-badge-details
       .hass=${this.hass}
       .model=${this.model}
       .transition=${this._config.transition}
       .layout=${this._config.layout}
+      .glowBoost=${this._config.glowBoost}
     ></vivid-light-badge-details>`;
   }
 

@@ -1,11 +1,9 @@
 import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
-import type { GlowLevel } from '../../core/glow';
+import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import type { LovelaceCardConfig } from '../../core/hass-types';
 
 export const BADGE_TYPE = 'vivid-light-badge';
-
-export const GLOW_LEVELS: GlowLevel[] = ['off', 'soft', 'normal', 'strong'];
 
 /** How the colors show while on: a filled disc behind the icon, or the whole badge filled. */
 export type BadgeLook = 'disc' | 'pill';
@@ -25,7 +23,10 @@ export interface LightBadgeConfig extends LovelaceCardConfig {
   icon_off?: string;
   /** "2/3" (or "78 %" for one light) next to the icon while on. */
   show_count?: boolean;
-  glow?: GlowLevel;
+  /** Halo strength in percent (100 = default), or off / soft / normal / strong. */
+  glow?: GlowSetting;
+  /** How much the halo grows with the brightness, in percent (100 = default). */
+  glow_boost?: number;
   look?: BadgeLook;
   layout?: DetailsLayout;
   /** Seconds of fade sent with every light command. */
@@ -41,7 +42,10 @@ export interface ResolvedLightBadgeConfig {
   icon?: string;
   iconOff?: string;
   showCount: boolean;
-  glow: GlowLevel;
+  /** Percent. */
+  glow: number;
+  /** Percent. */
+  glowBoost: number;
   look: BadgeLook;
   layout: DetailsLayout;
   transition?: number;
@@ -76,8 +80,16 @@ export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig 
   if (config.show_count !== undefined && typeof config.show_count !== 'boolean') {
     fail('"show_count" must be true or false.');
   }
-  if (config.glow !== undefined && !GLOW_LEVELS.includes(config.glow)) {
-    fail(`"glow" must be one of: ${GLOW_LEVELS.join(', ')}.`);
+  const glow = config.glow === undefined ? 100 : glowPercent(config.glow);
+  if (glow === undefined) {
+    fail(`"glow" must be a percentage from 0 to ${GLOW_MAX}, or ${GLOW_LEVELS.join(', ')}.`);
+  }
+  const boost = config.glow_boost;
+  if (
+    boost !== undefined &&
+    (typeof boost !== 'number' || !Number.isFinite(boost) || boost < 0 || boost > GLOW_MAX)
+  ) {
+    fail(`"glow_boost" must be a percentage from 0 to ${GLOW_MAX}.`);
   }
   if (config.look !== undefined && !BADGE_LOOKS.includes(config.look)) {
     fail(`"look" must be one of: ${BADGE_LOOKS.join(', ')}.`);
@@ -99,7 +111,8 @@ export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig 
     icon: text(config.icon, 'icon'),
     iconOff: text(config.icon_off, 'icon_off'),
     showCount: config.show_count ?? true,
-    glow: config.glow ?? 'normal',
+    glow,
+    glowBoost: boost ?? 100,
     look: config.look ?? 'disc',
     layout: config.layout ?? 'list',
     transition,

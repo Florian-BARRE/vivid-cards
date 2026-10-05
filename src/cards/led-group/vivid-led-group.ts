@@ -3,7 +3,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { runAction, type ActionConfig } from '../../core/action-handler';
 import { openMoreInfo } from '../../core/actions';
 import { domainOf } from '../../core/entities';
-import { GLOW_FACTORS } from '../../core/glow';
+import { glowVars } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
@@ -133,8 +133,7 @@ export class VividLedGroup extends LitElement {
     const appearance = this._config?.appearance;
     if (!appearance) return {};
     return {
-      '--vivid-glow': String(GLOW_FACTORS[appearance.glow]),
-      '--vivid-glow-play': appearance.glow === 'off' ? 'paused' : 'running',
+      ...glowVars(appearance.glow),
       ...(appearance.compact ? { '--vivid-card-chip-height': '30px' } : {}),
     };
   }
@@ -268,6 +267,7 @@ export class VividLedGroup extends LitElement {
           .rgb=${model.rgb}
           .colors=${model.colors}
           .brightness=${model.brightness}
+          .glowBoost=${config.appearance.glowBoost}
           .lightOptions=${this.lightOptions}
           .showPower=${config.power.enabled}
           .hasPower=${model.hasPower}

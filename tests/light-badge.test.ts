@@ -12,7 +12,8 @@ describe('light badge config', () => {
     expect(config()).toMatchObject({
       entity: GROUP_ID,
       showCount: true,
-      glow: 'normal',
+      glow: 100,
+      glowBoost: 100,
       look: 'disc',
       layout: 'list',
       tapAction: { action: 'toggle' },
@@ -127,5 +128,24 @@ describe('ink on light colors', () => {
     expect(iconOn([255, 255, 255])).not.toBe('#ffffff');
     expect(iconOn([255, 214, 170])).not.toBe('#ffffff');
     expect(lightTone([255, 255, 255], true).iconColor).not.toBe('#ffffff');
+  });
+});
+
+describe('light badge halo and white lights', () => {
+  it('reads the halo strength and boost', () => {
+    expect(config({ glow: 'soft', glow_boost: 0 })).toMatchObject({ glow: 50, glowBoost: 0 });
+    expect(config({ glow: 140 })).toMatchObject({ glow: 140 });
+    expect(() => config({ glow: 300 })).toThrow(/glow/);
+    expect(() => config({ glow_boost: 300 })).toThrow(/glow_boost/);
+  });
+
+  it('shows warm white lamps in amber and keeps the LED colors', () => {
+    const { hass } = createMockHass();
+    const lamps = buildLightBadgeModel(hass, config({ entity: LAMPS_GROUP_ID }));
+    expect(lamps.white).toBe(true);
+    expect(lamps.colors).toEqual([[255, 193, 7]]);
+    const leds = buildLightBadgeModel(hass, config());
+    expect(leds.white).toBe(false);
+    expect(leds.lights.every((light) => !light.white)).toBe(true);
   });
 });

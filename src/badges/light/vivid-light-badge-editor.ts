@@ -1,6 +1,7 @@
 import { LitElement, css, html, nothing } from 'lit';
 import { SIMPLE_ACTIONS, type ActionName } from '../../core/action-handler';
 import { fireEvent } from '../../core/actions';
+import { GLOW_SLIDER, glowPercent } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
 import { defineElement } from '../../core/register';
@@ -9,7 +10,6 @@ import { tokens } from '../../components/shared-styles';
 import {
   BADGE_LOOKS,
   DETAILS_LAYOUTS,
-  GLOW_LEVELS,
   resolveLightBadgeConfig,
   type LightBadgeConfig,
 } from './config';
@@ -28,7 +28,8 @@ const LABELS: Record<string, EditorStringKey> = {
   show_count: 'show_count',
   look: 'badge_look',
   layout: 'badge_layout',
-  glow: 'badge_glow',
+  glow: 'glow',
+  glow_boost: 'glow_boost',
   transition: 'transition',
   tap_action: 'tap_action',
   hold_action: 'hold_action',
@@ -155,7 +156,9 @@ export class VividLightBadgeEditor extends LitElement {
     set('icon', value.icon);
     set('icon_off', value.icon_off);
     set('show_count', value.show_count, true);
-    set('glow', value.glow, 'normal');
+    // A named level written in YAML stays until the slider moves.
+    if (value.glow !== glowPercent(previous.glow ?? 100)) set('glow', value.glow, 100);
+    set('glow_boost', value.glow_boost, 100);
     set('look', value.look, 'disc');
     set('layout', value.layout, 'list');
     set('transition', value.transition);
@@ -204,33 +207,17 @@ export class VividLightBadgeEditor extends LitElement {
         type: 'grid',
         name: '',
         schema: [
-          {
-            name: 'glow',
-            selector: {
-              select: {
-                mode: 'dropdown',
-                options: GLOW_LEVELS.map((level) => ({
-                  value: level,
-                  label: this.t(`glow_${level}` as EditorStringKey),
-                })),
-              },
-            },
-          },
-          {
-            name: 'transition',
-            selector: {
-              number: { min: 0, max: 30, step: 0.1, mode: 'box', unit_of_measurement: 's' },
-            },
-          },
-        ],
-      },
-      {
-        type: 'grid',
-        name: '',
-        schema: [
           { name: 'look', selector: this.choice(BADGE_LOOKS, 'look_') },
           { name: 'layout', selector: this.choice(DETAILS_LAYOUTS, 'layout_') },
         ],
+      },
+      { name: 'glow', selector: GLOW_SLIDER },
+      { name: 'glow_boost', selector: GLOW_SLIDER },
+      {
+        name: 'transition',
+        selector: {
+          number: { min: 0, max: 30, step: 0.1, mode: 'box', unit_of_measurement: 's' },
+        },
       },
       { name: 'show_count', selector: { boolean: {} } },
     ];
@@ -240,7 +227,8 @@ export class VividLightBadgeEditor extends LitElement {
       icon: config.icon,
       icon_off: config.icon_off,
       show_count: config.show_count ?? true,
-      glow: config.glow ?? 'normal',
+      glow: glowPercent(config.glow ?? 100) ?? 100,
+      glow_boost: config.glow_boost ?? 100,
       look: config.look ?? 'disc',
       layout: config.layout ?? 'list',
       transition: config.transition,
@@ -257,9 +245,13 @@ export class VividLightBadgeEditor extends LitElement {
             ? this.t('icon_auto', { icon: autoIcon })
             : field.name === 'icon_off'
               ? offHelper
-              : field.name === 'transition'
-                ? this.t('transition_helper')
-                : undefined}
+              : field.name === 'glow'
+                ? this.t('glow_helper')
+                : field.name === 'glow_boost'
+                  ? this.t('glow_boost_helper')
+                  : field.name === 'transition'
+                    ? this.t('transition_helper')
+                    : undefined}
         @value-changed=${(event: CustomEvent<{ value: FormData }>) => {
           event.stopPropagation();
           this.onChange(event.detail.value);
