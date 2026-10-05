@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-10-05
+
+### Changed
+
+- Softer default halo on every badge and on the lamp card: their `glow` now
+  reads against 60 % of the LED card's halo, so the default (100 %) is less
+  intense. The LED card keeps its halo. A `glow` set by hand is softer too:
+  raise it to get the former look (about 170 %).
+
 ## [0.9.0] - 2026-10-05
 
 ### Added
@@ -216,6 +225,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.9.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.1
 [0.9.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.0
 [0.8.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.7.0
