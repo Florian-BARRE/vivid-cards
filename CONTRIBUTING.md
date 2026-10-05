@@ -19,10 +19,13 @@ src/
     register.ts         Custom element and card picker registration.
   integrations/         Knowledge about specific integrations (WLED, power).
   components/           Reusable elements shared by every card (vivid-*): chips,
-                        tiles, header, dialog, color bar, power chart, WLED panel.
+                        tiles, header, dialog, popover, color bar, power chart,
+                        WLED panel.
   cards/<card>/         One folder per card: config, model, editor, elements.
+  badges/<badge>/       One folder per badge, same structure as a card.
   i18n/                 Interface strings (en, fr).
-dev/                    Preview page and the simulated Home Assistant.
+dev/                    Preview pages (cards, editors, badges) and the simulated
+                        Home Assistant.
 tests/                  Vitest unit tests.
 ```
 
@@ -54,6 +57,9 @@ tests/                  Vitest unit tests.
    `dev/editor.ts` (`dev/ha-stubs.ts` stands in for `ha-form`).
 4. Test the model and the editor helpers in `tests/`.
 5. Document it in the README.
+
+A badge follows the same steps in `src/badges/<name>/`, registered with
+`registerBadge` (`window.customBadges`) and previewed in `dev/badges.ts`.
 
 ## Releasing
 

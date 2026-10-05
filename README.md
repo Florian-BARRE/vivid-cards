@@ -16,9 +16,10 @@ badge that shines brighter the more a strip draws.
 - **Theme aware.** Follows your Home Assistant theme, light or dark, in English
   and French.
 
-| Card                                  | What it is for                                                      |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| [`vivid-led-group`](#vivid-led-group) | A light group or a single light, WLED aware, with details per light |
+| Card                                              | What it is for                                                          |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| [`vivid-led-group`](#vivid-led-group)             | A light group or a single light, WLED aware, with details per light     |
+| [`vivid-light-badge`](#vivid-light-badge) (badge) | Lights on out of the total; tap toggles them all, hold shows each light |
 
 More cards and badges (battery, doors and windows, presence, illuminance…) are on
 the [roadmap](#roadmap).
@@ -217,7 +218,7 @@ details:
   sort: custom
   order: [light.salon_tv_wled, light.salon_sofa_wled]
 appearance:
-  glow: strong
+  glow: 60
 members:
   - entity: light.salon_sofa_wled
     name: Sofa
@@ -300,13 +301,14 @@ their value, on/off entities light up while on.
 
 `appearance`:
 
-| Option            | Default  | Description                            |
-| ----------------- | -------- | -------------------------------------- |
-| `glow`            | `normal` | `off`, `soft`, `normal` or `strong`.   |
-| `header`          | `true`   | Header row (name and badges).          |
-| `compact`         | `false`  | Smaller controls.                      |
-| `gradient`        | `true`   | Power button of a group in a gradient. |
-| `animate_effects` | `true`   | Shimmer while an effect runs.          |
+| Option            | Default | Description                                                                                                                                        |
+| ----------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `glow`            | `100`   | Halo strength in percent, 0 to 200 (`0` removes halos). `off`, `soft`, `normal` and `strong` still work (0, 50, 100, 170).                         |
+| `glow_boost`      | `100`   | How much the power button halo grows with the brightness, 0 to 200. `0`: same halo at any brightness; `200`: discreet when dimmed, strong at full. |
+| `header`          | `true`  | Header row (name and badges).                                                                                                                      |
+| `compact`         | `false` | Smaller controls.                                                                                                                                  |
+| `gradient`        | `true`  | Power button of a group in a gradient.                                                                                                             |
+| `animate_effects` | `true`  | Shimmer while an effect runs.                                                                                                                      |
 
 `members` entries:
 
@@ -385,6 +387,56 @@ equivalent; the editor saves the new form. 0.3 and 0.4 only add options.
 | `show_effects`       | `tile.effects`         |
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
+
+## vivid-light-badge
+
+A badge for the badge bar of a dashboard (Home Assistant 2024.8 or later). Point
+it at a light group, or a single light.
+
+<p>
+  <img src="docs/assets/light-badge.png" alt="Vivid light badge with its details open" width="400" />
+</p>
+
+- **Everything off**: the crossed-out icon, greyed, nothing else. LED strips use
+  the crossed-out strip icon, bulbs the crossed-out bulb; other icons get a
+  stroke drawn across them.
+- **Something on**: the icon in the colors of the lights that are on (a gradient
+  for a group) with `2/3` next to it, or the brightness for a single light. The
+  halo grows with the brightness. White lights (color temperature, dimmer or
+  on/off) take Home Assistant's amber, translucent; colored lights fill solid.
+- **Tap**: anything on turns everything off; everything off turns everything on.
+- **Hold**: every light under the badge, with its color, a switch and a
+  brightness slider. Hold a name for the light's Home Assistant dialog. A tap
+  outside or Escape closes it.
+
+```yaml
+badges:
+  - type: custom:vivid-light-badge
+    entity: light.salon_leds
+  - type: custom:vivid-light-badge
+    entity: light.salon_lamps
+    look: pill
+    layout: compact
+    glow: 50
+```
+
+| Option        | Default    | Description                                                                                       |
+| ------------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `entity`      | (required) | A light group or a light.                                                                         |
+| `name`        | entity     | Title of the details.                                                                             |
+| `icon`        | auto       | Icon while on. Auto: the entity's icon, else an LED strip for WLED groups, else a bulb.           |
+| `icon_off`    | auto       | Icon while off. Auto: the crossed-out version of `icon`, or `icon` with a stroke.                 |
+| `look`        | `disc`     | `disc`: the colors on a disc behind the icon. `pill`: the whole badge filled.                     |
+| `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim). |
+| `show_count`  | `true`     | `2/3` (or the brightness of a single light) next to the icon while on.                            |
+| `glow`        | `100`      | Halo strength in percent, 0 to 200, as on the card.                                               |
+| `glow_boost`  | `100`      | How much the halo grows with the brightness, 0 to 200, as on the card.                            |
+| `transition`  | none       | Seconds of fade sent with every command.                                                          |
+| `tap_action`  | `toggle`   | Any card action; `toggle` switches the whole group.                                               |
+| `hold_action` | `details`  | `details` opens the lights under the badge.                                                       |
+
+The count leaves out lights Home Assistant cannot reach: they show as
+unavailable in the details.
 
 ## Troubleshooting
 
