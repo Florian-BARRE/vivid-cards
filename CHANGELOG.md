@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-10-05
+
+### Added
+
+- `vivid-opening-badge`: doors and windows open out of the total; the color
+  warms up with the oldest opening (`warn_after`, `alert_after`) and pulses
+  when it is late.
+- `vivid-presence-badge`: one room (present for, or seen ago) or rooms
+  occupied out of the total, with each room's last six hours in the details.
+- `vivid-illuminance-badge`: mean (or `aggregate`) of a group, with an icon
+  from the moon to the sun, a color and a log gauge ring.
+- `vivid-power-badge`: sum of a group (kW converted) with the consumption glow
+  of the LED card, pulsing from half of `max`.
+- `vivid-battery-badge`: lowest battery of a group or of the whole home, in an
+  icon that empties and turns red; `display: low_count` shows how many are low.
+- Every status badge: `look`, `glow`, `entities` instead of a group, details
+  under the badge where a row opens the entity's dialog, and a visual editor.
+
+### Changed
+
+- The light badge shares the new badge base; its behavior is unchanged.
+
 ## [0.5.1] - 2026-10-05
 
 ### Added
@@ -148,6 +170,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.6.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.6.0
 [0.5.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.0
 [0.4.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.1

@@ -4,6 +4,11 @@
  */
 import './cards/led-group/vivid-led-group';
 import './badges/light/vivid-light-badge';
+import './badges/opening/vivid-opening-badge';
+import './badges/presence/vivid-presence-badge';
+import './badges/illuminance/vivid-illuminance-badge';
+import './badges/power/vivid-power-badge';
+import './badges/battery/vivid-battery-badge';
 
 export const VERSION = __VIVID_VERSION__;
 

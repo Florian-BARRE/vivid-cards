@@ -256,19 +256,7 @@ const WHITE_TONES: readonly (readonly [number, Rgb])[] = [
  */
 export function whiteTone(kelvin?: number): Rgb {
   if (kelvin === undefined || !Number.isFinite(kelvin)) return AMBER;
-  const [firstKelvin, firstRgb] = WHITE_TONES[0] as readonly [number, Rgb];
-  if (kelvin <= firstKelvin) return firstRgb;
-  for (let index = 1; index < WHITE_TONES.length; index += 1) {
-    const [toKelvin, to] = WHITE_TONES[index] as readonly [number, Rgb];
-    const [fromKelvin, from] = WHITE_TONES[index - 1] as readonly [number, Rgb];
-    if (kelvin <= toKelvin) {
-      const t = (kelvin - fromKelvin) / (toKelvin - fromKelvin);
-      return from.map((value, channel) =>
-        Math.round(value + ((to[channel] ?? value) - value) * t),
-      ) as Rgb;
-    }
-  }
-  return (WHITE_TONES[WHITE_TONES.length - 1] as readonly [number, Rgb])[1];
+  return blendStops(WHITE_TONES, kelvin);
 }
 
 /**
@@ -292,4 +280,37 @@ export function softLightTone(
     iconColor: `color-mix(in srgb, ${rgbCss(tone)} 78%, var(--primary-text-color, #ffffff))`,
     shadow: lightTone(colors, true, brightness, boost).shadow,
   };
+}
+
+/**
+ * Tinted tone of a status badge: a translucent fill in `rgb`, the icon in
+ * that color and the light halo, all at `level` (0–1) instead of a
+ * brightness. Severity-driven badges (an open window for long, a low battery)
+ * raise the level as the situation gets worse.
+ */
+export function tintTone(rgb: Rgb, level: number): ChipTone {
+  const k = clamp(level, 0, 1);
+  return {
+    background: rgbCss(rgb, 0.24 + 0.16 * k),
+    iconColor: `color-mix(in srgb, ${rgbCss(rgb)} 78%, var(--primary-text-color, #ffffff))`,
+    shadow: `${halo(round(4 + 14 * k), rgb, 0.3 + 0.5 * k)}, ${halo(round(8 + 52 * k), rgb, 0.08 + 0.72 * k, round(4 * k))}`,
+  };
+}
+
+/** Linear blend of colors placed at `stops` (ascending positions), at `position`. */
+export function blendStops(stops: readonly (readonly [number, Rgb])[], position: number): Rgb {
+  const first = stops[0];
+  if (!first) return [0, 0, 0];
+  if (position <= first[0]) return first[1];
+  for (let index = 1; index < stops.length; index += 1) {
+    const to = stops[index] as readonly [number, Rgb];
+    const from = stops[index - 1] as readonly [number, Rgb];
+    if (position <= to[0]) {
+      const t = (position - from[0]) / Math.max(to[0] - from[0], Number.EPSILON);
+      return from[1].map((value, channel) =>
+        Math.round(value + ((to[1][channel] ?? value) - value) * t),
+      ) as Rgb;
+    }
+  }
+  return (stops[stops.length - 1] as readonly [number, Rgb])[1];
 }

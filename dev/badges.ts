@@ -1,7 +1,20 @@
 import { defineHaStubs } from './ha-stubs';
-import { GROUP_ID, LAMPS_GROUP_ID, PLUGS_GROUP_ID, createMockHass } from './mock-hass';
+import {
+  DOORS_GROUP_ID,
+  GROUP_ID,
+  ILLUMINANCE_GROUP_ID,
+  LAMPS_GROUP_ID,
+  PLUGS_GROUP_ID,
+  POWER_GROUP_ID,
+  PRESENCE_GROUP_ID,
+  WINDOWS_GROUP_ID,
+  createMockHass,
+} from './mock-hass';
 import type { HomeAssistant } from '../src/core/hass-types';
-import type { VividLightBadge } from '../src/badges/light/vivid-light-badge';
+type BadgeElement = HTMLElement & {
+  hass?: HomeAssistant;
+  setConfig(config: Record<string, unknown>): void;
+};
 
 defineHaStubs();
 await import('../src/vivid-cards');
@@ -10,7 +23,7 @@ const params = new URLSearchParams(location.search);
 let language = params.get('lang') ?? 'en';
 const mockOptions = { allOnline: params.get('online') === 'all' };
 let mock = createMockHass(language, mockOptions);
-const badges: VividLightBadge[] = [];
+const badges: BadgeElement[] = [];
 const stage = document.getElementById('stage')!;
 
 /** Stand-in for Home Assistant's entity badge, to compare against. */
@@ -25,9 +38,9 @@ function native(icon: string, text: string, color = 'var(--secondary-text-color)
   return element;
 }
 
-function badge(config: Record<string, unknown>): VividLightBadge {
-  const element = document.createElement('vivid-light-badge');
-  element.setConfig({ type: 'custom:vivid-light-badge', ...config } as never);
+function badge(config: Record<string, unknown>, tag = 'vivid-light-badge'): BadgeElement {
+  const element = document.createElement(tag) as BadgeElement;
+  element.setConfig({ type: `custom:${tag}`, ...config });
   badges.push(element);
   return element;
 }
@@ -71,6 +84,15 @@ for (const look of looks) {
       badge({ entity: PLUGS_GROUP_ID, look, layout, ...halo }),
       native('mdi:window-closed-variant', '0'),
       native('mdi:thermometer', '19,5 °C', '#ff8a65'),
+    ]),
+    row('Maison', [
+      badge({ entity: WINDOWS_GROUP_ID, look, ...halo }, 'vivid-opening-badge'),
+      badge({ entity: DOORS_GROUP_ID, look, ...halo }, 'vivid-opening-badge'),
+      badge({ entity: ILLUMINANCE_GROUP_ID, look, ...halo }, 'vivid-illuminance-badge'),
+      badge({ entity: POWER_GROUP_ID, look, ...halo }, 'vivid-power-badge'),
+      badge({ entity: 'binary_sensor.salon_presence', look, ...halo }, 'vivid-presence-badge'),
+      badge({ entity: PRESENCE_GROUP_ID, look, ...halo }, 'vivid-presence-badge'),
+      badge({ look, ...halo }, 'vivid-battery-badge'),
     ]),
   );
   stage.append(block);

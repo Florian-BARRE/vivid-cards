@@ -59,7 +59,11 @@ tests/                  Vitest unit tests.
 5. Document it in the README.
 
 A badge follows the same steps in `src/badges/<name>/`, registered with
-`registerBadge` (`window.customBadges`) and previewed in `dev/badges.ts`.
+`registerBadge` (`window.customBadges`) and previewed in `dev/badges.ts`. Status
+badges extend `VividBadge` (`src/badges/base/`), which owns the pill, the
+gestures, the details popover and the look; a badge only provides a pure
+`model.ts`, a `BadgeView`, its detail rows and an editor spec for the shared
+`vivid-badge-editor`.
 
 ## Releasing
 

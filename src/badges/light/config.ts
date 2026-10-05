@@ -1,6 +1,7 @@
 import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
+import { BADGE_LOOKS, type BadgeLook } from '../base/config';
 import type { LovelaceCardConfig } from '../../core/hass-types';
 
 export const BADGE_TYPE = 'vivid-light-badge';
@@ -8,9 +9,7 @@ export const BADGE_TYPE = 'vivid-light-badge';
 /** Lights, plugs driving lamps, and groups of either. */
 export const ENTITY_DOMAINS = ['light', 'switch', 'group'];
 
-/** How the colors show while on: a filled disc behind the icon, or the whole badge filled. */
-export type BadgeLook = 'disc' | 'pill';
-export const BADGE_LOOKS: BadgeLook[] = ['disc', 'pill'];
+export { BADGE_LOOKS, type BadgeLook } from '../base/config';
 
 /** Lights under the badge: rows with a brightness bar, or two columns of chips. */
 export type DetailsLayout = 'list' | 'compact';
