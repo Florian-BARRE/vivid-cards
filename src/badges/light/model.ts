@@ -52,6 +52,12 @@ const OFF_ICONS: Record<string, string> = {
   'mdi:string-lights': 'mdi:string-lights-off',
 };
 
+/** Icons of the dedicated badges; the generic light badge has none. */
+const KIND_ICONS: Partial<Record<ResolvedLightBadgeConfig['kind'], string>> = {
+  led: 'mdi:led-strip-variant',
+  lamp: 'mdi:lamps',
+};
+
 /** Icon used when neither the config nor the entity sets one. */
 export function defaultBadgeIcon(isGroup: boolean, allWled: boolean): string {
   if (allWled) return 'mdi:led-strip-variant';
@@ -123,8 +129,12 @@ export function buildLightBadgeModel(
   const lit = lights.filter((light) => light.isOn);
   const allWled = ids.length > 0 && ids.every((id) => hass.entities?.[id]?.platform === 'wled');
   const own = state?.attributes.icon;
+  // LED and lamp badges keep their own icon; the generic one follows the entity.
+  const kindIcon = KIND_ICONS[config.kind];
   const icon =
-    config.icon ?? (typeof own === 'string' && own ? own : defaultBadgeIcon(isGroup, allWled));
+    config.icon ??
+    kindIcon ??
+    (typeof own === 'string' && own ? own : defaultBadgeIcon(isGroup, allWled));
   const knownOff = OFF_ICONS[icon];
   return {
     name: config.name ?? friendlyName(hass, config.entity),

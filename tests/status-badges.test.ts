@@ -189,3 +189,30 @@ describe('battery badge', () => {
     expect(() => resolveBatteryBadge({ low: 40, warn: 20 })).toThrow(/warn/);
   });
 });
+
+describe('window and door badges', () => {
+  it('draws windows on a window badge and doors on a door badge', () => {
+    const { hass } = createMockHass();
+    const windows = buildOpeningModel(
+      hass,
+      resolveOpeningBadge({ type: 'custom:vivid-window-badge', entity: WINDOWS_GROUP_ID }),
+    );
+    expect(windows.kind).toBe('window');
+    expect(windows.name).toBe('Fenêtres');
+    const doors = buildOpeningModel(
+      hass,
+      resolveOpeningBadge({ type: 'custom:vivid-door-badge', entity: DOORS_GROUP_ID }),
+    );
+    expect(doors.kind).toBe('door');
+    expect(doors.items.map((item) => item.kind)).toEqual(['door', 'door', 'garage']);
+    // A door badge pointed at windows still draws doors.
+    const forced = buildOpeningModel(
+      hass,
+      resolveOpeningBadge({ entity: WINDOWS_GROUP_ID }, 'door'),
+    );
+    expect(forced.kind).toBe('door');
+    expect(() => resolveOpeningBadge({ type: 'custom:vivid-door-badge' })).toThrow(
+      /^vivid-door-badge:/,
+    );
+  });
+});

@@ -6,9 +6,10 @@ import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/registe
 import { localize } from '../../i18n';
 import { VividBadge, type BadgeView } from '../base/vivid-badge';
 import {
-  BADGE_TYPE,
+  LIGHT_BADGE_TAGS,
   resolveLightBadgeConfig,
   type LightBadgeConfig,
+  type LightKind,
   type ResolvedLightBadgeConfig,
 } from './config';
 import { buildLightBadgeModel, type LightBadgeModel } from './model';
@@ -28,6 +29,8 @@ import './vivid-light-badge-editor';
  * slider and switch.
  */
 export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
+  /** Which badge this is: LED strips, lamps or any light. */
+  protected kind: LightKind = 'light';
   private model?: LightBadgeModel;
 
   static getConfigElement(): HTMLElement {
@@ -43,7 +46,7 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
   }
 
   protected resolveConfig(raw: unknown): ResolvedLightBadgeConfig {
-    return resolveLightBadgeConfig(raw);
+    return resolveLightBadgeConfig(raw, this.kind);
   }
 
   protected buildView(hass: HomeAssistant, config: ResolvedLightBadgeConfig): BadgeView {
@@ -102,13 +105,81 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
   }
 }
 
-defineElement(BADGE_TYPE, VividLightBadge);
+function isGroupState(state: { attributes: { entity_id?: unknown } }): boolean {
+  return Array.isArray(state.attributes.entity_id);
+}
+
+function allWled(hass: HomeAssistant, ids: unknown): boolean {
+  return (
+    Array.isArray(ids) &&
+    ids.length > 0 &&
+    ids.every((id) => hass.entities?.[String(id)]?.platform === 'wled')
+  );
+}
+
+/**
+ * LED strips: the crossed-out strip icon when off, the strips' colors when on.
+ * Same gestures and details as the light badge.
+ */
+export class VividLedBadge extends VividLightBadge {
+  protected override kind: LightKind = 'led';
+
+  static override getStubConfig(hass?: HomeAssistant): Partial<LightBadgeConfig> {
+    const groups = Object.values(hass?.states ?? {}).filter(
+      (state) => state.entity_id.startsWith('light.') && isGroupState(state),
+    );
+    const strips = hass
+      ? groups.find((state) => allWled(hass, state.attributes.entity_id))
+      : undefined;
+    return { entity: (strips ?? groups[0])?.entity_id ?? 'light.led_strips' };
+  }
+}
+
+/**
+ * Lamps (lights or smart plugs): the lamps icon crossed out when off, Home
+ * Assistant's amber when on. Same gestures and details as the light badge.
+ */
+export class VividLampBadge extends VividLightBadge {
+  protected override kind: LightKind = 'lamp';
+
+  static override getStubConfig(hass?: HomeAssistant): Partial<LightBadgeConfig> {
+    const groups = Object.values(hass?.states ?? {}).filter(
+      (state) =>
+        (state.entity_id.startsWith('light.') || state.entity_id.startsWith('switch.')) &&
+        isGroupState(state),
+    );
+    const lamps = hass
+      ? groups.find((state) => !allWled(hass, state.attributes.entity_id))
+      : undefined;
+    return { entity: (lamps ?? groups[0])?.entity_id ?? 'light.lamps' };
+  }
+}
+
+defineElement(LIGHT_BADGE_TAGS.light, VividLightBadge);
+defineElement(LIGHT_BADGE_TAGS.led, VividLedBadge);
+defineElement(LIGHT_BADGE_TAGS.lamp, VividLampBadge);
 
 registerBadge({
-  type: BADGE_TYPE,
+  type: LIGHT_BADGE_TAGS.led,
+  name: 'Vivid LED badge',
+  description:
+    'LED strips: how many are on, in their colors with a glow that follows the brightness. Tap to switch them all, hold for each strip.',
+  preview: true,
+  documentationURL: `${REPOSITORY_URL}#vivid-led-badge`,
+});
+registerBadge({
+  type: LIGHT_BADGE_TAGS.lamp,
+  name: 'Vivid lamp badge',
+  description:
+    'Lamps, smart bulbs or lamps on plugs: how many are on, in Home Assistant amber. Tap to switch them all, hold for each lamp.',
+  preview: true,
+  documentationURL: `${REPOSITORY_URL}#vivid-lamp-badge`,
+});
+registerBadge({
+  type: LIGHT_BADGE_TAGS.light,
   name: 'Vivid light badge',
   description:
-    'LED strips, lamps or lamps on plugs at a glance: lights on out of the total, their colors and glow. Tap to toggle them all, hold for every light.',
+    'Any other lights (ceiling lights, spots…): how many are on, in their colors. Tap to switch them all, hold for each light.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-light-badge`,
 });
@@ -116,5 +187,7 @@ registerBadge({
 declare global {
   interface HTMLElementTagNameMap {
     'vivid-light-badge': VividLightBadge;
+    'vivid-led-badge': VividLedBadge;
+    'vivid-lamp-badge': VividLampBadge;
   }
 }

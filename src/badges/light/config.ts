@@ -6,6 +6,21 @@ import type { LovelaceCardConfig } from '../../core/hass-types';
 
 export const BADGE_TYPE = 'vivid-light-badge';
 
+/** One badge per kind of light: LED strips, lamps, and any other light. */
+export type LightKind = 'light' | 'led' | 'lamp';
+export const LIGHT_BADGE_TAGS: Record<LightKind, string> = {
+  light: 'vivid-light-badge',
+  led: 'vivid-led-badge',
+  lamp: 'vivid-lamp-badge',
+};
+
+/** Kind of a badge from its `type` (`custom:vivid-led-badge` → `led`). */
+export function lightKindOf(type: unknown): LightKind {
+  const tag = typeof type === 'string' ? type.replace(/^custom:/, '') : '';
+  const entry = Object.entries(LIGHT_BADGE_TAGS).find(([, value]) => value === tag);
+  return (entry?.[0] as LightKind | undefined) ?? 'light';
+}
+
 /** Lights, plugs driving lamps, and groups of either. */
 export const ENTITY_DOMAINS = ['light', 'switch', 'group'];
 
@@ -41,6 +56,7 @@ export interface LightBadgeConfig extends LovelaceCardConfig {
 
 export interface ResolvedLightBadgeConfig {
   type: string;
+  kind: LightKind;
   entity: string;
   name?: string;
   icon?: string;
@@ -58,8 +74,10 @@ export interface ResolvedLightBadgeConfig {
   holdAction: ActionConfig;
 }
 
+let failTag = BADGE_TYPE;
+
 function fail(message: string): never {
-  throw new Error(`${BADGE_TYPE}: ${message}`);
+  throw new Error(`${failTag}: ${message}`);
 }
 
 function text(value: unknown, field: string): string | undefined {
@@ -76,7 +94,11 @@ function action(value: unknown, field: string, fallback: ActionConfig): ActionCo
   }
 }
 
-export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig {
+export function resolveLightBadgeConfig(
+  raw: unknown,
+  kind: LightKind = lightKindOf((raw as { type?: unknown } | null)?.type),
+): ResolvedLightBadgeConfig {
+  failTag = LIGHT_BADGE_TAGS[kind];
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = raw as LightBadgeConfig;
   const entity = text(config.entity, 'entity');
@@ -115,6 +137,7 @@ export function resolveLightBadgeConfig(raw: unknown): ResolvedLightBadgeConfig 
   }
   return {
     type: config.type,
+    kind,
     entity,
     name: text(config.name, 'name'),
     icon: text(config.icon, 'icon'),

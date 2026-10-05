@@ -5,12 +5,34 @@ import { ConfigReader, resolveBase, type ResolvedBaseBadge } from '../base/confi
 import { isGroupBadge, memberIds, members, secondsSince, watchedIds } from '../base/members';
 
 export const OPENING_BADGE = 'vivid-opening-badge';
+export const WINDOW_BADGE = 'vivid-window-badge';
+export const DOOR_BADGE = 'vivid-door-badge';
+
+/** Windows only, doors only (garage doors included), or a mix (the former opening badge). */
+export type OpeningKind = 'window' | 'door' | 'any';
+export const OPENING_TAGS: Record<OpeningKind, string> = {
+  window: WINDOW_BADGE,
+  door: DOOR_BADGE,
+  any: OPENING_BADGE,
+};
+export const KIND_DEVICE_CLASSES: Record<OpeningKind, string[]> = {
+  window: ['window'],
+  door: ['door', 'garage_door', 'opening'],
+  any: ['window', 'door', 'garage_door', 'opening'],
+};
+
+export function openingKindOf(type: unknown): OpeningKind {
+  const tag = typeof type === 'string' ? type.replace(/^custom:/, '') : '';
+  const entry = Object.entries(OPENING_TAGS).find(([, value]) => value === tag);
+  return (entry?.[0] as OpeningKind | undefined) ?? 'any';
+}
 export const DOMAINS = ['binary_sensor', 'group'];
 export const DEVICE_CLASSES = ['window', 'door', 'garage_door', 'opening'];
 /** Closed rows listed one by one up to this many; beyond, they fold into one row. */
 export const CLOSED_ROWS = 4;
 
 export interface ResolvedOpeningBadge extends ResolvedBaseBadge {
+  kind: OpeningKind;
   showCount: boolean;
   showZero: boolean;
   /** Minutes open before amber, then red. */
@@ -18,14 +40,18 @@ export interface ResolvedOpeningBadge extends ResolvedBaseBadge {
   alertAfter: number;
 }
 
-export function resolveOpeningBadge(raw: unknown): ResolvedOpeningBadge {
-  const reader = new ConfigReader(OPENING_BADGE, raw);
+export function resolveOpeningBadge(
+  raw: unknown,
+  kind: OpeningKind = openingKindOf((raw as { type?: unknown } | null)?.type),
+): ResolvedOpeningBadge {
+  const reader = new ConfigReader(OPENING_TAGS[kind], raw);
   const base = resolveBase(reader, { domains: DOMAINS });
   const warnAfter = reader.number('warn_after', 15, 0);
   const alertAfter = reader.number('alert_after', 45, 0);
   if (alertAfter < warnAfter) reader.fail('"alert_after" must be at least "warn_after".');
   return {
     ...base,
+    kind,
     showCount: reader.bool('show_count', true),
     showZero: reader.bool('show_zero', false),
     warnAfter,
@@ -43,9 +69,10 @@ export const ICONS: Record<Kind, [string, string]> = {
   mixed: ['mdi:home-lock-open', 'mdi:home-lock'],
 };
 
-export function kindOf(deviceClass: unknown): Kind {
-  if (deviceClass === 'window') return 'window';
+export function kindOf(deviceClass: unknown, badge: OpeningKind = 'any'): Kind {
   if (deviceClass === 'garage_door') return 'garage';
+  if (badge === 'door') return 'door';
+  if (deviceClass === 'window') return 'window';
   if (deviceClass === 'door' || deviceClass === 'opening') return 'door';
   return 'mixed';
 }
@@ -95,7 +122,11 @@ export function buildOpeningModel(
     return {
       entityId: member.entityId,
       name: member.name,
-      kind: kindOf(member.state?.attributes.device_class),
+      // A window badge draws windows, a door badge doors (and garage doors as such).
+      kind:
+        config.kind === 'window'
+          ? 'window'
+          : kindOf(member.state?.attributes.device_class, config.kind),
       available: member.available,
       open,
       since,
@@ -105,13 +136,32 @@ export function buildOpeningModel(
   const kinds = new Set(items.map((item) => item.kind));
   // A garage door among doors is still a door badge.
   if (kinds.has('door')) kinds.delete('garage');
+  const kind: Kind =
+    config.kind === 'window'
+      ? 'window'
+      : config.kind === 'door'
+        ? kinds.size === 1 && kinds.has('garage')
+          ? 'garage'
+          : 'door'
+        : kinds.size === 1
+          ? ([...kinds][0] as Kind)
+          : 'mixed';
   const openItems = items.filter((item) => item.open);
   return {
     name:
       config.name ??
-      (config.entity ? friendlyName(hass, config.entity) : localize(hass, 'openings_title')),
+      (config.entity
+        ? friendlyName(hass, config.entity)
+        : localize(
+            hass,
+            config.kind === 'window'
+              ? 'windows_title'
+              : config.kind === 'door'
+                ? 'doors_title'
+                : 'openings_title',
+          )),
     isGroup: isGroupBadge(config, ids.length),
-    kind: kinds.size === 1 ? ([...kinds][0] as Kind) : 'mixed',
+    kind,
     items,
     open: openItems.length,
     total: items.filter((item) => item.available).length,
