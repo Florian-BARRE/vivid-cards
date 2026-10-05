@@ -26,7 +26,9 @@ import { watchedChanged } from '../led-group/model';
 import {
   LAMP_CARD,
   resolveLampConfig,
+  type LampAction,
   type LampGroupCardConfig,
+  type LampSize,
   type ResolvedLampGroupConfig,
 } from './config';
 import {
@@ -52,6 +54,16 @@ const TICK_MS = 30_000;
 const SURFACE = 'var(--vivid-layer-1)';
 /** Title icon while a lamp is on. */
 const AMBER_INK = 'var(--amber-color, rgb(255, 193, 7))';
+
+/** Disc and icon sizes (px) of the ambiance buttons and of the one-line buttons. */
+const SIZES: Record<
+  LampSize,
+  { disc: number; icon: number; mini: number; miniIcon: number; warn: number }
+> = {
+  small: { disc: 44, icon: 22, mini: 28, miniIcon: 16, warn: 16 },
+  medium: { disc: 56, icon: 28, mini: 32, miniIcon: 18, warn: 20 },
+  large: { disc: 68, icon: 34, mini: 40, miniIcon: 22, warn: 22 },
+};
 
 interface Press {
   target: string;
@@ -140,7 +152,12 @@ export class VividLampGroup extends LitElement {
     const config = this._config;
     if (!config) return 3;
     if (config.layout === 'line') return 1;
-    return 3 + (config.scenes.length ? 1 : 0);
+    const labels = config.showNames || config.showStatus;
+    return (
+      (config.showHeader ? 1 : 0) +
+      (config.scenes.length ? 1 : 0) +
+      (labels || config.size === 'large' ? 2 : 1)
+    );
   }
 
   getGridOptions(): LovelaceGridOptions {
@@ -187,7 +204,10 @@ export class VividLampGroup extends LitElement {
       }
       .lamps {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(66px, 1fr));
+        grid-template-columns: var(
+          --lamp-columns,
+          repeat(auto-fit, minmax(max(var(--lamp-min, 66px), calc(var(--lamp-disc) + 10px)), 1fr))
+        );
         gap: 12px 4px;
         padding: 2px 0 4px;
       }
@@ -211,9 +231,9 @@ export class VividLampGroup extends LitElement {
         position: relative;
         display: grid;
         place-items: center;
-        width: 56px;
-        height: 56px;
-        margin-bottom: 4px;
+        width: var(--lamp-disc);
+        height: var(--lamp-disc);
+        margin-bottom: var(--lamp-disc-gap, 4px);
         border-radius: 50%;
         background: var(--disc-bg, var(--vivid-layer-2));
         box-shadow: var(--disc-shadow, none);
@@ -225,7 +245,7 @@ export class VividLampGroup extends LitElement {
           transform 0.12s ease;
       }
       .disc ha-icon {
-        --mdc-icon-size: 28px;
+        --mdc-icon-size: var(--lamp-icon);
         display: inline-flex;
       }
       .lamp .name {
@@ -255,11 +275,11 @@ export class VividLampGroup extends LitElement {
       }
       @container (max-width: 360px) {
         .disc {
-          width: 50px;
-          height: 50px;
+          width: calc(var(--lamp-disc) * 0.9);
+          height: calc(var(--lamp-disc) * 0.9);
         }
         .disc ha-icon {
-          --mdc-icon-size: 24px;
+          --mdc-icon-size: calc(var(--lamp-icon) * 0.86);
         }
         .lamp .name {
           font-size: 13px;
@@ -280,15 +300,15 @@ export class VividLampGroup extends LitElement {
         bottom: -2px;
         display: grid;
         place-items: center;
-        width: 20px;
-        height: 20px;
+        width: var(--lamp-warn, 20px);
+        height: var(--lamp-warn, 20px);
         border-radius: 50%;
         background: var(--error-color, #db4437);
         color: #fff;
         box-shadow: 0 0 0 2px var(--vivid-layer-1);
       }
       .warn ha-icon {
-        --mdc-icon-size: 13px;
+        --mdc-icon-size: calc(var(--lamp-warn, 20px) * 0.65);
       }
       /* One line. */
       .panel.line {
@@ -338,13 +358,15 @@ export class VividLampGroup extends LitElement {
         justify-content: flex-end;
         gap: 4px;
         flex: none;
+        /* Room for the alert badge of the last lamp. */
+        padding-right: 4px;
       }
       .mini {
         position: relative;
         display: grid;
         place-items: center;
-        width: calc(var(--vivid-chip-height) - 4px);
-        height: calc(var(--vivid-chip-height) - 4px);
+        width: var(--lamp-mini);
+        height: var(--lamp-mini);
         border-radius: 50%;
         background: var(--disc-bg, var(--vivid-layer-2));
         box-shadow: var(--disc-shadow, none);
@@ -359,17 +381,17 @@ export class VividLampGroup extends LitElement {
           transform 0.12s ease;
       }
       .mini ha-icon {
-        --mdc-icon-size: 18px;
+        --mdc-icon-size: var(--lamp-mini-icon);
         display: inline-flex;
       }
       .mini .warn {
-        width: 16px;
-        height: 16px;
+        width: calc(var(--lamp-mini) * 0.5);
+        height: calc(var(--lamp-mini) * 0.5);
         right: -4px;
         bottom: -4px;
       }
       .mini .warn ha-icon {
-        --mdc-icon-size: 11px;
+        --mdc-icon-size: calc(var(--lamp-mini) * 0.34);
       }
       .warning {
         padding: 16px;
@@ -463,15 +485,18 @@ export class VividLampGroup extends LitElement {
     this.press = undefined;
   }
 
-  /** `target`: a lamp's entity id, or `title`. */
+  /** `target`: a lamp's entity id, or `title` (which always opens the details). */
   private run(target: string, gesture: 'tap' | 'hold'): void {
+    const config = this._config;
+    if (!config) return;
+    const action: LampAction =
+      target === 'title' ? 'details' : gesture === 'tap' ? config.tapAction : config.holdAction;
+    if (action === 'none') return;
     haptic(this, gesture === 'hold' ? 'medium' : 'light');
-    if (gesture === 'hold' || target === 'title') {
-      this.openDetails();
-      return;
-    }
     const lamp = this.model?.all.find((item) => item.entityId === target);
-    if (lamp) this.toggleLamp(lamp);
+    if (action === 'details') this.openDetails();
+    else if (action === 'more-info' && lamp) openMoreInfo(this, lamp.entityId);
+    else if (action === 'toggle' && lamp) this.toggleLamp(lamp);
   }
 
   private onPointerDown(event: PointerEvent, target: string): void {
@@ -659,6 +684,23 @@ export class VividLampGroup extends LitElement {
 
   /* --------------------------------- render --------------------------------- */
 
+  /** Halo, button sizes and columns, as CSS variables. */
+  private cardVars(config: ResolvedLampGroupConfig): Record<string, string> {
+    const size = SIZES[config.size];
+    const labels = config.showNames || config.showStatus;
+    return {
+      ...glowVars(config.glow),
+      '--lamp-disc': `${size.disc}px`,
+      '--lamp-icon': `${size.icon}px`,
+      '--lamp-mini': `${size.mini}px`,
+      '--lamp-mini-icon': `${size.miniIcon}px`,
+      '--lamp-warn': `${size.warn}px`,
+      // Icons only: buttons sit closer, no room kept for the names.
+      ...(labels ? {} : { '--lamp-min': '0px', '--lamp-disc-gap': '0px' }),
+      ...(config.columns ? { '--lamp-columns': `repeat(${config.columns}, minmax(0, 1fr))` } : {}),
+    };
+  }
+
   private discStyle(lamp: LampModel) {
     const tone = lamp.isOn ? lampTone(lamp.level) : undefined;
     return styleMap({
@@ -702,6 +744,7 @@ export class VividLampGroup extends LitElement {
     return html`<button
       type="button"
       class=${classMap({ reset: true, lamp: true, off: !lamp.isOn, unavailable: !lamp.available })}
+      title=${config.showNames && config.showStatus ? '' : `${lamp.name} · ${status}`}
       aria-pressed=${lamp.isOn ? 'true' : 'false'}
       aria-label=${`${lamp.name} · ${status}`}
       ?disabled=${!lamp.available}
@@ -715,30 +758,38 @@ export class VividLampGroup extends LitElement {
       <span class="disc" style=${this.discStyle(lamp)}>
         <ha-icon .icon=${lamp.isOn ? lamp.icon : lamp.iconOff}></ha-icon>${this.renderWarn(lamp)}
       </span>
-      <span class="name">${lamp.name}</span>
-      <span class="status">${status}</span>
+      ${config.showNames ? html`<span class="name">${lamp.name}</span>` : nothing}
+      ${config.showStatus ? html`<span class="status">${status}</span>` : nothing}
     </button>`;
   }
 
   private renderAmbiance(model: LampGroupModel, config: ResolvedLampGroupConfig) {
-    return html`<vivid-light-header
-        .hass=${this.hass}
-        .icon=${model.on ? model.icon : model.iconOff}
-        .name=${model.name}
-        .subtitle=${localize(this.hass, 'lights_on', { on: model.on, total: model.total })}
-        .iconColor=${model.on ? AMBER_INK : undefined}
-        name-interactive
-        .available=${model.total > 0}
-        .isOn=${model.on > 0}
-        .buttonTone=${lampTone(model.level, SURFACE)}
-        .showPower=${config.showPower}
-        .hasPower=${model.hasPower}
-        .watts=${model.watts}
-        .scale=${model.scale}
-        .showLiveOverride=${false}
-        @vivid-name-click=${() => this.openDetails()}
-        @vivid-power-click=${this.toggleAll}
-      ></vivid-light-header>
+    const header = config.showHeader
+      ? html`<vivid-light-header
+          .hass=${this.hass}
+          .icon=${model.on ? model.icon : model.iconOff}
+          .name=${model.name}
+          .subtitle=${
+            config.showCount
+              ? localize(this.hass, 'lights_on', { on: model.on, total: model.total })
+              : undefined
+          }
+          ?hide-toggle=${!config.showToggleAll}
+          .iconColor=${model.on ? AMBER_INK : undefined}
+          name-interactive
+          .available=${model.total > 0}
+          .isOn=${model.on > 0}
+          .buttonTone=${lampTone(model.level, SURFACE)}
+          .showPower=${config.showPower}
+          .hasPower=${model.hasPower}
+          .watts=${model.watts}
+          .scale=${model.scale}
+          .showLiveOverride=${false}
+          @vivid-name-click=${() => this.openDetails()}
+          @vivid-power-click=${this.toggleAll}
+        ></vivid-light-header>`
+      : nothing;
+    return html`${header}
       <div class="panel">
         ${this.renderScenes(model)}
         <div class="lamps">
@@ -776,7 +827,7 @@ export class VividLampGroup extends LitElement {
   private renderLine(model: LampGroupModel, config: ResolvedLampGroupConfig) {
     const hass = this.hass;
     const sub = [
-      `${model.on}/${model.total}`,
+      config.showCount ? `${model.on}/${model.total}` : undefined,
       config.showPower && model.watts !== undefined ? lampWatts(hass, model.watts) : undefined,
     ]
       .filter(Boolean)
@@ -795,7 +846,9 @@ export class VividLampGroup extends LitElement {
       >
         <ha-icon .icon=${model.on ? model.icon : model.iconOff}></ha-icon>
         <span class="names"
-          ><span class="name">${model.name}</span><span class="sub">${sub}</span></span
+          ><span class="name">${model.name}</span>${
+            sub ? html`<span class="sub">${sub}</span>` : nothing
+          }</span
         >
       </button>
       <div class="minis">
@@ -805,18 +858,23 @@ export class VividLampGroup extends LitElement {
           (lamp) => this.renderMini(lamp, config),
         )}
       </div>
-      <vivid-chip
-        .icon=${'mdi:power'}
-        .tooltip=${localize(hass, model.on ? 'power_off' : 'power_on')}
-        .tone=${model.on ? lampTone(model.level, 'var(--vivid-layer-2)') : undefined}
-        .pressed=${model.on > 0}
-        ?disabled=${model.total === 0}
-        @click=${() => {
-          haptic(this, 'light');
-          this.toggleAll();
-        }}
-      ></vivid-chip>
+      ${config.showToggleAll ? this.renderToggleAll(model) : nothing}
     </div>`;
+  }
+
+  private renderToggleAll(model: LampGroupModel) {
+    const hass = this.hass;
+    return html`<vivid-chip
+      .icon=${'mdi:power'}
+      .tooltip=${localize(hass, model.on ? 'power_off' : 'power_on')}
+      .tone=${model.on ? lampTone(model.level, 'var(--vivid-layer-2)') : undefined}
+      .pressed=${model.on > 0}
+      ?disabled=${model.total === 0}
+      @click=${() => {
+        haptic(this, 'light');
+        this.toggleAll();
+      }}
+    ></vivid-chip>`;
   }
 
   protected override render() {
@@ -828,7 +886,7 @@ export class VividLampGroup extends LitElement {
       return html`<ha-card><div class="warning">Entity not found: ${missing}</div></ha-card>`;
     }
     return html`<ha-card>
-      <div class="card" style=${styleMap(glowVars(config.glow))}>
+      <div class="card" style=${styleMap(this.cardVars(config))}>
         ${config.layout === 'line' ? this.renderLine(model, config) : this.renderAmbiance(model, config)}
       </div>
     </ha-card>`;

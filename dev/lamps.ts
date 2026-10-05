@@ -63,6 +63,34 @@ const SCENARIOS: { title: string; config: Record<string, unknown> }[] = [
       show_power: false,
     },
   },
+  {
+    title: 'Icons only',
+    config: { entity: LAMP_PLUGS_GROUP_ID, scenes, show_names: false, show_status: false },
+  },
+  {
+    title: 'Icons only · small · no header',
+    config: {
+      entity: LAMP_PLUGS_GROUP_ID,
+      show_names: false,
+      show_status: false,
+      show_header: false,
+      size: 'small',
+    },
+  },
+  {
+    title: 'Names only · large · 2 per row',
+    config: { entity: LAMP_PLUGS_GROUP_ID, show_status: false, size: 'large', columns: 2 },
+  },
+  {
+    title: 'One line · small · no count, no group button',
+    config: {
+      entity: LAMP_PLUGS_GROUP_ID,
+      layout: 'line',
+      size: 'small',
+      show_count: false,
+      show_toggle_all: false,
+    },
+  },
 ];
 
 type Card = HTMLElement & { hass?: HomeAssistant; setConfig(config: unknown): void };

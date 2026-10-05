@@ -9,7 +9,9 @@ import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
 import {
   LAMP_DOMAINS,
+  LAMP_ACTIONS,
   LAMP_LAYOUTS,
+  LAMP_SIZES,
   resolveLampConfig,
   type LampGroupCardConfig,
   type LampMemberConfig,
@@ -23,6 +25,14 @@ type Schema = Record<string, unknown>[];
 
 const DEFAULTS: Record<string, unknown> = {
   layout: 'ambiance',
+  show_header: true,
+  show_count: true,
+  show_toggle_all: true,
+  show_names: true,
+  show_status: true,
+  size: 'medium',
+  tap_action: 'toggle',
+  hold_action: 'details',
   show_power: true,
   show_duration: true,
   show_energy: true,
@@ -116,10 +126,6 @@ export class VividLampGroupEditor extends LitElement {
     const config = clean(next);
     this._config = config;
     fireEvent(this, 'config-changed', { config });
-  }
-
-  private set(key: string, value: unknown): void {
-    this.commit({ ...(this._config ?? { type: 'custom:vivid-lamp-group' }), [key]: value });
   }
 
   private form(
@@ -501,15 +507,90 @@ export class VividLampGroupEditor extends LitElement {
 
   private renderAppearance(config: LampGroupCardConfig) {
     const glow = glowPercent(config.glow ?? 100) ?? 100;
+    const line = (config.layout ?? 'ambiance') === 'line';
+    const sizes = LAMP_SIZES.map((value) => ({
+      value,
+      label: this.t(`lamp_size_${value}` as EditorStringKey),
+    }));
+    const pair = (a: Schema[number], b?: Schema[number]) => ({
+      type: 'grid',
+      name: '',
+      schema: b ? [a, b] : [a],
+    });
+    const toggle = (name: string) => ({ name, selector: { boolean: {} } });
+    const schema: Schema = [
+      ...(line ? [] : [pair(toggle('show_header'), toggle('show_count'))]),
+      line
+        ? pair(toggle('show_count'), toggle('show_toggle_all'))
+        : pair(toggle('show_toggle_all')),
+      ...(line ? [] : [pair(toggle('show_names'), toggle('show_status'))]),
+      pair(
+        { name: 'size', selector: { select: { mode: 'dropdown', options: sizes } } },
+        ...(line
+          ? []
+          : [{ name: 'columns', selector: { number: { min: 1, max: 12, step: 1, mode: 'box' } } }]),
+      ),
+      { name: 'glow', selector: GLOW_SLIDER },
+    ];
     return this.form(
-      [{ name: 'glow', selector: GLOW_SLIDER }],
-      { glow },
-      (value) => {
-        // A named level written in YAML stays until the slider moves.
-        if (value.glow !== glow) this.set('glow', value.glow);
+      schema,
+      {
+        show_header: config.show_header ?? true,
+        show_count: config.show_count ?? true,
+        show_toggle_all: config.show_toggle_all ?? true,
+        show_names: config.show_names ?? true,
+        show_status: config.show_status ?? true,
+        size: config.size ?? 'medium',
+        columns: config.columns,
+        glow,
       },
-      { glow: this.t('glow') },
-      { glow: this.t('glow_helper') },
+      (value) => {
+        const next = { ...config, ...value } as LampGroupCardConfig;
+        // A named level written in YAML stays until the slider moves.
+        if (value.glow === glow) next.glow = config.glow;
+        this.commit(next);
+      },
+      {
+        show_header: this.t('lamp_show_header'),
+        show_count: this.t('lamp_show_count'),
+        show_toggle_all: this.t('lamp_show_toggle_all'),
+        show_names: this.t('lamp_show_names'),
+        show_status: this.t('lamp_show_status'),
+        size: this.t('lamp_size'),
+        columns: this.t('lamp_columns'),
+        glow: this.t('glow'),
+      },
+      { columns: this.t('lamp_columns_helper'), glow: this.t('glow_helper') },
+    );
+  }
+
+  private renderGestures(config: LampGroupCardConfig) {
+    const actionOf = (value: unknown) =>
+      typeof value === 'object' && value !== null ? (value as { action?: string }).action : value;
+    const options = LAMP_ACTIONS.map((value) => ({
+      value,
+      label: this.t(
+        (value === 'more-info' ? 'action_more_info' : `action_${value}`) as EditorStringKey,
+      ),
+    }));
+    const select = { select: { mode: 'dropdown', options } };
+    return this.form(
+      [
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'tap_action', selector: select },
+            { name: 'hold_action', selector: select },
+          ],
+        },
+      ],
+      {
+        tap_action: actionOf(config.tap_action) ?? 'toggle',
+        hold_action: actionOf(config.hold_action) ?? 'details',
+      },
+      (value) => this.commit({ ...config, ...value } as LampGroupCardConfig),
+      { tap_action: this.t('tap_action'), hold_action: this.t('hold_action') },
     );
   }
 
@@ -559,8 +640,23 @@ export class VividLampGroupEditor extends LitElement {
                 'appearance',
                 'mdi:creation',
                 this.t('section_appearance'),
-                `${glowPercent(config.glow ?? 100) ?? 100} %`,
+                [
+                  config.show_names === false && config.show_status === false
+                    ? this.t('lamp_icons_only')
+                    : undefined,
+                  this.t(`lamp_size_${config.size ?? 'medium'}` as EditorStringKey),
+                  `${glowPercent(config.glow ?? 100) ?? 100} %`,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
                 () => this.renderAppearance(config),
+              )}
+              ${this.section(
+                'gestures',
+                'mdi:gesture-tap',
+                this.t('section_gestures'),
+                this.t('lamp_gestures_hint'),
+                () => this.renderGestures(config),
               )}
             </div>`
           : nothing

@@ -14,6 +14,14 @@ export const LAMP_DOMAINS = ['light', 'switch', 'group', 'input_boolean'];
 export type LampLayout = 'ambiance' | 'line';
 export const LAMP_LAYOUTS: LampLayout[] = ['ambiance', 'line'];
 
+/** Size of the lamp buttons. */
+export type LampSize = 'small' | 'medium' | 'large';
+export const LAMP_SIZES: LampSize[] = ['small', 'medium', 'large'];
+
+/** What a tap or a hold on a lamp does. */
+export type LampAction = 'toggle' | 'details' | 'more-info' | 'none';
+export const LAMP_ACTIONS: LampAction[] = ['toggle', 'details', 'more-info', 'none'];
+
 export interface LampMemberConfig {
   entity: string;
   name?: string;
@@ -41,6 +49,21 @@ export interface LampGroupCardConfig extends LovelaceCardConfig {
   name?: string;
   icon?: string;
   layout?: LampLayout;
+  /** Header row (name, count, consumption, power button) of the ambiance layout. */
+  show_header?: boolean;
+  /** "3/4 on" under the title. */
+  show_count?: boolean;
+  /** Button switching the whole group. */
+  show_toggle_all?: boolean;
+  /** Name under each lamp (ambiance). */
+  show_names?: boolean;
+  /** Watts and duration under each lamp (ambiance). */
+  show_status?: boolean;
+  size?: LampSize;
+  /** Lamps per row (ambiance); auto when unset. */
+  columns?: number;
+  tap_action?: LampAction | { action: LampAction };
+  hold_action?: LampAction | { action: LampAction };
   show_power?: boolean;
   show_duration?: boolean;
   /** Energy and cost of the day, from the power history. */
@@ -80,6 +103,15 @@ export interface ResolvedLampGroupConfig {
   name?: string;
   icon?: string;
   layout: LampLayout;
+  showHeader: boolean;
+  showCount: boolean;
+  showToggleAll: boolean;
+  showNames: boolean;
+  showStatus: boolean;
+  size: LampSize;
+  columns?: number;
+  tapAction: LampAction;
+  holdAction: LampAction;
   showPower: boolean;
   showDuration: boolean;
   showEnergy: boolean;
@@ -115,6 +147,25 @@ function number(value: unknown, field: string, min: number): number | undefined 
   if (!Number.isFinite(parsed) || parsed < min)
     fail(`"${field}" must be a number of at least ${min}.`);
   return parsed;
+}
+
+function choice<T extends string>(
+  value: unknown,
+  field: string,
+  values: readonly T[],
+): T | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string' || !values.includes(value as T)) {
+    fail(`"${field}" must be one of: ${values.join(', ')}.`);
+  }
+  return value as T;
+}
+
+/** `toggle` or `{ action: toggle }`. */
+function lampAction(value: unknown, field: string): LampAction | undefined {
+  const raw =
+    typeof value === 'object' && value !== null ? (value as { action?: unknown }).action : value;
+  return choice(raw, field, LAMP_ACTIONS);
 }
 
 function entityList(value: unknown, field: string): string[] | undefined {
@@ -170,6 +221,14 @@ function resolveScenes(raw: unknown): ResolvedLampScene[] {
   });
 }
 
+function resolveColumns(value: unknown): number | undefined {
+  const columns = number(value, 'columns', 1);
+  if (columns !== undefined && (!Number.isInteger(columns) || columns > 12)) {
+    fail('"columns" must be a whole number from 1 to 12.');
+  }
+  return columns;
+}
+
 export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = raw as LampGroupCardConfig;
@@ -203,6 +262,15 @@ export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
     name: text(config.name, 'name'),
     icon: text(config.icon, 'icon'),
     layout: config.layout ?? 'ambiance',
+    showHeader: bool(config.show_header, 'show_header', true),
+    showCount: bool(config.show_count, 'show_count', true),
+    showToggleAll: bool(config.show_toggle_all, 'show_toggle_all', true),
+    showNames: bool(config.show_names, 'show_names', true),
+    showStatus: bool(config.show_status, 'show_status', true),
+    size: choice(config.size, 'size', LAMP_SIZES) ?? 'medium',
+    columns: resolveColumns(config.columns),
+    tapAction: lampAction(config.tap_action, 'tap_action') ?? 'toggle',
+    holdAction: lampAction(config.hold_action, 'hold_action') ?? 'details',
     showPower: bool(config.show_power, 'show_power', true),
     showDuration: bool(config.show_duration, 'show_duration', true),
     showEnergy: bool(config.show_energy, 'show_energy', true),

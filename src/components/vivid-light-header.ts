@@ -54,6 +54,7 @@ export class VividLightHeader extends LitElement {
     brightness: { type: Number },
     glowBoost: { type: Number, attribute: 'glow-boost' },
     buttonTone: { attribute: false },
+    hideToggle: { type: Boolean, attribute: 'hide-toggle' },
     badges: { attribute: false },
     lightOptions: { attribute: false },
     showPower: { type: Boolean, attribute: 'show-power' },
@@ -86,6 +87,8 @@ export class VividLightHeader extends LitElement {
   declare glowBoost?: number;
   /** Tone of the power button while on, instead of the light's colors. */
   declare buttonTone?: ChipTone;
+  /** No power button. */
+  declare hideToggle: boolean;
   declare badges?: BadgeModel[];
   declare lightOptions?: LightCallOptions;
   declare showPower: boolean;
@@ -105,6 +108,7 @@ export class VividLightHeader extends LitElement {
     this.showPower = true;
     this.hasPower = false;
     this.showLiveOverride = true;
+    this.hideToggle = false;
   }
 
   static override styles = [
@@ -291,26 +295,30 @@ export class VividLightHeader extends LitElement {
       ${this.renderTitle()}
       <div class="chips">
         ${this.renderBadges()} ${this.renderPower()} ${this.renderLiveOverride()}
-        <vivid-chip
-          wide
-          .icon=${'mdi:power'}
-          .tooltip=${localize(this.hass, this.isOn ? 'power_off' : 'power_on')}
-          .tone=${
-            this.buttonTone
-              ? this.isOn
-                ? this.buttonTone
-                : {}
-              : lightTone(
-                  this.colors?.length ? this.colors : this.rgb,
-                  this.isOn,
-                  this.brightness ?? 100,
-                  this.glowBoost ?? 100,
-                )
-          }
-          .pressed=${this.isOn}
-          ?disabled=${!this.available}
-          @click=${this.onToggleClick}
-        ></vivid-chip>
+        ${
+          this.hideToggle
+            ? nothing
+            : html`<vivid-chip
+                wide
+                .icon=${'mdi:power'}
+                .tooltip=${localize(this.hass, this.isOn ? 'power_off' : 'power_on')}
+                .tone=${
+                  this.buttonTone
+                    ? this.isOn
+                      ? this.buttonTone
+                      : {}
+                    : lightTone(
+                        this.colors?.length ? this.colors : this.rgb,
+                        this.isOn,
+                        this.brightness ?? 100,
+                        this.glowBoost ?? 100,
+                      )
+                }
+                .pressed=${this.isOn}
+                ?disabled=${!this.available}
+                @click=${this.onToggleClick}
+              ></vivid-chip>`
+        }
       </div>
     </div>`;
   }

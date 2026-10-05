@@ -221,6 +221,19 @@ const en = {
   max_watts_helper: 'A lamp drawing this much glows the most',
   warn_below: 'Flag a lamp on drawing less than',
   warn_below_helper: 'A bulb out, or the lamp’s own switch off. 0 turns it off',
+  lamp_show_header: 'Header (name, count, consumption)',
+  lamp_show_count: 'Count (3/4 on)',
+  lamp_show_toggle_all: 'Button for the whole group',
+  lamp_show_names: 'Names under the lamps',
+  lamp_show_status: 'Watts and duration under the lamps',
+  lamp_size: 'Button size',
+  lamp_size_small: 'Small',
+  lamp_size_medium: 'Medium',
+  lamp_size_large: 'Large',
+  lamp_columns: 'Lamps per row',
+  lamp_columns_helper: 'Empty: as many as fit',
+  lamp_icons_only: 'icons only',
+  lamp_gestures_hint: 'On a lamp; the title always opens the details',
 };
 
 type EditorStrings = typeof en;
@@ -446,6 +459,19 @@ const fr: EditorStrings = {
   max_watts_helper: 'Une lampe qui consomme autant brille le plus',
   warn_below: 'Signaler une lampe allumée qui consomme moins de',
   warn_below_helper: 'Ampoule grillée, ou interrupteur de la lampe coupé. 0 pour désactiver',
+  lamp_show_header: 'En-tête (nom, compteur, consommation)',
+  lamp_show_count: 'Compteur (3/4 allumées)',
+  lamp_show_toggle_all: 'Bouton de tout le groupe',
+  lamp_show_names: 'Noms sous les lampes',
+  lamp_show_status: 'Watts et durée sous les lampes',
+  lamp_size: 'Taille des boutons',
+  lamp_size_small: 'Petite',
+  lamp_size_medium: 'Moyenne',
+  lamp_size_large: 'Grande',
+  lamp_columns: 'Lampes par ligne',
+  lamp_columns_helper: 'Vide : autant que la place le permet',
+  lamp_icons_only: 'icônes seules',
+  lamp_gestures_hint: 'Sur une lampe ; le titre ouvre toujours le détail',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
