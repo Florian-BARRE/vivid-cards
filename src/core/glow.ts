@@ -66,11 +66,19 @@ function round2(value: number): number {
 }
 
 /**
- * Badges and the lamp card read their `glow` against a softer base than the
- * LED card: their halos sit on small surfaces, or on many buttons side by
- * side, where the full halo looks overdone. 100 % stays each one's default.
+ * What 100 % of `glow` is on each component, as a share of the LED card's
+ * halo. Calibrated on a real dashboard: amber lamps glow wide for little, so
+ * they get the softest base; colored LED strips need more to show their colors;
+ * status badges sit in between. The LED card itself is 1.
  */
-export const SOFT_GLOW = 0.6;
+export const GLOW_BASE = {
+  /** Lamps: the lamp badge, a light badge of white lights, the lamp card. */
+  lamp: 0.3,
+  /** Colored lights: the LED badge, a light badge of colored lights. */
+  led: 0.78,
+  /** Windows, doors, presence, illuminance, power, batteries. */
+  status: 0.54,
+} as const;
 
 /** A halo color whose opacity follows `--vivid-glow-alpha`. */
 function glowColor([r, g, b]: Rgb, alpha: number): string {

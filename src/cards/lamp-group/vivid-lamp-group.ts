@@ -4,7 +4,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo, toggleEntity } from '../../core/actions';
 import { domainOf } from '../../core/entities';
-import { SOFT_GLOW, glowVars } from '../../core/glow';
+import { GLOW_BASE, glowVars } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
 import {
   energyWh,
@@ -668,7 +668,7 @@ export class VividLampGroup extends LitElement {
     dialog.label = model.name;
     dialog.closeLabel = localize(this.hass, 'close');
     dialog.removeAttribute('style');
-    for (const [name, value] of Object.entries(glowVars(config.glow * SOFT_GLOW))) {
+    for (const [name, value] of Object.entries(glowVars(config.glow * GLOW_BASE.lamp))) {
       dialog.style.setProperty(name, value);
     }
     dialog.content = html`<vivid-lamp-group-details
@@ -689,7 +689,7 @@ export class VividLampGroup extends LitElement {
     const size = SIZES[config.size];
     const labels = config.showNames || config.showStatus;
     return {
-      ...glowVars(config.glow * SOFT_GLOW),
+      ...glowVars(config.glow * GLOW_BASE.lamp),
       '--lamp-disc': `${size.disc}px`,
       '--lamp-icon': `${size.icon}px`,
       '--lamp-mini': `${size.mini}px`,
