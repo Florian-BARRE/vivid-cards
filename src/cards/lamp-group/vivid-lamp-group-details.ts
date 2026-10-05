@@ -283,7 +283,7 @@ export class VividLampGroupDetails extends LitElement {
         class="reset text"
         title=${
           energy !== undefined && this.showEnergy
-            ? `${localize(hass, 'today')} : ${formatEnergy(hass, energy)}`
+            ? localize(hass, 'energy_today', { e: formatEnergy(hass, energy) })
             : lamp.name
         }
         @click=${() => fireEvent(this, 'vivid-more-info', { entityId: lamp.entityId })}
@@ -313,8 +313,12 @@ export class VividLampGroupDetails extends LitElement {
       model.price !== undefined
         ? formatCost(hass, (energy.total / 1000) * model.price, model.currency)
         : undefined;
+    // "Today: {e}": the energy in bold wherever the language puts it.
+    const [label = '', after = ''] = localize(hass, 'energy_today', { e: '\u0000' }).split(
+      '\u0000',
+    );
     return html`<div class="foot">
-      <span>${localize(hass, 'today')} : <b>${formatEnergy(hass, energy.total)}</b></span>
+      <span>${label}<b>${formatEnergy(hass, energy.total)}</b>${after}</span>
       ${cost ? html`<span>·</span><span><b>${cost}</b></span>` : nothing}
     </div>`;
   }

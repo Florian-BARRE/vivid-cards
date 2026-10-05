@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-10-05
+
+### Added
+
+- `vivid-lamp-group` card for lamps on smart plugs, wall switches or on/off
+  lights. Two layouts: `ambiance` (quick presets and a round button per lamp)
+  and `line` (the whole group on one line). Each lamp glows with what it draws
+  and shows its watts and how long it has been on or off; off, its icon
+  switches to the outline or crossed-out variant. Presets turn some lamps on
+  and the others off, or activate a Home Assistant scene. A lamp on that draws
+  nothing (bulb out) gets a red bulb. The details show today's timeline of
+  each lamp, the energy of the day and its cost. Full visual editor.
+- `price_entity` on the lamp card and `power.price_entity` on the LED card: the
+  price of a kWh can come from a `sensor` or an `input_number`.
+
 ## [0.7.0] - 2026-10-05
 
 ### Added
@@ -191,6 +206,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.8.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.8.0
 [0.7.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.6.0
 [0.5.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.1

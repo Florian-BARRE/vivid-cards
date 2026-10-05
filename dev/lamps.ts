@@ -26,6 +26,24 @@ const scenes = [
   { name: fr ? 'Tout éteindre' : 'All off', lamps: [] },
 ];
 
+/** `doc`: English names and a preset that matches the lamps, for the README screenshots. */
+const doc = params.has('doc');
+const docMembers = [
+  { entity: 'switch.salon_lustre', name: 'Chandelier' },
+  { entity: 'switch.salon_lampadaire', name: 'Floor lamp' },
+  { entity: 'switch.salon_suspension', name: 'Pendant' },
+  { entity: 'switch.salon_liseuse', name: 'Reading' },
+];
+const docScenes = [
+  {
+    name: 'Evening',
+    icon: 'mdi:sofa',
+    lamps: ['switch.salon_lustre', 'switch.salon_lampadaire', 'switch.salon_liseuse'],
+  },
+  { name: 'Movie', icon: 'mdi:movie-open', scene: LAMP_SCENE_ID },
+  { name: 'All off', lamps: [] },
+];
+
 const SCENARIOS: { title: string; config: Record<string, unknown> }[] = [
   {
     title: 'Ambiance · presets',
@@ -53,6 +71,14 @@ const stage = document.getElementById('stage')!;
 const only = params.get('only');
 SCENARIOS.forEach((scenario, index) => {
   if (only !== null && Number(only) !== index) return;
+  if (doc) {
+    scenario.config = {
+      ...scenario.config,
+      name: scenario.config.name ?? 'Lamps',
+      members: docMembers,
+      ...(scenario.config.scenes ? { scenes: docScenes } : {}),
+    };
+  }
   const section = document.createElement('section');
   const heading = document.createElement('h2');
   heading.textContent = scenario.title;
