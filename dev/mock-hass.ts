@@ -22,6 +22,11 @@ export const GROUP_ID = 'light.salon_leds';
 export const SPOTS_GROUP_ID = 'light.cuisine_spots';
 /** Three plain lamps (no WLED) with an icon that has no crossed-out variant. */
 export const LAMPS_GROUP_ID = 'light.salon_lampes';
+export const WINDOWS_GROUP_ID = 'binary_sensor.fenetres';
+export const DOORS_GROUP_ID = 'binary_sensor.portes';
+export const PRESENCE_GROUP_ID = 'binary_sensor.presence_maison';
+export const ILLUMINANCE_GROUP_ID = 'sensor.eclairement';
+export const POWER_GROUP_ID = 'sensor.puissance_maison';
 /** Two lamps on smart plugs, grouped as a switch group. */
 export const PLUGS_GROUP_ID = 'switch.chambre_lampes';
 const PLUGS = [
@@ -332,6 +337,155 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
 
   let states: Record<string, HassEntity> = {};
 
+  /** Windows, doors, presence, illuminance, power and batteries, changed minutes ago. */
+  const createdAt = Date.now();
+  const status = (
+    entityId: string,
+    state: string,
+    minutesAgo: number,
+    attributes: HassEntity['attributes'],
+  ): HassEntity => {
+    const changed = new Date(createdAt - minutesAgo * 60_000).toISOString();
+    return { entity_id: entityId, state, attributes, last_changed: changed, last_updated: changed };
+  };
+  const group = (entityId: string, name: string, ids: string[], extra = {}): HassEntity =>
+    status(entityId, 'on', 0, { friendly_name: name, entity_id: ids, ...extra });
+  const windowSensor = (key: string, name: string, open: boolean, minutes: number) =>
+    status(`binary_sensor.${key}`, open ? 'on' : 'off', minutes, {
+      friendly_name: name,
+      device_class: 'window',
+    });
+  const windows = [
+    windowSensor('salon_fenetre', 'Fenêtre Salon', true, 52),
+    windowSensor('chambre_fenetre', 'Fenêtre Chambre', true, 18),
+    windowSensor('bureau_velux', 'Fenêtre Velux bureau', true, 4),
+    windowSensor('cuisine_fenetre', 'Fenêtre Cuisine', false, 125),
+    windowSensor('sdb_fenetre', 'Fenêtre Salle de bain', false, 300),
+    windowSensor('entree_fenetre', 'Fenêtre Entrée', false, 600),
+    windowSensor('buanderie_fenetre', 'Fenêtre Buanderie', false, 1500),
+  ];
+  const doors = [
+    status('binary_sensor.porte_entree', 'off', 190, {
+      friendly_name: 'Porte Entrée',
+      device_class: 'door',
+    }),
+    status('binary_sensor.porte_jardin', 'off', 45, {
+      friendly_name: 'Porte Jardin',
+      device_class: 'door',
+    }),
+    status('binary_sensor.porte_garage', 'off', 900, {
+      friendly_name: 'Porte Garage',
+      device_class: 'garage_door',
+    }),
+  ];
+  const presence = [
+    status('binary_sensor.salon_presence', 'on', 12, {
+      friendly_name: 'Salon Présence',
+      device_class: 'occupancy',
+    }),
+    status('binary_sensor.bureau_presence', 'on', 64, {
+      friendly_name: 'Bureau Présence',
+      device_class: 'occupancy',
+    }),
+    status('binary_sensor.chambre_presence', 'off', 185, {
+      friendly_name: 'Chambre Présence',
+      device_class: 'occupancy',
+    }),
+    status('binary_sensor.cuisine_presence', 'off', 25, {
+      friendly_name: 'Cuisine Présence',
+      device_class: 'occupancy',
+    }),
+  ];
+  const lux = (key: string, name: string, value: number) =>
+    status(`sensor.${key}`, String(value), 2, {
+      friendly_name: name,
+      device_class: 'illuminance',
+      unit_of_measurement: 'lx',
+      state_class: 'measurement',
+    });
+  const illuminance = [
+    lux('salon_eclairement', 'Salon Éclairement', 610),
+    lux('bureau_eclairement', 'Bureau Éclairement', 230),
+    lux('chambre_eclairement', 'Chambre Éclairement', 120),
+  ];
+  const watt = (key: string, name: string, value: number, unit = 'W') =>
+    status(`sensor.${key}`, String(value), 1, {
+      friendly_name: name,
+      device_class: 'power',
+      unit_of_measurement: unit,
+      state_class: 'measurement',
+    });
+  const power = [
+    watt('tv_salon_puissance', 'TV salon', 312),
+    watt('pc_bureau_puissance', 'PC bureau', 0.186, 'kW'),
+    watt('frigo_puissance', 'Frigo', 40),
+    watt('lave_linge_puissance', 'Lave-linge', 0.8),
+  ];
+  const battery = (key: string, name: string, level: number) =>
+    status(`sensor.${key}_batterie`, String(level), 60, {
+      friendly_name: `${name} Batterie`,
+      device_class: 'battery',
+      unit_of_measurement: '%',
+    });
+  const batteries = [
+    battery('porte_entree', 'Capteur porte entrée', 9),
+    battery('telecommande_salon', 'Télécommande salon', 14),
+    battery('fenetre_chambre', 'Fenêtre chambre', 27),
+    battery('mmwave_salon', 'mmWave salon', 82),
+    battery('fenetre_salon', 'Fenêtre salon', 64),
+    battery('thermometre_chambre', 'Thermomètre chambre', 71),
+    battery('bouton_entree', 'Bouton entrée', 88),
+    battery('detecteur_fumee', 'Détecteur fumée', 96),
+  ];
+  const statusSensors: HassEntity[] = [
+    ...windows,
+    group(
+      WINDOWS_GROUP_ID,
+      'Fenêtres',
+      windows.map((w) => w.entity_id),
+      {
+        device_class: 'window',
+      },
+    ),
+    ...doors,
+    group(
+      DOORS_GROUP_ID,
+      'Portes',
+      doors.map((d) => d.entity_id),
+      { device_class: 'door' },
+    ),
+    ...presence,
+    group(
+      PRESENCE_GROUP_ID,
+      'Présence maison',
+      presence.map((p) => p.entity_id),
+      {
+        device_class: 'occupancy',
+      },
+    ),
+    ...illuminance,
+    group(
+      ILLUMINANCE_GROUP_ID,
+      'Éclairement',
+      illuminance.map((l) => l.entity_id),
+      {
+        device_class: 'illuminance',
+        unit_of_measurement: 'lx',
+      },
+    ),
+    ...power,
+    group(
+      POWER_GROUP_ID,
+      'Puissance maison',
+      power.map((p) => p.entity_id),
+      {
+        device_class: 'power',
+        unit_of_measurement: 'W',
+      },
+    ),
+    ...batteries,
+  ];
+
   const stripWatts = (strip: StripSpec): number =>
     strip.on ? IDLE_WATTS + (FULL_WATTS - IDLE_WATTS) * (strip.brightness / 255) : IDLE_WATTS;
 
@@ -508,12 +662,10 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
         device_class: 'temperature',
       }),
     );
-    put(
-      entity('binary_sensor.salon_presence', 'on', {
-        friendly_name: 'Salon Présence',
-        device_class: 'occupancy',
-      }),
-    );
+    // Status sensors keep their own change time; services and setState replace them.
+    for (const sensor of statusSensors) {
+      if (!next[sensor.entity_id]) put(sensor);
+    }
 
     const online = strips.filter((s) => s.online);
     const lit = online.filter((s) => s.on);
@@ -738,6 +890,19 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
     for (const entityId of entityIds) {
       const state = states[entityId];
       if (!state) continue;
+      if (entityId.startsWith('binary_sensor.')) {
+        // Presence-like pattern: on for a while every couple of hours, ending in the current state.
+        const points: { s: string; lu: number }[] = [{ s: 'off', lu: start / 1000 }];
+        const seed = entityId.length % 7;
+        for (let time = start + seed * 600_000; time < end - 30 * 60_000; time += 110 * 60_000) {
+          points.push({ s: 'on', lu: time / 1000 });
+          points.push({ s: 'off', lu: (time + (25 + seed * 2) * 60_000) / 1000 });
+        }
+        const changed = Date.parse(state.last_changed);
+        if (changed > start) points.push({ s: state.state, lu: changed / 1000 });
+        result[entityId] = points;
+        continue;
+      }
       const current = Number.parseFloat(state.state);
       const idle = entityId.endsWith('_estimated_current')
         ? 360

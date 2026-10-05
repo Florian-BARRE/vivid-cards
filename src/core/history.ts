@@ -49,6 +49,67 @@ export async function fetchHistory(
   return series;
 }
 
+/** A state change: time in milliseconds and the raw state. */
+export interface StateChange {
+  t: number;
+  s: string;
+}
+
+/** Raw state changes of `entityIds` between `start` and `end` (ms), oldest first. */
+export async function fetchStates(
+  hass: HomeAssistant,
+  entityIds: readonly string[],
+  start: number,
+  end: number,
+): Promise<Record<string, StateChange[]>> {
+  if (!hass.callWS || entityIds.length === 0) return {};
+  const result = await hass.callWS<Record<string, CompressedState[]>>({
+    type: 'history/history_during_period',
+    start_time: new Date(start).toISOString(),
+    end_time: new Date(end).toISOString(),
+    entity_ids: [...entityIds],
+    minimal_response: true,
+    no_attributes: true,
+  });
+  const changes: Record<string, StateChange[]> = {};
+  for (const [entityId, states] of Object.entries(result ?? {})) {
+    changes[entityId] = states
+      .map((state) => {
+        const seconds = state.lc ?? state.lu;
+        return { t: seconds === undefined ? Number.NaN : seconds * 1000, s: state.s };
+      })
+      .filter((change) => Number.isFinite(change.t))
+      .sort((a, b) => a.t - b.t);
+  }
+  return changes;
+}
+
+/**
+ * Spans (fractions 0–1 of `start`…`end`) during which `isOn` holds, from
+ * state changes. The state before the first change is unknown and counts as
+ * off unless a change sits at `start`.
+ */
+export function onSpans(
+  changes: readonly StateChange[],
+  start: number,
+  end: number,
+  isOn: (state: string) => boolean = (state) => state === 'on',
+): [number, number][] {
+  const spans: [number, number][] = [];
+  const width = Math.max(end - start, 1);
+  let since: number | undefined;
+  for (const change of changes) {
+    const time = Math.min(Math.max(change.t, start), end);
+    if (isOn(change.s)) since ??= time;
+    else if (since !== undefined) {
+      if (time > since) spans.push([(since - start) / width, (time - start) / width]);
+      since = undefined;
+    }
+  }
+  if (since !== undefined && end > since) spans.push([(since - start) / width, 1]);
+  return spans;
+}
+
 /** Value of a step series at `time`: the last reading at or before it. */
 export function valueAt(readings: readonly Reading[], time: number): number | undefined {
   let value: number | undefined;

@@ -287,7 +287,8 @@ class StubForm extends HTMLElement {
       .filter(([id, state]) => {
         const domains = [options.domain].flat().filter(Boolean).map(String);
         if (domains.length && !domains.some((domain) => id.startsWith(`${domain}.`))) return false;
-        if (options.device_class && state.attributes.device_class !== options.device_class) {
+        const classes = [options.device_class].flat().filter(Boolean).map(String);
+        if (classes.length && !classes.includes(String(state.attributes.device_class))) {
           return false;
         }
         return true;

@@ -62,6 +62,39 @@ const en = {
   no_data: 'no data',
   today: 'Today',
   now: 'now',
+  dur_now: '< 1 min',
+  dur_min: '{m} min',
+  dur_hours: '{h} h',
+  dur_days: '{d} d',
+  open_count: '{open}/{total} open',
+  all_closed: 'All closed',
+  open_for: 'open · {d}',
+  closed_for: 'closed · {d}',
+  others: '{n} others',
+  closed_plural: 'closed',
+  present: 'Present',
+  clear: 'Clear',
+  present_for: 'for {d}',
+  clear_for: 'clear · {d}',
+  occupied_count: '{on}/{total} occupied',
+  seen_ago: 'seen {d} ago',
+  hours_ago: '-{h} h',
+  agg_mean: 'mean',
+  agg_median: 'median',
+  agg_min: 'min',
+  agg_max: 'max',
+  agg_sum: 'total',
+  battery_summary: '{count} devices · {low} low',
+  battery_summary_ok: '{count} devices',
+  low_count: '{n} low',
+  battery_low: 'Low',
+  battery_ok: 'OK',
+  no_entities: 'No entity',
+  openings_title: 'Openings',
+  presence_title: 'Presence',
+  batteries_title: 'Batteries',
+  illuminance_title: 'Illuminance',
+  power_title: 'Power',
 };
 
 type Strings = typeof en;
@@ -128,6 +161,39 @@ const fr: Strings = {
   no_data: 'pas de données',
   today: 'Aujourd’hui',
   now: 'maintenant',
+  dur_now: '< 1 min',
+  dur_min: '{m} min',
+  dur_hours: '{h} h',
+  dur_days: '{d} j',
+  open_count: '{open}/{total} ouvertes',
+  all_closed: 'Tout fermé',
+  open_for: 'ouvert · {d}',
+  closed_for: 'fermé · {d}',
+  others: '{n} autres',
+  closed_plural: 'fermés',
+  present: 'Présence',
+  clear: 'Libre',
+  present_for: 'depuis {d}',
+  clear_for: 'libre · {d}',
+  occupied_count: '{on}/{total} occupées',
+  seen_ago: 'vu il y a {d}',
+  hours_ago: '-{h} h',
+  agg_mean: 'moyenne',
+  agg_median: 'médiane',
+  agg_min: 'min',
+  agg_max: 'max',
+  agg_sum: 'total',
+  battery_summary: '{count} appareils · {low} faibles',
+  battery_summary_ok: '{count} appareils',
+  low_count: '{n} faibles',
+  battery_low: 'Faible',
+  battery_ok: 'OK',
+  no_entities: 'Aucune entité',
+  openings_title: 'Ouvertures',
+  presence_title: 'Présence',
+  batteries_title: 'Batteries',
+  illuminance_title: 'Éclairement',
+  power_title: 'Puissance',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
@@ -157,6 +223,16 @@ export function formatDuration(hass: HomeAssistant | undefined, seconds: number)
   if (days > 0) return localize(hass, 'days', { d: days, h: hours % 24 });
   if (hours > 0) return localize(hass, 'hours', { h: hours, m: minutes % 60 });
   return localize(hass, 'minutes', { m: minutes });
+}
+
+/** "< 1 min", "12 min", "3 h", "2 d": one unit, for badges. */
+export function shortDuration(hass: HomeAssistant | undefined, seconds: number): string {
+  if (seconds < 60) return localize(hass, 'dur_now');
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return localize(hass, 'dur_min', { m: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return localize(hass, 'dur_hours', { h: hours });
+  return localize(hass, 'dur_days', { d: Math.floor(hours / 24) });
 }
 
 export function formatNumber(hass: HomeAssistant | undefined, value: number, digits = 0): string {
