@@ -378,7 +378,10 @@ it: `Cuisine Spot 1` and `Cuisine Spot 2` become **Spot 1** and **Spot 2**. Use
 ### Upgrading
 
 Options from older versions keep working and are read as their current
-equivalent; the editor saves the new form. 0.3 and 0.4 only add options.
+equivalent; the editor saves the new form. 0.3 and 0.4 only add options. Since
+0.5, `appearance.glow` is a percentage: `off`, `soft`, `normal` and `strong`
+are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
+`soft` looks softer than before.
 
 | 0.1                  | Now                    |
 | -------------------- | ---------------------- |
