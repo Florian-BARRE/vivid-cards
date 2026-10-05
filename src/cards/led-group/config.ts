@@ -2,7 +2,14 @@ import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
 import type { ColorPreset } from '../../core/actions';
 import { parseColor } from '../../core/color';
-import { DEFAULT_POWER_COLORS, type GlowLevel, type PowerScale } from '../../core/glow';
+import {
+  DEFAULT_POWER_COLORS,
+  GLOW_LEVELS,
+  GLOW_MAX,
+  glowPercent,
+  type GlowSetting,
+  type PowerScale,
+} from '../../core/glow';
 import type { LovelaceCardConfig, Rgb } from '../../core/hass-types';
 import type { PowerDefaults, PowerMode } from '../../integrations/power';
 
@@ -16,7 +23,6 @@ export const COLOR_BAR_MODES: ColorBarMode[] = ['auto', 'hue', 'temperature', 'n
 export const STATE_TEXTS: StateText[] = ['brightness', 'none'];
 export const MEMBER_ORDERS: MemberOrder[] = ['name', 'group', 'custom'];
 export const POWER_MODES: PowerMode[] = ['auto', 'sensor', 'voltage', 'none'];
-export const GLOW_LEVELS: GlowLevel[] = ['off', 'soft', 'normal', 'strong'];
 
 /** `"#ff8800"`, `[255, 136, 0]` or `{ rgb | color | kelvin, brightness }`. */
 export type FavoriteInput =
@@ -62,7 +68,10 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     transition?: number;
   };
   appearance?: {
-    glow?: GlowLevel;
+    /** Halo strength in percent (100 = default), or off / soft / normal / strong. */
+    glow?: GlowSetting;
+    /** How much the halo grows with the brightness, in percent (100 = default). */
+    glow_boost?: number;
     header?: boolean;
     compact?: boolean;
     gradient?: boolean;
@@ -124,7 +133,10 @@ export interface ResolvedLedGroupConfig {
     transition?: number;
   };
   appearance: {
-    glow: GlowLevel;
+    /** Percent. */
+    glow: number;
+    /** Percent. */
+    glowBoost: number;
     header: boolean;
     compact: boolean;
     gradient: boolean;
@@ -356,6 +368,23 @@ function resolveOrder(value: unknown): string[] {
   return value as string[];
 }
 
+/** Halo strength in percent: a number up to 200, or a named level. */
+function glowStrength(value: unknown, field: string): number {
+  if (value === undefined || value === null || value === '') return 100;
+  const strength = glowPercent(value);
+  if (strength === undefined) {
+    fail(`"${field}" must be a percentage from 0 to ${GLOW_MAX}, or ${GLOW_LEVELS.join(', ')}.`);
+  }
+  return strength;
+}
+
+function glowBoost(value: unknown, field: string): number {
+  const boost = optionalNumber(value, field);
+  if (boost === undefined) return 100;
+  if (boost > GLOW_MAX) fail(`"${field}" must be between 0 and ${GLOW_MAX}.`);
+  return boost;
+}
+
 function percent(value: unknown, field: string, fallback: number): number {
   const number = optionalNumber(value, field);
   if (number === undefined) return fallback;
@@ -422,7 +451,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       transition: optionalNumber(tile.transition, 'tile.transition'),
     },
     appearance: {
-      glow: optionalChoice(appearance.glow, 'appearance.glow', GLOW_LEVELS) ?? 'normal',
+      glow: glowStrength(appearance.glow, 'appearance.glow'),
+      glowBoost: glowBoost(appearance.glow_boost, 'appearance.glow_boost'),
       header: optionalBoolean(appearance.header, 'appearance.header') ?? true,
       compact: optionalBoolean(appearance.compact, 'appearance.compact') ?? false,
       gradient: optionalBoolean(appearance.gradient, 'appearance.gradient') ?? true,

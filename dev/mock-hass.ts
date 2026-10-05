@@ -5,7 +5,8 @@
  * intensity, sync switches, diagnostics, firmware update, estimated current and
  * template power sensors), a temperature sensor and a kitchen with two tunable white spots grouped in
  * `light.cuisine_spots` (no WLED; only the second one has a power sensor, on its
- * device). Service calls mutate the state and publish a new `hass` snapshot.
+ * device), and three plain living room lamps grouped in `light.salon_lampes`.
+ * Service calls mutate the state and publish a new `hass` snapshot.
  */
 import { hsToRgb } from '../src/core/color';
 import type {
@@ -19,6 +20,8 @@ import type {
 
 export const GROUP_ID = 'light.salon_leds';
 export const SPOTS_GROUP_ID = 'light.cuisine_spots';
+/** Three plain lamps (no WLED) with an icon that has no crossed-out variant. */
+export const LAMPS_GROUP_ID = 'light.salon_lampes';
 
 const EFFECTS = ['Solid', 'Rainbow', 'Colorloop', 'Breathe', 'Candle', 'Fire 2012', 'Aurora'];
 
@@ -146,6 +149,24 @@ const SPOTS: SpotSpec[] = [
   },
 ];
 
+const LAMPS: SpotSpec[] = [
+  {
+    key: 'salon_lampe_canape',
+    name: 'Salon Lampe Canapé',
+    on: true,
+    brightness: 200,
+    kelvin: 2700,
+  },
+  {
+    key: 'salon_lampe_lecture',
+    name: 'Salon Lampe Lecture',
+    on: false,
+    brightness: 0,
+    kelvin: 3000,
+  },
+  { key: 'salon_lampadaire', name: 'Salon Lampadaire', on: false, brightness: 0, kelvin: 2400 },
+];
+
 const NOW = new Date('2026-10-04T18:00:00Z').toISOString();
 /** Watts drawn by the ESP and the strip at 0 % / 100 % brightness. */
 const IDLE_WATTS = 1.8;
@@ -182,9 +203,13 @@ export interface MockHass {
   setState(entityId: string, state: string, attributes?: HassEntity['attributes']): void;
 }
 
-export function createMockHass(language = 'en'): MockHass {
-  const strips = STRIPS.map((spec) => ({ ...spec }));
+export function createMockHass(language = 'en', options: { allOnline?: boolean } = {}): MockHass {
+  const strips = STRIPS.map((spec) => ({
+    ...spec,
+    online: options.allOnline ? true : spec.online,
+  }));
   const spots = SPOTS.map((spec) => ({ ...spec }));
+  const lamps = LAMPS.map((spec) => ({ ...spec }));
   const listeners = new Set<(hass: HomeAssistant) => void>();
   const calls: MockHass['calls'] = [];
 
@@ -289,6 +314,14 @@ export function createMockHass(language = 'en'): MockHass {
     }
   }
   entities[SPOTS_GROUP_ID] = { entity_id: SPOTS_GROUP_ID, platform: 'group', labels: [] };
+  for (const lamp of lamps) {
+    entities[`light.${lamp.key}`] = {
+      entity_id: `light.${lamp.key}`,
+      platform: 'hue',
+      labels: [],
+    };
+  }
+  entities[LAMPS_GROUP_ID] = { entity_id: LAMPS_GROUP_ID, platform: 'group', labels: [] };
 
   let states: Record<string, HassEntity> = {};
 
@@ -539,6 +572,33 @@ export function createMockHass(language = 'en'): MockHass {
         icon: 'mdi:ceiling-light-multiple',
       }),
     );
+    for (const lamp of lamps) {
+      put(
+        entity(`light.${lamp.key}`, lamp.on ? 'on' : 'off', {
+          friendly_name: lamp.name,
+          supported_color_modes: ['color_temp'],
+          color_mode: lamp.on ? 'color_temp' : null,
+          brightness: lamp.on ? lamp.brightness : null,
+          color_temp_kelvin: lamp.on ? lamp.kelvin : null,
+          min_color_temp_kelvin: 2200,
+          max_color_temp_kelvin: 6500,
+        }),
+      );
+    }
+    const litLamps = lamps.filter((l) => l.on);
+    put(
+      entity(LAMPS_GROUP_ID, litLamps.length ? 'on' : 'off', {
+        friendly_name: 'Salon Lampes',
+        entity_id: lamps.map((l) => `light.${l.key}`),
+        supported_color_modes: ['color_temp'],
+        color_mode: litLamps.length ? 'color_temp' : null,
+        brightness: litLamps.length
+          ? Math.round(litLamps.reduce((sum, l) => sum + l.brightness, 0) / litLamps.length)
+          : null,
+        color_temp_kelvin: litLamps[0]?.kelvin ?? null,
+        icon: 'mdi:lamps',
+      }),
+    );
     states = next;
   };
 
@@ -557,7 +617,9 @@ export function createMockHass(language = 'en'): MockHass {
         ? strips.map((s) => `light.${s.key}`)
         : id === SPOTS_GROUP_ID
           ? spots.map((s) => `light.${s.key}`)
-          : [id],
+          : id === LAMPS_GROUP_ID
+            ? lamps.map((l) => `light.${l.key}`)
+            : [id],
     );
   };
 
@@ -565,12 +627,15 @@ export function createMockHass(language = 'en'): MockHass {
   type Light = Pick<StripSpec, 'on' | 'brightness'> & Partial<StripSpec> & Partial<SpotSpec>;
   const stripFor = (entityId: string): Light | undefined =>
     strips.find((s) => entityId === `light.${s.key}` || entityId.includes(`.${s.key}_`)) ??
-    spots.find((s) => entityId === `light.${s.key}`);
+    spots.find((s) => entityId === `light.${s.key}`) ??
+    lamps.find((l) => entityId === `light.${l.key}`);
 
   const callService: HomeAssistant['callService'] = async (domain, service, data = {}, target) => {
     calls.push({ domain, service, data, target });
     const ids = targets(target);
-    const groupToggle = target?.entity_id === GROUP_ID || target?.entity_id === SPOTS_GROUP_ID;
+    const groupToggle = [GROUP_ID, SPOTS_GROUP_ID, LAMPS_GROUP_ID].includes(
+      String(target?.entity_id),
+    );
     const anyOn = ids.some((id) => stripFor(id)?.on);
     for (const id of ids) {
       const strip = stripFor(id);

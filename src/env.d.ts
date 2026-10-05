@@ -11,4 +11,5 @@ interface CustomCardEntry {
 
 interface Window {
   customCards?: CustomCardEntry[];
+  customBadges?: CustomCardEntry[];
 }

@@ -166,6 +166,7 @@ export class VividLedGroupDetails extends LitElement {
         .isOn=${strip.isOn}
         .rgb=${strip.rgb}
         .brightness=${strip.brightness}
+        .glowBoost=${config.appearance.glowBoost}
         .showPower=${config.power.enabled}
         .hasPower=${strip.power !== undefined}
         .watts=${strip.watts}
@@ -229,6 +230,7 @@ export class VividLedGroupDetails extends LitElement {
       .isOn=${model.isOn}
       .rgb=${model.rgb}
       .brightness=${model.brightness}
+      .glowBoost=${config.appearance.glowBoost}
       .colors=${model.colors}
       .badges=${model.badges}
       .lightOptions=${this.lightOptions}

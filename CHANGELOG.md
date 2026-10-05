@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-05
+
+### Added
+
+- `vivid-light-badge`, a badge for the badge bar: a light group's lights on out
+  of the total, in their colors with a halo that grows with the brightness;
+  the crossed-out icon, greyed, when everything is off. A tap turns everything
+  off (or on when all are off); a hold opens every light under the badge with
+  a switch and a brightness slider (`layout: list`) or as compact chips
+  (`layout: compact`). `look: disc` colors a disc behind the icon,
+  `look: pill` the whole badge. Visual editor included.
+- `appearance.glow_boost` (and the badge's `glow_boost`): how much the halo
+  grows with the brightness, 0 to 200 %.
+
+### Changed
+
+- `appearance.glow` is a percentage from 0 to 200 and scales the halo's
+  opacity as well as its size, so a low value gives a discreet halo. `off`,
+  `soft`, `normal` and `strong` still work (0, 50, 100, 170 %); `soft` is now
+  softer than before.
+- On a very light color (white or warm white light), the power button icon
+  turns dark so it stays visible.
+
 ## [0.4.1] - 2026-10-04
 
 ### Changed
@@ -116,6 +139,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.5.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.5.0
 [0.4.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.1
 [0.4.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.4.0
 [0.3.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.3.0

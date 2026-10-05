@@ -43,6 +43,7 @@ export class VividLightHeader extends LitElement {
     rgb: { attribute: false },
     colors: { attribute: false },
     brightness: { type: Number },
+    glowBoost: { type: Number, attribute: 'glow-boost' },
     badges: { attribute: false },
     lightOptions: { attribute: false },
     showPower: { type: Boolean, attribute: 'show-power' },
@@ -67,6 +68,8 @@ export class VividLightHeader extends LitElement {
   declare colors?: Rgb[];
   /** 0–100: the power button glows wider and brighter with it. */
   declare brightness?: number;
+  /** How much the halo of the power button grows with the brightness, in percent. */
+  declare glowBoost?: number;
   declare badges?: BadgeModel[];
   declare lightOptions?: LightCallOptions;
   declare showPower: boolean;
@@ -253,6 +256,7 @@ export class VividLightHeader extends LitElement {
             this.colors?.length ? this.colors : this.rgb,
             this.isOn,
             this.brightness ?? 100,
+            this.glowBoost ?? 100,
           )}
           .pressed=${this.isOn}
           ?disabled=${!this.available}
