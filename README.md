@@ -569,7 +569,7 @@ entities:
 | `price_entity`    | none       | A `sensor` or `input_number` holding the price of a kWh; it wins over `price`, which stays the fallback. |
 | `max_watts`       | `60`       | Watts at which a lamp's halo is the brightest.                                                           |
 | `warn_below`      | `1`        | A lamp on for a minute but drawing less than this (W) gets a red bulb. `0` turns it off.                 |
-| `glow`            | `100`      | Halo strength in percent, 0 to 200. Softer than the LED card: its 100 % is 70 % of the LED card's halo.  |
+| `glow`            | `100`      | Halo strength in percent, 0 to 200. Softer than the LED card: its 100 % is 60 % of the LED card's halo.  |
 | `scenes`          | none       | Quick presets, see below.                                                                                |
 | `members`         | none       | Per-lamp overrides, see below.                                                                           |
 
@@ -670,7 +670,7 @@ Options of the three light badges:
 | `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim).   |
 | `show_count`  | `true`     | `2/3` (or the brightness of a single light) next to the icon while on.                              |
 | `show_zero`   | `false`    | Also show `0/3` next to the crossed-out icon when everything is off.                                |
-| `glow`        | `100`      | Halo strength in percent, 0 to 200. Softer than the LED card: its 100 % is 70 % of the card's halo. |
+| `glow`        | `100`      | Halo strength in percent, 0 to 200. Softer than the LED card: its 100 % is 60 % of the card's halo. |
 | `glow_boost`  | `100`      | How much the halo grows with the brightness, 0 to 200, as on the card.                              |
 | `transition`  | none       | Seconds of fade sent with every command.                                                            |
 | `tap_action`  | `toggle`   | Any card action; `toggle` switches the whole group.                                                 |

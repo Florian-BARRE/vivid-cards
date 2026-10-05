@@ -70,7 +70,7 @@ function round2(value: number): number {
  * LED card: their halos sit on small surfaces, or on many buttons side by
  * side, where the full halo looks overdone. 100 % stays each one's default.
  */
-export const SOFT_GLOW = 0.7;
+export const SOFT_GLOW = 0.6;
 
 /** A halo color whose opacity follows `--vivid-glow-alpha`. */
 function glowColor([r, g, b]: Rgb, alpha: number): string {
