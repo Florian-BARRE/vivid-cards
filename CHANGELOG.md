@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] - 2026-10-06
+
+### Changed
+
+- `vivid-light-badge`: its default halo is 120 % of the common one (what 120 %
+  gave in 0.9.2), checked on a real dashboard. A `glow` of 120 % set by hand
+  should go back to 100 %.
+
 ## [0.9.2] - 2026-10-05
 
 ### Changed
@@ -243,6 +251,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.9.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.3
 [0.9.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.2
 [0.9.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.1
 [0.9.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.0
