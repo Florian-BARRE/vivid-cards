@@ -16,6 +16,9 @@ import { buildLightBadgeModel, type LightBadgeModel } from './model';
 import './vivid-light-badge-details';
 import './vivid-light-badge-editor';
 
+/** 100 % on the light badge is 120 % of the common halo. */
+const LIGHT_GLOW_SCALE = 1.2;
+
 /**
  * Badge for a light group (or one light, or lamps on plugs), for the badge
  * bar of a dashboard.
@@ -77,6 +80,8 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
         : localize(hass, 'off'),
       watched: model.watched,
       unavailable: model.total === 0,
+      // Checked on a real dashboard: the light badge needs a little more than the others.
+      glowScale: this.kind === 'light' ? LIGHT_GLOW_SCALE : 1,
     };
   }
 

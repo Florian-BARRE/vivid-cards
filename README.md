@@ -660,21 +660,21 @@ else a bulb.
 
 Options of the three light badges:
 
-| Option        | Default    | Description                                                                                       |
-| ------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| `entity`      | (required) | A light, a switch, or a group of either (light group, switch group or `group.`).                  |
-| `name`        | entity     | Title of the details.                                                                             |
-| `icon`        | auto       | Icon while on.                                                                                    |
-| `icon_off`    | auto       | Icon while off. Auto: the crossed-out version of `icon`, or `icon` with a stroke.                 |
-| `look`        | `disc`     | `disc`: the colors on a disc behind the icon. `pill`: the whole badge filled.                     |
-| `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim). |
-| `show_count`  | `true`     | `2/3` (or the brightness of a single light) next to the icon while on.                            |
-| `show_zero`   | `false`    | Also show `0/3` next to the crossed-out icon when everything is off.                              |
-| `glow`        | `100`      | Halo strength in percent, 0 to 200, the same scale on every card and badge.                       |
-| `glow_boost`  | `100`      | How much the halo grows with the brightness, 0 to 200, as on the card.                            |
-| `transition`  | none       | Seconds of fade sent with every command.                                                          |
-| `tap_action`  | `toggle`   | Any card action; `toggle` switches the whole group.                                               |
-| `hold_action` | `details`  | `details` opens the lights under the badge.                                                       |
+| Option        | Default    | Description                                                                                                                                     |
+| ------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`      | (required) | A light, a switch, or a group of either (light group, switch group or `group.`).                                                                |
+| `name`        | entity     | Title of the details.                                                                                                                           |
+| `icon`        | auto       | Icon while on.                                                                                                                                  |
+| `icon_off`    | auto       | Icon while off. Auto: the crossed-out version of `icon`, or `icon` with a stroke.                                                               |
+| `look`        | `disc`     | `disc`: the colors on a disc behind the icon. `pill`: the whole badge filled.                                                                   |
+| `layout`      | `list`     | Details: `list` (rows with a brightness slider) or `compact` (two columns, drag sideways to dim).                                               |
+| `show_count`  | `true`     | `2/3` (or the brightness of a single light) next to the icon while on.                                                                          |
+| `show_zero`   | `false`    | Also show `0/3` next to the crossed-out icon when everything is off.                                                                            |
+| `glow`        | `100`      | Halo strength in percent, 0 to 200, the same scale on every card and badge (the light badge's 100 % is a little stronger: 120 % of the others). |
+| `glow_boost`  | `100`      | How much the halo grows with the brightness, 0 to 200, as on the card.                                                                          |
+| `transition`  | none       | Seconds of fade sent with every command.                                                                                                        |
+| `tap_action`  | `toggle`   | Any card action; `toggle` switches the whole group.                                                                                             |
+| `hold_action` | `details`  | `details` opens the lights under the badge.                                                                                                     |
 
 The count leaves out lights Home Assistant cannot reach: they show as
 unavailable in the details.

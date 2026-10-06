@@ -55,6 +55,8 @@ export interface BadgeView {
   ticking?: boolean;
   /** Nothing can be read: the badge is dimmed. */
   unavailable?: boolean;
+  /** What 100 % of `glow` is for this badge, as a share of the common halo (1). */
+  glowScale?: number;
 }
 
 /** CSS variables of a view for a look. */
@@ -64,7 +66,7 @@ export function lookVars(
   glow: number,
 ): Record<string, string | undefined> {
   const vars: Record<string, string | undefined> = {
-    ...glowVars(glow),
+    ...glowVars(glow * (view.glowScale ?? 1)),
     // The pill glows around the whole badge, the disc around its icon.
     '--vivid-glow-size': glowSize(look === 'pill' ? GLOW_REFERENCE_PX : DISC_PX),
   };
@@ -427,7 +429,8 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
   protected refreshDetails(): void {
     const popover = this.detailsPopover;
     if (!popover || !this.view || !this._config) return;
-    for (const [name, value] of Object.entries(glowVars(this._config.glow))) {
+    const scale = this.view.glowScale ?? 1;
+    for (const [name, value] of Object.entries(glowVars(this._config.glow * scale))) {
       popover.style.setProperty(name, value);
     }
     popover.label = this.view.name;
