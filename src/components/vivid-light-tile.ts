@@ -26,6 +26,8 @@ import './vivid-color-bar';
 import './vivid-select-chip';
 
 const HOLD_MS = 500;
+/** Saturation (%) sent with a hue picked on the color bar. */
+const FULL_SATURATION = 100;
 const SLIDE_THRESHOLD_PX = 8;
 const SCROLL_THRESHOLD_PX = 10;
 const PENDING_TIMEOUT_MS = 2000;
@@ -71,6 +73,7 @@ export class VividLightTile extends LitElement {
     showEffects: { type: Boolean, attribute: 'show-effects' },
     showState: { type: Boolean, attribute: 'show-state' },
     colorBar: { attribute: 'color-bar' },
+    saturationBar: { type: Boolean, attribute: 'saturation-bar' },
     doubleTap: { type: Boolean, attribute: 'double-tap' },
     favorites: { attribute: false },
     badges: { attribute: false },
@@ -89,6 +92,8 @@ export class VividLightTile extends LitElement {
   declare showEffects: boolean;
   declare showState: boolean;
   declare colorBar: ColorBar;
+  /** A saturation bar under the hue bar (hue color bar only). */
+  declare saturationBar: boolean;
   /** Waits for a possible second tap before reporting a tap. */
   declare doubleTap: boolean;
   declare favorites: ColorPreset[];
@@ -114,6 +119,7 @@ export class VividLightTile extends LitElement {
     this.showEffects = true;
     this.showState = true;
     this.colorBar = 'hue';
+    this.saturationBar = false;
     this.doubleTap = false;
     this.favorites = [];
     this.badges = [];
@@ -505,9 +511,25 @@ export class VividLightTile extends LitElement {
       void setColorTemperature(this.hass, this.entityId, event.detail.value, this.lightOptions);
       return;
     }
-    const hs = (this.stateObj?.attributes as LightAttributes | undefined)?.hs_color;
-    const saturation = Array.isArray(hs) && typeof hs[1] === 'number' && hs[1] > 0 ? hs[1] : 100;
+    // Without a saturation bar the hue bar sends exactly what it shows: a full
+    // color. Keeping a hidden saturation made every color pale after a white
+    // or a pastel favorite. With the bar, the saturation it shows is kept.
+    const saturation = this.saturationBar ? this.currentHs()[1] : FULL_SATURATION;
     void setHue(this.hass, this.entityId, event.detail.value, saturation, this.lightOptions);
+  };
+
+  /** Hue and saturation of the light; a light without a color reads as red at full color. */
+  private currentHs(): [number, number] {
+    const hs = (this.stateObj?.attributes as LightAttributes | undefined)?.hs_color;
+    const hue = Array.isArray(hs) && typeof hs[0] === 'number' ? hs[0] : 0;
+    const saturation = Array.isArray(hs) && typeof hs[1] === 'number' ? hs[1] : FULL_SATURATION;
+    return [hue, saturation];
+  }
+
+  private readonly onSaturationChanged = (event: CustomEvent<{ value: number }>): void => {
+    if (!this.hass || !this.entityId) return;
+    const [hue] = this.currentHs();
+    void setHue(this.hass, this.entityId, hue, event.detail.value, this.lightOptions);
   };
 
   private renderBadges() {
@@ -579,7 +601,7 @@ export class VividLightTile extends LitElement {
       value = attributes.color_temp_kelvin ?? undefined;
     }
     const range = temperatureRange(this.stateObj);
-    return html`<vivid-color-bar
+    const bar = html`<vivid-color-bar
       .kind=${this.colorBar}
       .value=${value}
       .min=${range.min}
@@ -588,6 +610,18 @@ export class VividLightTile extends LitElement {
       ?disabled=${!available}
       @value-changed=${this.onColorChanged}
     ></vivid-color-bar>`;
+    if (this.colorBar !== 'hue' || !this.saturationBar) return bar;
+    const [hue, saturation] = this.currentHs();
+    return html`${bar}
+      <vivid-color-bar
+        class="saturation"
+        .kind=${'saturation'}
+        .hue=${hue}
+        .value=${isOn ? saturation : undefined}
+        .label=${localize(this.hass, 'saturation')}
+        ?disabled=${!available}
+        @value-changed=${this.onSaturationChanged}
+      ></vivid-color-bar>`;
   }
 
   protected override render() {

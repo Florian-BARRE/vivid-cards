@@ -290,6 +290,7 @@ export class VividLedGroup extends LitElement {
           .showEffects=${config.tile.effects}
           .showState=${config.tile.state !== 'none'}
           .colorBar=${model.tileColorBar}
+          .saturationBar=${config.tile.saturationBar}
           .doubleTap=${config.tile.doubleTapAction.action !== 'none'}
           .favorites=${config.tile.favorites}
           .badges=${model.badges}

@@ -26,6 +26,8 @@ const baseConfig = {
   tile: {
     favorites: ['#ff8a3d', '#8a2be2', '#00b4d8', { kelvin: 2700, brightness: 40 }],
     transition: 0.6,
+    // `?saturation`: the saturation bar on the card too.
+    ...(new URLSearchParams(location.search).has('saturation') ? { saturation_bar: true } : {}),
   },
 };
 

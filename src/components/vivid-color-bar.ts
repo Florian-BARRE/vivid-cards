@@ -2,7 +2,7 @@ import { LitElement, css, html, type PropertyValues } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { fireEvent } from '../core/actions';
-import { clamp, kelvinToRgb, rgbCss } from '../core/color';
+import { clamp, hsToRgb, kelvinToRgb, rgbCss } from '../core/color';
 import { defineElement } from '../core/register';
 import { tokens } from './shared-styles';
 
@@ -11,10 +11,12 @@ const HUE_GRADIENT =
   'linear-gradient(90deg, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%)';
 const TEMPERATURE_STOPS = 6;
 
-export type ColorBarKind = 'hue' | 'temperature';
+export type ColorBarKind = 'hue' | 'temperature' | 'saturation';
 
 /**
- * Bar to pick a hue (0–360) or a color temperature (kelvin, warm on the left).
+ * Bar to pick a hue (0–360), a saturation (0–100 %, white on the left, the
+ * `hue` at full color on the right) or a color temperature (kelvin, warm on
+ * the left).
  * Fires `value-changed` with `{ value }` on release.
  */
 export class VividColorBar extends LitElement {
@@ -24,6 +26,7 @@ export class VividColorBar extends LitElement {
     min: { type: Number },
     max: { type: Number },
     disabled: { type: Boolean, reflect: true },
+    hue: { type: Number },
     label: {},
     _preview: { state: true },
   };
@@ -34,6 +37,8 @@ export class VividColorBar extends LitElement {
   declare min: number;
   declare max: number;
   declare disabled: boolean;
+  /** Hue (degrees) whose saturation the `saturation` bar sets. */
+  declare hue: number;
   declare label?: string;
   declare _preview?: number;
 
@@ -46,6 +51,7 @@ export class VividColorBar extends LitElement {
     this.min = 2000;
     this.max = 6535;
     this.disabled = false;
+    this.hue = 0;
   }
 
   static override styles = [
@@ -85,15 +91,22 @@ export class VividColorBar extends LitElement {
   ];
 
   private get range(): [number, number] {
-    return this.kind === 'hue' ? [0, 360] : [this.min, this.max];
+    if (this.kind === 'hue') return [0, 360];
+    if (this.kind === 'saturation') return [0, 100];
+    return [this.min, this.max];
   }
 
   private get step(): number {
-    return this.kind === 'hue' ? 10 : Math.max(Math.round((this.max - this.min) / 20), 50);
+    if (this.kind === 'hue') return 10;
+    if (this.kind === 'saturation') return 5;
+    return Math.max(Math.round((this.max - this.min) / 20), 50);
   }
 
   private gradient(): string {
     if (this.kind === 'hue') return HUE_GRADIENT;
+    if (this.kind === 'saturation') {
+      return `linear-gradient(90deg, #ffffff 0%, ${rgbCss(hsToRgb(this.hue, 100))} 100%)`;
+    }
     const stops = Array.from({ length: TEMPERATURE_STOPS }, (_, index) => {
       const ratio = index / (TEMPERATURE_STOPS - 1);
       const kelvin = this.min + (this.max - this.min) * ratio;

@@ -287,18 +287,19 @@ members:
 
 `tile`:
 
-| Option              | Default      | Description                                                                                                    |
-| ------------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| `color_bar`         | `auto`       | `auto` (hue for color lights, temperature for tunable whites, none otherwise), `hue`, `temperature` or `none`. |
-| `state`             | `brightness` | Text on the tile: `brightness` or `none`.                                                                      |
-| `effects`           | `true`       | Effect picker.                                                                                                 |
-| `favorites`         | none         | Up to 8 colors: `"#ff8800"`, `[255, 136, 0]`, `{ kelvin: 2700 }`, each with an optional `brightness` (%).      |
-| `brightness_min`    | `1`          | Lowest brightness (%) a drag sets; dragging to the left edge still turns off.                                  |
-| `brightness_step`   | `1`          | Brightness step (%) of a drag.                                                                                 |
-| `transition`        | none         | Seconds of fade sent with every light command.                                                                 |
-| `tap_action`        | `toggle`     | Any Home Assistant action, plus `details`.                                                                     |
-| `hold_action`       | `details`    | `details` for a group, `more-info` for a single light.                                                         |
-| `double_tap_action` | `none`       | Same syntax.                                                                                                   |
+| Option              | Default      | Description                                                                                                                    |
+| ------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `color_bar`         | `auto`       | `auto` (hue for color lights, temperature for tunable whites, none otherwise), `hue`, `temperature` or `none`.                 |
+| `saturation_bar`    | `false`      | A saturation bar under the color bar (hue lights): from pale to full color. Without it the color bar always sends full colors. |
+| `state`             | `brightness` | Text on the tile: `brightness` or `none`.                                                                                      |
+| `effects`           | `true`       | Effect picker.                                                                                                                 |
+| `favorites`         | none         | Up to 8 colors: `"#ff8800"`, `[255, 136, 0]`, `{ kelvin: 2700 }`, each with an optional `brightness` (%).                      |
+| `brightness_min`    | `1`          | Lowest brightness (%) a drag sets; dragging to the left edge still turns off.                                                  |
+| `brightness_step`   | `1`          | Brightness step (%) of a drag.                                                                                                 |
+| `transition`        | none         | Seconds of fade sent with every light command.                                                                                 |
+| `tap_action`        | `toggle`     | Any Home Assistant action, plus `details`.                                                                                     |
+| `hold_action`       | `details`    | `details` for a group, `more-info` for a single light.                                                                         |
+| `double_tap_action` | `none`       | Same syntax.                                                                                                                   |
 
 Actions accept a name (`toggle`, `details`, `more-info`, `none`) or the usual
 object: `navigate`, `url`, `perform-action`…
@@ -329,19 +330,20 @@ their value, on/off entities light up while on.
 
 `details`:
 
-| Option          | Default          | Description                                                                                         |
-| --------------- | ---------------- | --------------------------------------------------------------------------------------------------- |
-| `enabled`       | groups only      | The details dialog.                                                                                 |
-| `hash`          | none             | Opens the details when the page URL ends with this hash, so any card can open them with `navigate`. |
-| `sort`          | `name`           | `name`, `group` (order of the group) or `custom` (with `order`).                                    |
-| `order`         | none             | Entity ids in display order, with `sort: custom`. The editor fills it with its arrows.              |
-| `summary`       | `true`           | Group badges at the top.                                                                            |
-| `history`       | `true`           | Consumption chart, energy and cost.                                                                 |
-| `effects`       | `tile.effects`   | Effect picker of each light.                                                                        |
-| `favorites`     | `true`           | Favorite colors on each light.                                                                      |
-| `wled_controls` | `true`           | WLED **Settings** panel.                                                                            |
-| `health`        | `true`           | WLED **Device** panel.                                                                              |
-| `color_bar`     | `tile.color_bar` | Color bar of each light, same values as `tile.color_bar`.                                           |
+| Option           | Default          | Description                                                                                         |
+| ---------------- | ---------------- | --------------------------------------------------------------------------------------------------- |
+| `enabled`        | groups only      | The details dialog.                                                                                 |
+| `hash`           | none             | Opens the details when the page URL ends with this hash, so any card can open them with `navigate`. |
+| `sort`           | `name`           | `name`, `group` (order of the group) or `custom` (with `order`).                                    |
+| `order`          | none             | Entity ids in display order, with `sort: custom`. The editor fills it with its arrows.              |
+| `summary`        | `true`           | Group badges at the top.                                                                            |
+| `history`        | `true`           | Consumption chart, energy and cost.                                                                 |
+| `effects`        | `tile.effects`   | Effect picker of each light.                                                                        |
+| `favorites`      | `true`           | Favorite colors on each light.                                                                      |
+| `wled_controls`  | `true`           | WLED **Settings** panel.                                                                            |
+| `health`         | `true`           | WLED **Device** panel.                                                                              |
+| `color_bar`      | `tile.color_bar` | Color bar of each light, same values as `tile.color_bar`.                                           |
+| `saturation_bar` | `true`           | Saturation bar under the color bar of each light.                                                   |
 
 `appearance`:
 

@@ -184,6 +184,7 @@ export class VividLedGroupDetails extends LitElement {
         .showEffects=${config.details.effects}
         .showState=${config.tile.state !== 'none'}
         .colorBar=${resolveColorBar(config.details.colorBar, this.hass?.states[strip.entityId])}
+        .saturationBar=${config.details.saturationBar}
         .favorites=${config.details.favorites && strip.available ? config.tile.favorites : []}
         .brightnessMin=${config.tile.brightnessMin}
         .brightnessStep=${config.tile.brightnessStep}
