@@ -1,6 +1,6 @@
 {
   "name": "vivid-cards",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "description": "Expressive Lovelace cards for Home Assistant: LED groups, WLED, live glow badges.",
   "keywords": [
     "home-assistant",

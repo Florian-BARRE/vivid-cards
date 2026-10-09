@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-10-09
+
+### Added
+
+- Saturation bar under the color bar, from pale to full color: in the details
+  of every light by default (`details.saturation_bar`), and on the card with
+  `tile.saturation_bar`. Changing the hue keeps the saturation it shows.
+
+### Fixed
+
+- Colors picked on the color bar came out pale after a white or a pastel
+  color: the bar kept the light's hidden saturation. Without a saturation bar
+  it now sends the full color it shows.
+
 ## [0.9.3] - 2026-10-06
 
 ### Changed
@@ -251,6 +265,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.10.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.10.0
 [0.9.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.3
 [0.9.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.2
 [0.9.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.1
