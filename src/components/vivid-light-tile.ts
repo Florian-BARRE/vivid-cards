@@ -26,6 +26,8 @@ import './vivid-color-bar';
 import './vivid-select-chip';
 
 const HOLD_MS = 500;
+/** Saturation (%) sent with a hue picked on the color bar. */
+const FULL_SATURATION = 100;
 const SLIDE_THRESHOLD_PX = 8;
 const SCROLL_THRESHOLD_PX = 10;
 const PENDING_TIMEOUT_MS = 2000;
@@ -505,9 +507,9 @@ export class VividLightTile extends LitElement {
       void setColorTemperature(this.hass, this.entityId, event.detail.value, this.lightOptions);
       return;
     }
-    const hs = (this.stateObj?.attributes as LightAttributes | undefined)?.hs_color;
-    const saturation = Array.isArray(hs) && typeof hs[1] === 'number' && hs[1] > 0 ? hs[1] : 100;
-    void setHue(this.hass, this.entityId, event.detail.value, saturation, this.lightOptions);
+    // The bar shows fully saturated hues: send exactly that. Keeping the light's
+    // current saturation made every color pale after a white or a pastel favorite.
+    void setHue(this.hass, this.entityId, event.detail.value, FULL_SATURATION, this.lightOptions);
   };
 
   private renderBadges() {
