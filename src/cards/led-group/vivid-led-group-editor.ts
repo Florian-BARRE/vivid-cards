@@ -65,6 +65,8 @@ const LABELS: Record<string, EditorStringKey> = {
   hash: 'details_hash',
   sort: 'details_sort',
   details_color_bar: 'color_bar',
+  saturation_bar: 'saturation_bar',
+  details_saturation_bar: 'details_saturation_bar',
   summary: 'details_summary',
   details_effects: 'details_effects',
   idle: 'idle',
@@ -931,19 +933,26 @@ export class VividLedGroupEditor extends LitElement {
                 },
               ],
             },
+            ...(resolved.tile.colorBar !== 'none' && resolved.tile.colorBar !== 'temperature'
+              ? [{ name: 'saturation_bar', selector: { boolean: {} } }]
+              : []),
             { name: 'effects', selector: { boolean: {} } },
           ],
           {
             color_bar: resolved.tile.colorBar,
             state: resolved.tile.state,
+            saturation_bar: resolved.tile.saturationBar,
             effects: resolved.tile.effects,
           },
           (value) => {
             let next = setOption(config, 'tile', 'color_bar', value.color_bar, 'auto');
             next = setOption(next, 'tile', 'state', value.state, 'brightness');
+            next = setOption(next, 'tile', 'saturation_bar', value.saturation_bar, false);
             next = setOption(next, 'tile', 'effects', value.effects, true);
             this.commit(next);
           },
+          (schema) =>
+            schema.name === 'saturation_bar' ? this.t('saturation_bar_helper') : undefined,
         )}
         ${this.renderFavorites(resolved)} ${this.renderBadges()}
         <div class="label">${this.t('brightness_title')}</div>
@@ -1254,6 +1263,9 @@ export class VividLedGroupEditor extends LitElement {
         { name: 'summary', selector: { boolean: {} } },
         ...(model.hasPower ? [{ name: 'details_history', selector: { boolean: {} } }] : []),
         { name: 'details_effects', selector: { boolean: {} } },
+        ...(resolved.details.colorBar !== 'none' && resolved.details.colorBar !== 'temperature'
+          ? [{ name: 'details_saturation_bar', selector: { boolean: {} } }]
+          : []),
         ...(resolved.tile.favorites.length
           ? [{ name: 'details_favorites', selector: { boolean: {} } }]
           : []),
@@ -1268,6 +1280,7 @@ export class VividLedGroupEditor extends LitElement {
         summary: resolved.details.summary,
         details_history: resolved.details.history,
         details_effects: resolved.details.effects,
+        details_saturation_bar: resolved.details.saturationBar,
         details_favorites: resolved.details.favorites,
         wled_controls: resolved.details.wledControls,
         health: resolved.details.health,
@@ -1275,6 +1288,9 @@ export class VividLedGroupEditor extends LitElement {
       (value) => {
         let next = setOption(config, 'details', 'summary', value.summary, true);
         next = setOption(next, 'details', 'effects', value.details_effects, resolved.tile.effects);
+        if (value.details_saturation_bar !== undefined) {
+          next = setOption(next, 'details', 'saturation_bar', value.details_saturation_bar, true);
+        }
         if (resolved.tile.favorites.length) {
           next = setOption(next, 'details', 'favorites', value.details_favorites, true);
         }

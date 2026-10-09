@@ -302,3 +302,22 @@ describe('lamp card display options', () => {
     expect(() => config({ show_names: 'no' })).toThrow(/show_names/);
   });
 });
+
+describe('LED card saturation bar', () => {
+  it('is off on the card and on in the details by default', async () => {
+    const { resolveConfig } = await import('../src/cards/led-group/config');
+    const { GROUP_ID } = await import('../dev/mock-hass');
+    const base = { type: 'custom:vivid-led-group', entity: GROUP_ID };
+    const defaults = resolveConfig(base);
+    expect([defaults.tile.saturationBar, defaults.details.saturationBar]).toEqual([false, true]);
+    const set = resolveConfig({
+      ...base,
+      tile: { saturation_bar: true },
+      details: { saturation_bar: false },
+    });
+    expect([set.tile.saturationBar, set.details.saturationBar]).toEqual([true, false]);
+    expect(() => resolveConfig({ ...base, tile: { saturation_bar: 'yes' } })).toThrow(
+      /saturation_bar/,
+    );
+  });
+});

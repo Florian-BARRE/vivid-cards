@@ -58,6 +58,8 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
   tile?: {
     state?: StateText;
     color_bar?: ColorBarMode;
+    /** A saturation bar under the hue bar. */
+    saturation_bar?: boolean;
     effects?: boolean;
     tap_action?: unknown;
     hold_action?: unknown;
@@ -103,6 +105,7 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     summary?: boolean;
     effects?: boolean;
     color_bar?: ColorBarMode;
+    saturation_bar?: boolean;
     favorites?: boolean;
     wled_controls?: boolean;
     health?: boolean;
@@ -122,6 +125,7 @@ export interface ResolvedLedGroupConfig {
   tile: {
     state: StateText;
     colorBar: ColorBarMode;
+    saturationBar: boolean;
     effects: boolean;
     tapAction: ActionConfig;
     /** `undefined` means: details for a group, more-info for a single light. */
@@ -166,6 +170,7 @@ export interface ResolvedLedGroupConfig {
     summary: boolean;
     effects: boolean;
     colorBar: ColorBarMode;
+    saturationBar: boolean;
     favorites: boolean;
     wledControls: boolean;
     health: boolean;
@@ -450,6 +455,7 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
     tile: {
       state: optionalChoice(tile.state, 'tile.state', STATE_TEXTS) ?? 'brightness',
       colorBar: tileColorBar,
+      saturationBar: optionalBoolean(tile.saturation_bar, 'tile.saturation_bar') ?? false,
       effects: tileEffects,
       tapAction: action(tile.tap_action, 'tile.tap_action') ?? { action: 'toggle' },
       holdAction: action(tile.hold_action, 'tile.hold_action'),
@@ -491,6 +497,7 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       effects: optionalBoolean(details.effects, 'details.effects') ?? tileEffects,
       colorBar:
         optionalChoice(details.color_bar, 'details.color_bar', COLOR_BAR_MODES) ?? tileColorBar,
+      saturationBar: optionalBoolean(details.saturation_bar, 'details.saturation_bar') ?? true,
       favorites: optionalBoolean(details.favorites, 'details.favorites') ?? true,
       wledControls: optionalBoolean(details.wled_controls, 'details.wled_controls') ?? true,
       health: optionalBoolean(details.health, 'details.health') ?? true,
