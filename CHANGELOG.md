@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.11.0] - 2026-10-20
 
 ### Added
 
@@ -276,6 +276,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.11.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.11.0
 [0.10.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.10.0
 [0.9.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.3
 [0.9.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.2
