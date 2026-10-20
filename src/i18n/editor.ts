@@ -237,6 +237,17 @@ const en = {
   lamp_columns_helper: 'Empty: as many as fit',
   lamp_icons_only: 'icons only',
   lamp_gestures_hint: 'On a lamp; the title always opens the details',
+  amb_prefix: 'Device entity prefix',
+  amb_prefix_helper:
+    'The part between the domain and the entity name, e.g. salon_salon_ambilight_manager_',
+  amb_hyperhdr: 'HyperHDR entity',
+  amb_hyperhdr_helper: 'Any entity of the HyperHDR integration: shows when HyperHDR answers',
+  amb_counter: 'Send counter (optional)',
+  amb_counter_helper: 'A firmware sensor that changes on every confirmed send',
+  amb_confirm_pi: 'Confirm before cutting the Pi',
+  amb_input_name: 'Input {n} · name',
+  amb_input_icon: 'Input {n} · icon',
+  amb_halo: 'Halo',
 };
 
 type EditorStrings = typeof en;
@@ -479,6 +490,18 @@ const fr: EditorStrings = {
   lamp_columns_helper: 'Vide : autant que la place le permet',
   lamp_icons_only: 'icônes seules',
   lamp_gestures_hint: 'Sur une lampe ; le titre ouvre toujours le détail',
+  amb_prefix: 'Préfixe des entités de l’appareil',
+  amb_prefix_helper:
+    'La partie entre le domaine et le nom de l’entité, ex. salon_salon_ambilight_manager_',
+  amb_hyperhdr: 'Entité HyperHDR',
+  amb_hyperhdr_helper:
+    'N’importe quelle entité de l’intégration HyperHDR : indique quand HyperHDR répond',
+  amb_counter: 'Compteur d’envois (optionnel)',
+  amb_counter_helper: 'Un capteur du firmware qui change à chaque envoi confirmé',
+  amb_confirm_pi: 'Confirmer avant de couper le Pi',
+  amb_input_name: 'Entrée {n} · nom',
+  amb_input_icon: 'Entrée {n} · icône',
+  amb_halo: 'Halo',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
