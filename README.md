@@ -40,6 +40,10 @@ empties and turns red.
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="400" /><br /><sub><b>Lamp details: today's timeline, energy and cost</b></sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="400" /><br /><sub><b>Ambilight manager: HDMI source, Pi power, box temperature and fan</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-fan.png" alt="Fan curve of the Ambilight manager" width="400" /><br /><sub><b>Ambilight details: the fan curve, point by point</b></sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge details" width="400" /><br /><sub><b>LED badge: hold for every strip</b></sub></td>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/window-badge.png" alt="Window badge details" width="400" /><br /><sub><b>Window badge: open first, with how long</b></sub></td>
   </tr>
@@ -51,19 +55,20 @@ empties and turns red.
 
 ## What is inside
 
-| Card or badge                                         | What it is for                                                         |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| [`vivid-led-group`](#vivid-led-group) (card)          | A light group or a single light, WLED aware, with details per light    |
-| [`vivid-lamp-group`](#vivid-lamp-group) (card)        | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
-| [`vivid-led-badge`](#vivid-led-badge)                 | LED strips on out of the total, in their colors; tap switches them all |
-| [`vivid-lamp-badge`](#vivid-lamp-badge)               | Lamps (bulbs or smart plugs) on out of the total, in amber             |
-| [`vivid-light-badge`](#vivid-light-badge)             | Any other lights (ceiling lights, spots…)                              |
-| [`vivid-window-badge`](#vivid-window-badge)           | Windows open out of the total, warming up the longer they stay open    |
-| [`vivid-door-badge`](#vivid-door-badge)               | Doors and garage doors open out of the total                           |
-| [`vivid-presence-badge`](#vivid-presence-badge)       | Presence in a room, or rooms occupied, with the last hours of each     |
-| [`vivid-illuminance-badge`](#vivid-illuminance-badge) | Illuminance of a group, from the moon to the sun, with a gauge         |
-| [`vivid-power-badge`](#vivid-power-badge)             | Power of a group of devices, glowing brighter as it rises              |
-| [`vivid-battery-badge`](#vivid-battery-badge)         | The lowest battery of a group or of the whole home                     |
+| Card or badge                                          | What it is for                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`vivid-led-group`](#vivid-led-group) (card)           | A light group or a single light, WLED aware, with details per light    |
+| [`vivid-lamp-group`](#vivid-lamp-group) (card)         | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
+| [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperature and fan  |
+| [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
+| [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
+| [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
+| [`vivid-window-badge`](#vivid-window-badge)            | Windows open out of the total, warming up the longer they stay open    |
+| [`vivid-door-badge`](#vivid-door-badge)                | Doors and garage doors open out of the total                           |
+| [`vivid-presence-badge`](#vivid-presence-badge)        | Presence in a room, or rooms occupied, with the last hours of each     |
+| [`vivid-illuminance-badge`](#vivid-illuminance-badge)  | Illuminance of a group, from the moon to the sun, with a gauge         |
+| [`vivid-power-badge`](#vivid-power-badge)              | Power of a group of devices, glowing brighter as it rises              |
+| [`vivid-battery-badge`](#vivid-battery-badge)          | The lowest battery of a group or of the whole home                     |
 
 Temperature, humidity and pressure badges are on the [roadmap](#roadmap).
 
@@ -603,6 +608,105 @@ Consumption comes from `power_sensor`, else from a power sensor of the same
 device: a metering smart plug works without any setting. The energy of the day
 is computed from the power history, so it can differ slightly from an energy
 meter.
+
+## vivid-ambilight-card
+
+A card made for one DIY device, the **Salon Ambilight Manager**: a Wemos D1
+mini under ESPHome in the box behind the TV that runs the Ambilight. It cools
+the box with a fan on a temperature curve, switches the HDMI input of a 5-in-1
+switch by replaying its remote's IR codes (and checks the echo), and powers
+the Raspberry Pi running HyperHDR through a relay. The compact card keeps what
+is used every day under the thumb; a tap opens everything else.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="428" />
+</p>
+
+### What the card shows
+
+- **Header**: the fan icon, turning faster with the speed and colored by the
+  box temperature (blue, green, amber, red at the overheat threshold); the
+  worst alarm first (offline, overheating, fan stalled, sensor missing), else
+  the fan mode and the Pi; the temperature and the fan speed.
+- **Pi switch**: the relay of the Pi's 5 V supply. Turning it on is
+  immediate; turning it off is a hard power cut, so it asks for a second tap
+  (`Cut?`) within 3 s (`confirm_pi_off: false` removes it).
+- **The five HDMI inputs**, the active one lit. A tap sends the input: waves
+  while the IR LED emits, a check when the Wemos hears its own frame back, then
+  the input turns active; orange (`no echo`) when nothing came back after the
+  firmware's retry. An input changed with the original remote flashes too.
+  The echo proves the frame left the LED, not that the switch obeyed it (the
+  switch gives no feedback).
+- **Details** (tap the header), in four tabs:
+  - **Overview**: alarms, temperature, humidity, pressure and fan speed, the
+    inputs, the Pi, Auto / Manual with where the box sits on the curve.
+  - **Fan**: the curve (temperature → speed) with its four points, dragged
+    with a finger or set with − / +, the hysteresis band and the overheat
+    zone; hysteresis, overheat threshold, stop below point 1; manual speeds
+    (a speed switches the fan to Manual, as the firmware does).
+  - **HDMI & IR**: the code stored for each input, the last code received,
+    and the learning wizard (listen, keep the capture, test the replay, save)
+    with the firmware's `IR Status` shown as the live instruction.
+  - **Maintenance**: Pi supply and forced restart (3 s cut), fan tests, PWM
+    frequency, IR tests and detailed logs, Wi-Fi, IP, uptime, refresh and
+    restart. What cuts or erases asks for a second tap.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-overview.png" alt="Details: overview" width="300" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-fan.png" alt="Details: fan curve" width="300" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-ir.png" alt="Details: HDMI and IR learning" width="300" />
+</p>
+
+Texts coming from the firmware (`Fan control`, `IR Status`, `Test Status`)
+are shown as the firmware writes them.
+
+### Visual editor
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-editor.png" alt="Visual editor of the Ambilight card" width="300" />
+</p>
+
+Pick the **Ambilight Manager** device (ESPHome): the card finds its entities
+and the editor tells how many it found, and which are missing. Then a name and
+an icon for each HDMI input, and the options.
+
+### Recipes
+
+```yaml
+type: custom:vivid-ambilight-card
+device: 0123456789abcdef0123456789abcdef # the ESPHome device
+name: Ambilight
+inputs:
+  - { name: TV box, icon: mdi:television-box }
+  - { name: Console, icon: mdi:gamepad-variant }
+  - PC
+  - Cast
+  - HDMI 5
+```
+
+Without the editor, `prefix` names the entities directly (the part between
+the domain and the entity name):
+
+```yaml
+type: custom:vivid-ambilight-card
+prefix: salon_salon_ambilight_manager_
+```
+
+### Options
+
+| Option                | Default                          | Description                                                                                        |
+| --------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `device`              | none                             | The Ambilight Manager device: its entities are found from it.                                      |
+| `prefix`              | `salon_salon_ambilight_manager_` | Entity id prefix of the device; wins over `device`.                                                |
+| `name`                | `Ambilight`                      | Title of the card.                                                                                 |
+| `inputs`              | `HDMI 1` … `HDMI 5`              | Up to five inputs, each a name or `{ name, icon }` (default icon `mdi:video-input-hdmi`).          |
+| `confirm_pi_off`      | `true`                           | Turning the Pi off asks for a second tap.                                                          |
+| `send_counter_entity` | none                             | A firmware sensor that changes on every confirmed send: confirms a resend of the input already on. |
+| `entities`            | none                             | Entities that do not follow the prefix, by key (`relay: switch.pi_power`); keys as in the source.  |
+| `glow`                | `100`                            | Halo strength in percent, see [Halos](#halos).                                                     |
+
+Without `send_counter_entity`, sending the input that is already active
+changes nothing in Home Assistant: the card shows `sent`, without a check.
 
 ## Light badges
 

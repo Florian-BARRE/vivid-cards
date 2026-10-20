@@ -50,10 +50,6 @@ export function healthIcon(model: AmbilightModel): string {
 const PI_TEXT: Record<PiStatus, StringKey> = {
   off: 'amb_pi_off',
   on: 'amb_pi_on',
-  booting: 'amb_booting',
-  unreachable: 'amb_unreachable',
-  ready: 'amb_ready',
-  paused: 'amb_paused',
   unknown: 'unavailable',
 };
 
@@ -61,21 +57,9 @@ export function piText(hass: HomeAssistant | undefined, status: PiStatus): strin
   return localize(hass, PI_TEXT[status]);
 }
 
-/** Tone of the Pi disc. `pulse` while HyperHDR boots. */
+/** Tone of the Pi disc: green while powered. */
 export function piTone(status: PiStatus): ChipTone | undefined {
-  switch (status) {
-    case 'ready':
-    case 'on':
-      return tintTone(GREEN, 0.8);
-    case 'booting':
-      return { ...tintTone(AMBER, 0.7), pulse: '1.6s' };
-    case 'paused':
-      return tintTone(AMBER, 0.55);
-    case 'unreachable':
-      return tintTone(ORANGE, 0.8);
-    default:
-      return undefined;
-  }
+  return status === 'on' ? tintTone(GREEN, 0.8) : undefined;
 }
 
 /** The worst alarm first. */
@@ -92,7 +76,7 @@ const ALARM_SHORT: Record<Alarm, StringKey> = {
   nosensor: 'amb_nosensor',
 };
 
-/** One short status line: the worst alarm, else the Pi and HyperHDR. */
+/** One short status line: the worst alarm, else the fan mode and the Pi. */
 export function statusLine(
   hass: HomeAssistant | undefined,
   model: AmbilightModel,
@@ -104,8 +88,12 @@ export function statusLine(
       text: localize(hass, ALARM_SHORT[alarm]),
       tone: alarm === 'nosensor' ? 'warn' : 'alarm',
     };
-  const tone = model.pi === 'off' ? 'muted' : model.pi === 'unreachable' ? 'warn' : undefined;
-  return { text: piText(hass, model.pi), tone };
+  const mode =
+    model.fan.mode === undefined
+      ? undefined
+      : localize(hass, model.fan.mode === 'manual' ? 'amb_manual' : 'amb_auto');
+  const text = [mode, piText(hass, model.pi)].filter(Boolean).join(' · ');
+  return { text, tone: model.pi === 'off' ? 'muted' : undefined };
 }
 
 export interface AlarmView {

@@ -94,13 +94,9 @@ export interface AmbilightCardConfig extends LovelaceCardConfig {
   device?: string;
   /** Entity id prefix of the device (the part after the domain); wins over `device`. */
   prefix?: string;
-  /** The HyperHDR device (HyperHDR integration): its light is followed. */
-  hyperhdr_device?: string;
   name?: string;
   /** Names and icons of the HDMI inputs, in order. */
   inputs?: (AmbilightInputConfig | string)[];
-  /** An entity of the HyperHDR integration (unavailable while HyperHDR is down); wins over `hyperhdr_device`. */
-  hyperhdr_entity?: string;
   /** A sensor that changes on every send confirmed by the echo (optional firmware counter). */
   send_counter_entity?: string;
   /** Turning the Pi off asks for a second tap (it is a hard power cut). */
@@ -119,7 +115,6 @@ export interface ResolvedAmbilightConfig {
   name?: string;
   entities: EntityMap;
   inputs: ResolvedInput[];
-  hyperhdrEntity?: string;
   sendCounterEntity?: string;
   confirmPiOff: boolean;
   glow: number;
@@ -160,7 +155,6 @@ function optionalEntity(value: unknown): string | undefined {
 /** What the devices of the configuration point to, once Home Assistant is known. */
 export interface DeviceLookup {
   prefix?: string;
-  hyperhdrEntity?: string;
 }
 
 export function resolveAmbilightConfig(
@@ -186,7 +180,6 @@ export function resolveAmbilightConfig(
     name: typeof config.name === 'string' && config.name.trim() ? config.name.trim() : undefined,
     entities: entityMap(prefix, overrides),
     inputs,
-    hyperhdrEntity: optionalEntity(config.hyperhdr_entity) ?? lookup.hyperhdrEntity,
     sendCounterEntity: optionalEntity(config.send_counter_entity),
     confirmPiOff: config.confirm_pi_off !== false,
     glow: glowPercent(config.glow) ?? 100,

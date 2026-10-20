@@ -4,13 +4,7 @@
  * first card), `tab` (overview, fan, ir, maint).
  */
 import { defineHaStubs } from './ha-stubs';
-import {
-  HYPERHDR_DEVICE,
-  HYPERHDR_ENTITY,
-  MANAGER_DEVICE,
-  createAmbilightMock,
-  type AmbilightScenario,
-} from './ambilight-mock';
+import { MANAGER_DEVICE, createAmbilightMock, type AmbilightScenario } from './ambilight-mock';
 import type { HomeAssistant } from '../src/core/hass-types';
 
 defineHaStubs();
@@ -36,7 +30,6 @@ const SCENARIOS: {
 }[] = [
   { title: fr ? 'Normal' : 'Normal', scenario: {} },
   { title: fr ? 'Pi éteint' : 'Pi off', scenario: { piOff: true } },
-  { title: fr ? 'HyperHDR démarre' : 'HyperHDR starting', scenario: { booting: true } },
   { title: fr ? 'Capteur absent (aujourd’hui)' : 'Sensor missing', scenario: { noSensor: true } },
   { title: fr ? 'Surchauffe' : 'Overheat', scenario: { overheat: true } },
   { title: fr ? 'Ventilateur bloqué' : 'Fan stalled', scenario: { stalled: true } },
@@ -67,7 +60,6 @@ SCENARIOS.forEach((item, index) => {
     type: 'custom:vivid-ambilight-card',
     name: 'Ambilight',
     inputs,
-    hyperhdr_entity: HYPERHDR_ENTITY,
     ...item.config,
   });
   section.append(heading, card);
@@ -105,7 +97,6 @@ if (params.has('editor')) {
         type: 'custom:vivid-ambilight-card',
         name: 'Ambilight',
         device: MANAGER_DEVICE,
-        hyperhdr_device: HYPERHDR_DEVICE,
         inputs,
       };
   editor.setConfig(current);

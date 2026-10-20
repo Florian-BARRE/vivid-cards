@@ -35,12 +35,13 @@ import {
   healthColor,
   healthIcon,
   overheatOf,
+  piText,
   piTone,
   sourceLabels,
   spinSeconds,
   statusLine,
 } from './view';
-import { HYPERHDR_INTEGRATION, devicePrefix, lookupDevices } from './devices';
+import { devicePrefix, lookupDevices } from './devices';
 import './vivid-ambilight-card-editor';
 import './vivid-ambilight-details';
 
@@ -53,13 +54,11 @@ const PHASE_MS: Record<Exclude<SourcePhase, 'sending'>, number> = {
 };
 /** The "Cut?" confirmation of the Pi switch waits this long for the second tap. */
 const ARM_MS = 3000;
-/** HyperHDR states move while it boots: refresh at this pace. */
-const TICK_MS = 15_000;
 
 /**
  * The box behind the TV that runs the Ambilight: its HDMI switch (sent by
- * IR, confirmed by the echo), the Raspberry Pi's power relay with HyperHDR's
- * state, the box temperature and its fan. The compact card keeps what is used
+ * IR, confirmed by the echo), the Raspberry Pi's power relay, the box
+ * temperature and its fan. The compact card keeps what is used
  * every day under the thumb; a tap opens the details (fan curve, IR learning,
  * maintenance).
  */
@@ -86,7 +85,6 @@ export class VividAmbilightCard extends LitElement {
   private pendingTimer?: number;
   private phaseTimers = new Map<number, number>();
   private armTimer?: number;
-  private ticker?: number;
   /** Last confirmed input and when, to notice a change made with the remote. */
   private lastActive?: { index?: number; changed?: string };
 
@@ -112,15 +110,7 @@ export class VividAmbilightCard extends LitElement {
           !!hass.states[`fan.${prefix}jonsbo_fan`]
         );
       });
-    const hyperhdr =
-      hass &&
-      devices.find((id) =>
-        Object.values(hass.entities ?? {}).some(
-          (entry) => entry.device_id === id && entry.platform === HYPERHDR_INTEGRATION,
-        ),
-      );
-    if (!manager) return { prefix: DEFAULT_PREFIX };
-    return { device: manager, ...(hyperhdr ? { hyperhdr_device: hyperhdr } : {}) };
+    return manager ? { device: manager } : { prefix: DEFAULT_PREFIX };
   }
 
   setConfig(config: AmbilightCardConfig): void {
@@ -133,7 +123,7 @@ export class VividAmbilightCard extends LitElement {
   /** Finds the entities of the configured devices again when the registry changes. */
   private resolveDevices(hass: HomeAssistant): void {
     const raw = this.rawConfig;
-    if (!raw || (!raw.device && !raw.hyperhdr_device) || this.resolvedFor === hass.entities) return;
+    if (!raw || !raw.device || this.resolvedFor === hass.entities) return;
     this.resolvedFor = hass.entities;
     this._config = resolveAmbilightConfig(raw, lookupDevices(hass, raw));
   }
@@ -321,14 +311,6 @@ export class VividAmbilightCard extends LitElement {
         --mdc-icon-size: 17px;
         display: inline-flex;
       }
-      .pid.pulse {
-        animation: pulse var(--pulse, 1.6s) ease-in-out infinite;
-      }
-      @keyframes pulse {
-        50% {
-          opacity: 0.45;
-        }
-      }
       .switch {
         position: relative;
         width: 34px;
@@ -380,25 +362,15 @@ export class VividAmbilightCard extends LitElement {
         color: var(--error-color, #db4437);
       }
       @media (prefers-reduced-motion: reduce) {
-        .disc.spin ha-icon,
-        .pid.pulse {
+        .disc.spin ha-icon {
           animation: none;
         }
       }
     `,
   ];
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.ticker ??= window.setInterval(() => {
-      if (this.model?.pi === 'booting') this.requestUpdate();
-    }, TICK_MS);
-  }
-
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.clearInterval(this.ticker);
-    this.ticker = undefined;
     window.clearTimeout(this.pendingTimer);
     window.clearTimeout(this.armTimer);
     for (const timer of this.phaseTimers.values()) window.clearTimeout(timer);
@@ -569,7 +541,7 @@ export class VividAmbilightCard extends LitElement {
     const speed = model.fan.percentage;
     const pi = piTone(model.pi);
     const piLabel = this.armed ? localize(hass, 'amb_cut_confirm') : localize(hass, 'amb_pi');
-    const piTitle = `${localize(hass, 'amb_pi_title')} · ${statusLine(hass, { ...model, alarms: [] }).text}`;
+    const piTitle = `${localize(hass, 'amb_pi_title')} · ${piText(hass, model.pi)}`;
     return html`<div class="head">
       <button
         type="button"
@@ -626,12 +598,11 @@ export class VividAmbilightCard extends LitElement {
         @click=${this.togglePi}
       >
         <span
-          class=${classMap({ pid: true, pulse: !!pi?.pulse })}
+          class="pid"
           style=${styleMap({
             '--disc-bg': this.armed ? undefined : pi?.background,
             '--disc-shadow': this.armed ? undefined : pi?.shadow,
             '--disc-color': this.armed ? 'var(--error-color, #ef5350)' : pi?.iconColor,
-            '--pulse': pi?.pulse,
           })}
           ><ha-icon icon="mdi:raspberry-pi"></ha-icon
         ></span>
@@ -683,7 +654,7 @@ registerCard({
   type: AMBILIGHT_CARD,
   name: 'Vivid Ambilight manager',
   description:
-    'The box behind the TV: HDMI source by IR with echo confirmation, Raspberry Pi power and HyperHDR state, box temperature and fan curve.',
+    'The box behind the TV: HDMI source by IR with echo confirmation, Raspberry Pi power, box temperature and fan curve.',
   preview: false,
   documentationURL: `${REPOSITORY_URL}#vivid-ambilight-card`,
 });

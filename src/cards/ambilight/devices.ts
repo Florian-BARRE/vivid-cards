@@ -10,8 +10,6 @@ import {
 
 /** Integration of the Ambilight manager (an ESPHome device). */
 export const MANAGER_INTEGRATION = 'esphome';
-/** Integration of HyperHDR (HACS: mjoshd/hyperhdr-ha). */
-export const HYPERHDR_INTEGRATION = 'hyperhdr';
 
 /** Entity ids attached to a device in the registry. */
 export function deviceEntities(hass: HomeAssistant, deviceId: string): string[] {
@@ -52,16 +50,6 @@ export function devicePrefix(hass: HomeAssistant, deviceId: string): string | un
   return best;
 }
 
-/** The HyperHDR entity to follow on its device: its light, else a switch, else any. */
-export function hyperhdrEntityOf(hass: HomeAssistant, deviceId: string): string | undefined {
-  const ids = deviceEntities(hass, deviceId).sort();
-  return (
-    ids.find((id) => domainOf(id) === 'light') ??
-    ids.find((id) => domainOf(id) === 'switch') ??
-    ids[0]
-  );
-}
-
 /** Which of the card's entities exist in Home Assistant. */
 export function coverage(
   hass: HomeAssistant,
@@ -72,12 +60,7 @@ export function coverage(
   return { found: keys.length - missing.length, total: keys.length, missing };
 }
 
-/** Prefix and HyperHDR entity of the configured devices. */
+/** Prefix of the configured device. */
 export function lookupDevices(hass: HomeAssistant, config: AmbilightCardConfig): DeviceLookup {
-  return {
-    prefix: config.device ? devicePrefix(hass, config.device) : undefined,
-    hyperhdrEntity: config.hyperhdr_device
-      ? hyperhdrEntityOf(hass, config.hyperhdr_device)
-      : undefined,
-  };
+  return { prefix: config.device ? devicePrefix(hass, config.device) : undefined };
 }

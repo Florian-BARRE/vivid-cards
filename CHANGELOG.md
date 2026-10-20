@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `vivid-ambilight-card`, for the DIY Ambilight Manager (ESPHome Wemos behind
+  the TV): HDMI input sent by IR with an animation until the echo confirms it,
+  the Raspberry Pi's power relay (a second tap to cut it), box temperature and
+  fan speed; details in four tabs with an editable fan curve, the IR learning
+  wizard and the maintenance tools. Visual editor: pick the device, the card
+  finds and checks its entities; names and icons of the inputs.
+
 ## [0.10.0] - 2026-10-09
 
 ### Added

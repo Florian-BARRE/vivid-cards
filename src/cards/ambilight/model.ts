@@ -4,18 +4,10 @@ import { isAvailable, parseNumericState } from '../../core/entities';
 import type { HassEntity, HomeAssistant, Rgb } from '../../core/hass-types';
 import { INPUT_COUNT, type EntityKey, type ResolvedAmbilightConfig } from './config';
 
-/** How long after the relay closes HyperHDR counts as booting rather than down. */
-export const BOOT_MS = 180_000;
-
 export type FanMode = 'auto' | 'manual';
 
-/**
- * State of the Pi and HyperHDR: `off` relay open; `on` relay closed and no
- * HyperHDR entity configured; `booting` / `unreachable` relay closed but
- * HyperHDR not answering (yet / for long); `ready` HyperHDR answering;
- * `paused` HyperHDR answering with its output off.
- */
-export type PiStatus = 'off' | 'on' | 'booting' | 'unreachable' | 'ready' | 'paused' | 'unknown';
+/** Power of the Raspberry Pi, from its relay: `unknown` when the relay is unavailable. */
+export type PiStatus = 'off' | 'on' | 'unknown';
 
 export type Alarm = 'offline' | 'overheat' | 'stalled' | 'nosensor';
 
@@ -174,27 +166,14 @@ export function temperatureColor(t: number | undefined, overheat = 55): Rgb {
   );
 }
 
-function piStatus(
-  hass: HomeAssistant,
-  relay: AmbilightModel['relay'],
-  hyperhdrEntity: string | undefined,
-  now: number,
-): PiStatus {
+function piStatus(relay: AmbilightModel['relay']): PiStatus {
   if (!relay.available) return 'unknown';
-  if (!relay.on) return 'off';
-  if (!hyperhdrEntity) return 'on';
-  const state = hass.states[hyperhdrEntity];
-  if (!isAvailable(state)) {
-    const since = relay.changedAt === undefined ? Infinity : now - relay.changedAt;
-    return since < BOOT_MS ? 'booting' : 'unreachable';
-  }
-  return state.state === 'off' ? 'paused' : 'ready';
+  return relay.on ? 'on' : 'off';
 }
 
 export function buildAmbilightModel(
   hass: HomeAssistant,
   config: ResolvedAmbilightConfig,
-  now = Date.now(),
 ): AmbilightModel {
   const ids = config.entities;
   const st = (key: EntityKey) => hass.states[ids[key]];
@@ -276,7 +255,6 @@ export function buildAmbilightModel(
   }
 
   const watched = new Set<string>(Object.values(ids));
-  if (config.hyperhdrEntity) watched.add(config.hyperhdrEntity);
   if (config.sendCounterEntity) watched.add(config.sendCounterEntity);
 
   return {
@@ -318,7 +296,7 @@ export function buildAmbilightModel(
       targetOptions,
     },
     relay,
-    pi: piStatus(hass, relay, config.hyperhdrEntity, now),
+    pi: piStatus(relay),
     alarms,
     diag: {
       rssi: num('rssi'),

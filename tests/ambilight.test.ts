@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AMBILIGHT_IDS, HYPERHDR_ENTITY, createAmbilightMock } from '../dev/ambilight-mock';
+import { AMBILIGHT_IDS, createAmbilightMock } from '../dev/ambilight-mock';
 import { DEFAULT_PREFIX, entityMap, resolveAmbilightConfig } from '../src/cards/ambilight/config';
 import {
-  BOOT_MS,
   SEND_TIMEOUT_MS,
   buildAmbilightModel,
   curveAt,
@@ -105,7 +104,7 @@ describe('ambilight parsing', () => {
 describe('ambilight model', () => {
   it('reads a healthy device', () => {
     const mock = createAmbilightMock();
-    const model = buildAmbilightModel(mock.hass, config({ hyperhdr_entity: HYPERHDR_ENTITY }));
+    const model = buildAmbilightModel(mock.hass, config());
     expect(model.online).toBe(true);
     expect(model.temperature).toBe(37.2);
     expect(model.fan.percentage).toBe(61);
@@ -115,7 +114,7 @@ describe('ambilight model', () => {
     expect(model.hdmi.inputs[3]?.code).toBeNull();
     expect(model.curve.points.map((point) => point.t.value)).toEqual([30, 35, 40, 45]);
     expect(model.curve.points[0]?.t.step).toBe(0.5);
-    expect(model.pi).toBe('ready');
+    expect(model.pi).toBe('on');
     expect(model.alarms).toEqual([]);
   });
 
@@ -147,26 +146,12 @@ describe('ambilight model', () => {
     expect(offline.alarms).toEqual(['offline']);
   });
 
-  it('tells the Pi and HyperHDR states apart', () => {
-    const pi = (scenario: Parameters<typeof createAmbilightMock>[0], extra = {}) =>
-      buildAmbilightModel(
-        createAmbilightMock(scenario).hass,
-        config({ hyperhdr_entity: HYPERHDR_ENTITY, ...extra }),
-      ).pi;
-    expect(pi({ piOff: true })).toBe('off');
-    expect(pi({ booting: true })).toBe('booting');
-    expect(pi({ paused: true })).toBe('paused');
-    expect(pi({})).toBe('ready');
+  it('reads the Pi power from its relay', () => {
+    expect(buildAmbilightModel(createAmbilightMock({ piOff: true }).hass, config()).pi).toBe('off');
+    expect(buildAmbilightModel(createAmbilightMock().hass, config()).pi).toBe('on');
     const mock = createAmbilightMock();
-    expect(buildAmbilightModel(mock.hass, config()).pi).toBe('on');
-    // Relay closed long ago and HyperHDR still silent: unreachable.
-    mock.setState(HYPERHDR_ENTITY, 'unavailable');
-    const model = buildAmbilightModel(
-      mock.hass,
-      config({ hyperhdr_entity: HYPERHDR_ENTITY }),
-      Date.now() + BOOT_MS,
-    );
-    expect(model.pi).toBe('unreachable');
+    mock.setState(AMBILIGHT_IDS.relay, 'unavailable');
+    expect(buildAmbilightModel(mock.hass, config()).pi).toBe('unknown');
   });
 });
 
@@ -213,20 +198,15 @@ describe('HDMI send tracking', () => {
 });
 
 describe('ambilight devices', () => {
-  it('finds the prefix and the HyperHDR light from the devices', async () => {
-    const { MANAGER_DEVICE, HYPERHDR_DEVICE } = await import('../dev/ambilight-mock');
-    const { devicePrefix, hyperhdrEntityOf, lookupDevices, coverage } =
+  it('finds the prefix from the device', async () => {
+    const { MANAGER_DEVICE } = await import('../dev/ambilight-mock');
+    const { devicePrefix, lookupDevices, coverage } =
       await import('../src/cards/ambilight/devices');
     const hass = createAmbilightMock().hass;
     expect(devicePrefix(hass, MANAGER_DEVICE)).toBe(DEFAULT_PREFIX);
-    expect(hyperhdrEntityOf(hass, HYPERHDR_DEVICE)).toBe(HYPERHDR_ENTITY);
-    const raw = {
-      type: 'custom:vivid-ambilight-card',
-      device: MANAGER_DEVICE,
-      hyperhdr_device: HYPERHDR_DEVICE,
-    };
+    expect(devicePrefix(hass, 'device_unknown')).toBeUndefined();
+    const raw = { type: 'custom:vivid-ambilight-card', device: MANAGER_DEVICE };
     const resolved = resolveAmbilightConfig(raw, lookupDevices(hass, raw));
-    expect(resolved.hyperhdrEntity).toBe(HYPERHDR_ENTITY);
     const found = coverage(hass, resolved.entities);
     expect(found.missing).toEqual([]);
     expect(found.found).toBe(found.total);

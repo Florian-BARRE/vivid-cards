@@ -13,13 +13,7 @@ import {
   type AmbilightCardConfig,
   type AmbilightInputConfig,
 } from './config';
-import {
-  HYPERHDR_INTEGRATION,
-  MANAGER_INTEGRATION,
-  coverage,
-  devicePrefix,
-  lookupDevices,
-} from './devices';
+import { MANAGER_INTEGRATION, coverage, devicePrefix, lookupDevices } from './devices';
 
 type FormData = Record<string, unknown>;
 type Schema = Record<string, unknown>[];
@@ -28,10 +22,9 @@ type Schema = Record<string, unknown>[];
 const MISSING_SHOWN = 4;
 
 /**
- * Visual editor. The card works from two devices: the Ambilight Manager
- * (ESPHome), whose entities are found from it, and HyperHDR (its
- * integration), whose light tells whether HyperHDR answers. Then the names
- * and icons of the HDMI inputs, and a few options.
+ * Visual editor: the Ambilight Manager device (ESPHome), whose entities are
+ * found from it and checked, then the names and icons of the HDMI inputs and
+ * a few options.
  */
 export class VividAmbilightCardEditor extends LitElement {
   static override properties = {
@@ -217,44 +210,32 @@ export class VividAmbilightCardEditor extends LitElement {
 
   /* --------------------------------- devices -------------------------------- */
 
-  private renderDevices(config: AmbilightCardConfig) {
-    const labels = {
-      device: this.t('amb_device'),
-      hyperhdr_device: this.t('amb_hyperhdr_device'),
-      name: editorText(this.hass, 'name'),
-    };
+  private renderDevice(config: AmbilightCardConfig) {
+    const labels = { device: this.t('amb_device'), name: editorText(this.hass, 'name') };
     const onChange = (value: FormData) => {
       const next: Record<string, unknown> = { ...config };
-      for (const key of ['device', 'hyperhdr_device', 'name'] as const) {
+      for (const key of ['device', 'name'] as const) {
         const text = typeof value[key] === 'string' ? (value[key] as string).trim() : '';
         if (text) next[key] = text;
         else delete next[key];
       }
-      // A device picked here replaces what the YAML pointed at.
+      // A device picked here replaces the prefix the YAML pointed at.
       if (next.device !== config.device) delete next.prefix;
-      if (next.hyperhdr_device !== config.hyperhdr_device) delete next.hyperhdr_entity;
       this.commit(next);
     };
-    const managerForm = this.form(
+    const deviceForm = this.form(
       [{ name: 'device', selector: { device: { integration: MANAGER_INTEGRATION } } }],
       { device: config.device ?? '' },
-      (value) => onChange({ ...value, hyperhdr_device: config.hyperhdr_device, name: config.name }),
-      labels,
-    );
-    const hyperhdrForm = this.form(
-      [{ name: 'hyperhdr_device', selector: { device: { integration: HYPERHDR_INTEGRATION } } }],
-      { hyperhdr_device: config.hyperhdr_device ?? '' },
-      (value) => onChange({ ...value, device: config.device, name: config.name }),
+      (value) => onChange({ ...value, name: config.name }),
       labels,
     );
     const nameForm = this.form(
       [{ name: 'name', selector: { text: {} } }],
       { name: config.name ?? '' },
-      (value) =>
-        onChange({ ...value, device: config.device, hyperhdr_device: config.hyperhdr_device }),
+      (value) => onChange({ ...value, device: config.device }),
       labels,
     );
-    return html`${managerForm}${this.managerStatus(config)}${hyperhdrForm}${this.hyperhdrStatus(config)}${nameForm}`;
+    return html`${deviceForm}${this.managerStatus(config)}${nameForm}`;
   }
 
   private managerStatus(config: AmbilightCardConfig) {
@@ -285,20 +266,6 @@ export class VividAmbilightCardEditor extends LitElement {
     return this.status(
       missing.length ? 'warn' : config.device || config.prefix ? 'ok' : 'info',
       lines,
-    );
-  }
-
-  private hyperhdrStatus(config: AmbilightCardConfig) {
-    const hass = this.hass;
-    if (!hass) return nothing;
-    const entity = config.hyperhdr_entity ?? lookupDevices(hass, config).hyperhdrEntity;
-    if (!config.hyperhdr_device && !config.hyperhdr_entity) {
-      return this.status('info', this.t('amb_hyperhdr_none'));
-    }
-    if (!entity) return this.status('warn', this.t('amb_hyperhdr_empty'));
-    return this.status(
-      'ok',
-      html`${this.t('amb_hyperhdr_follow', { entity: '' })}<span class="mono">${entity}</span>`,
     );
   }
 
@@ -389,7 +356,7 @@ export class VividAmbilightCardEditor extends LitElement {
     const config = this._config;
     if (!config) return nothing;
     return html`<div class="editor">
-      ${this.renderDevices(config)}
+      ${this.renderDevice(config)}
       ${this.section(
         'inputs',
         'mdi:video-input-hdmi',

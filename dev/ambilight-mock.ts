@@ -1,5 +1,5 @@
 /**
- * A simulated "Salon Ambilight Manager" (ESPHome Wemos) and HyperHDR for the
+ * A simulated "Salon Ambilight Manager" (ESPHome Wemos) for the
  * preview page and the tests: buttons, selects, numbers and switches behave
  * like the firmware described in the device brief.
  */
@@ -7,10 +7,8 @@ import { DEFAULT_PREFIX, ENTITY_SUFFIXES, entityMap } from '../src/cards/ambilig
 import { curveAt } from '../src/cards/ambilight/model';
 import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
 
-export const HYPERHDR_ENTITY = 'light.hyperhdr';
 export const AMBILIGHT_IDS = entityMap(DEFAULT_PREFIX);
 export const MANAGER_DEVICE = 'device_ambilight_manager';
-export const HYPERHDR_DEVICE = 'device_hyperhdr';
 
 export interface AmbilightScenario {
   /** Climate board not detected: temperature, humidity and pressure unavailable. */
@@ -19,17 +17,11 @@ export interface AmbilightScenario {
   stalled?: boolean;
   offline?: boolean;
   piOff?: boolean;
-  /** Relay closed moments ago: HyperHDR still booting. */
-  booting?: boolean;
-  /** HyperHDR answering with its output off. */
-  paused?: boolean;
   manual?: boolean;
   /** Inputs (0-based) whose echo never comes back. */
   failInputs?: number[];
   /** Milliseconds the device takes to confirm a send. */
   echoMs?: number;
-  /** Milliseconds HyperHDR takes to answer after the relay closes. */
-  bootMs?: number;
   language?: string;
 }
 
@@ -53,7 +45,6 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   const calls: AmbilightMock['calls'] = [];
   let states: Record<string, HassEntity> = {};
   const echoMs = scenario.echoMs ?? 700;
-  const bootMs = scenario.bootMs ?? 6000;
 
   const iso = (msAgo = 0) => new Date(Date.now() - msAgo).toISOString();
   const put = (
@@ -186,12 +177,7 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   for (let n = 1; n <= 5; n += 1) put(ids[`hdmi${n}` as 'hdmi1'], sensorState('unknown'));
 
   const relayOn = !scenario.piOff;
-  put(ids.relay, sensorState(relayOn ? 'on' : 'off'), {}, scenario.booting ? 20_000 : 2 * 3600_000);
-  const hyperhdr =
-    !relayOn || scenario.booting || offline ? 'unavailable' : scenario.paused ? 'off' : 'on';
-  put(HYPERHDR_ENTITY, hyperhdr, { friendly_name: 'HyperHDR' });
-  put('switch.hyperhdr_component_all', hyperhdr === 'unavailable' ? 'unavailable' : 'on');
-  put('sensor.hyperhdr_visible_priority', hyperhdr === 'unavailable' ? 'unavailable' : 'Grabber');
+  put(ids.relay, sensorState(relayOn ? 'on' : 'off'), {}, 2 * 3600_000);
 
   put(ids.testStatus, sensorState('Self-test OK: 0 rpm stopped, 2090 rpm at 100 %'));
   put(ids.irDebug, sensorState('off'));
@@ -202,13 +188,6 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   const registry: HomeAssistant['entities'] = {};
   for (const id of Object.values(ids)) {
     registry[id] = { entity_id: id, device_id: MANAGER_DEVICE, platform: 'esphome', labels: [] };
-  }
-  for (const id of [
-    HYPERHDR_ENTITY,
-    'switch.hyperhdr_component_all',
-    'sensor.hyperhdr_visible_priority',
-  ]) {
-    registry[id] = { entity_id: id, device_id: HYPERHDR_DEVICE, platform: 'hyperhdr', labels: [] };
   }
 
   let hass: HomeAssistant;
@@ -298,9 +277,7 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
         put(ids.irStatus, `Code of HDMI ${target + 1} erased.`);
       } else if (entityId === ids.relayPulse) {
         put(ids.relay, 'off');
-        put(HYPERHDR_ENTITY, 'unavailable');
         later(3000, () => put(ids.relay, 'on'));
-        later(3000 + bootMs, () => put(HYPERHDR_ENTITY, 'on'));
       } else if (entityId === ids.fanSelfTest) {
         put(ids.testStatus, 'Self-test running…');
         later(2500, () => put(ids.testStatus, 'Self-test OK: 0 rpm stopped, 2090 rpm at 100 %'));
@@ -348,10 +325,6 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
       const current = states[entityId]?.state === 'on';
       const on = service === 'toggle' ? !current : service === 'turn_on';
       put(entityId, on ? 'on' : 'off');
-      if (entityId === ids.relay) {
-        put(HYPERHDR_ENTITY, 'unavailable');
-        if (on) later(bootMs, () => put(HYPERHDR_ENTITY, 'on'));
-      }
       publish();
     }
   };
@@ -366,14 +339,6 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
         name_by_user: null,
         manufacturer: 'Espressif',
         model: 'Wemos D1 mini',
-        area_id: 'salon',
-      },
-      [HYPERHDR_DEVICE]: {
-        id: HYPERHDR_DEVICE,
-        name: 'HyperHDR',
-        name_by_user: null,
-        manufacturer: 'HyperHDR',
-        model: 'Raspberry Pi 4',
         area_id: 'salon',
       },
     },

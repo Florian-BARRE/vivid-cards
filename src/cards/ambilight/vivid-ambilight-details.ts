@@ -25,8 +25,6 @@ import {
   healthColor,
   healthIcon,
   overheatOf,
-  piText,
-  piTone,
   sourceLabels,
   spinSeconds,
 } from './view';
@@ -296,14 +294,6 @@ export class VividAmbilightDetails extends LitElement {
       }
       .row .icon ha-icon {
         --mdc-icon-size: 17px;
-      }
-      .row .icon.pulse {
-        animation: pulse var(--pulse, 1.6s) ease-in-out infinite;
-      }
-      @keyframes pulse {
-        50% {
-          opacity: 0.45;
-        }
       }
       .row .text {
         display: flex;
@@ -777,8 +767,7 @@ export class VividAmbilightDetails extends LitElement {
         white-space: nowrap;
       }
       @media (prefers-reduced-motion: reduce) {
-        .disc.spin ha-icon,
-        .row .icon.pulse {
+        .disc.spin ha-icon {
           animation: none;
         }
       }
@@ -839,15 +828,14 @@ export class VividAmbilightDetails extends LitElement {
     void selectOption(this.hass, [this.entity('fanMode')], option);
   }
 
-  private icon(name: string, rgb?: Rgb, level = 0.8, pulse?: string): TemplateResult {
+  private icon(name: string, rgb?: Rgb, level = 0.8): TemplateResult {
     const tone = rgb ? tintTone(rgb, level) : undefined;
     return html`<span
-      class=${classMap({ icon: true, pulse: !!pulse })}
+      class="icon"
       style=${styleMap({
         '--disc-bg': tone?.background,
         '--disc-shadow': tone?.shadow,
         '--disc-color': tone?.iconColor,
-        '--pulse': pulse,
       })}
       ><ha-icon .icon=${name}></ha-icon
     ></span>`;
@@ -994,14 +982,17 @@ export class VividAmbilightDetails extends LitElement {
 
   private renderPiRows(model: AmbilightModel, withPulse: boolean) {
     const hass = this.hass;
-    const pi = piTone(model.pi);
     const disabled = !model.online || !model.relay.available;
     const relayOn = model.relay.on;
     return html`<div class="row">
         ${this.icon('mdi:raspberry-pi', relayOn ? GREEN : undefined, 0.7)}
         <span class="text"
           >${localize(hass, 'amb_power')}<small
-            >${localize(hass, relayOn ? 'amb_power_on' : 'amb_power_off')}</small
+            >${
+              this.armed === 'relay'
+                ? localize(hass, 'amb_tap_again')
+                : localize(hass, relayOn ? 'amb_power_on' : 'amb_power_off')
+            }</small
           ></span
         >
         <button
@@ -1018,14 +1009,6 @@ export class VividAmbilightDetails extends LitElement {
             else this.switchTo('relay', false);
           }}
         ></button>
-      </div>
-      <div class="row">
-        <span
-          class=${classMap({ icon: true, pulse: !!pi?.pulse })}
-          style=${styleMap({ '--disc-bg': pi?.background, '--disc-shadow': pi?.shadow, '--disc-color': pi?.iconColor, '--pulse': pi?.pulse })}
-          ><ha-icon icon="mdi:television-ambient-light"></ha-icon
-        ></span>
-        <span class="text">HyperHDR<small>${piText(hass, model.pi)}</small></span>
       </div>
       ${
         withPulse
@@ -1482,7 +1465,7 @@ export class VividAmbilightDetails extends LitElement {
       'pi',
       'mdi:raspberry-pi',
       localize(hass, 'amb_pi_title'),
-      'HyperHDR',
+      undefined,
       () => this.renderPiRows(model, true),
     )}
     ${this.section(
