@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0-beta.1] - 2026-10-20
+
+First beta of the HyperHDR card, to test from HACS ("Show beta versions").
+
+### Added
+
+- `vivid-hyperhdr-card`, for HyperHDR through the HA-HyperHDR integration:
+  one strip with the captured picture framed by the colors of its edges, the
+  machine HyperHDR runs on (temperature, CPU, memory, power supply, grabber),
+  or the hub with every strip. Details in four tabs: overview (picture,
+  source, effects, colors, brightness), colors, processing and system. The
+  picture streams only while it is on screen. Visual editor: what to show,
+  the server and the strip, found from the integration's devices.
+
+### Changed
+
+- Versions such as `0.12.0-beta.1` are released as pre-releases.
+
 ## [0.11.0] - 2026-10-20
 
 ### Added
@@ -276,6 +294,7 @@ All notable changes to this project are documented here. The format follows
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.12.0-beta.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.1
 [0.11.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.11.0
 [0.10.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.10.0
 [0.9.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.9.3

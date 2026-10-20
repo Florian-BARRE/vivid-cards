@@ -5,6 +5,7 @@
 import './cards/led-group/vivid-led-group';
 import './cards/lamp-group/vivid-lamp-group';
 import './cards/ambilight/vivid-ambilight-card';
+import './cards/hyperhdr/vivid-hyperhdr-card';
 import './badges/light/vivid-light-badge';
 import './badges/opening/vivid-opening-badge';
 import './badges/presence/vivid-presence-badge';

@@ -59,6 +59,8 @@ export interface DeviceRegistryEntry {
   manufacturer: string | null;
   model: string | null;
   area_id: string | null;
+  /** The device this one is reached through (a hub). */
+  via_device_id?: string | null;
 }
 
 export interface ServiceTarget {
@@ -81,6 +83,8 @@ export interface HomeAssistant {
   /** Websocket command; resolves with its result. */
   callWS?<T>(message: Record<string, unknown>): Promise<T>;
   config?: { currency?: string; time_zone?: string };
+  /** A state in the user's language (select options, units); 2023.9+. */
+  formatEntityState?(stateObj: HassEntity, state?: string): string;
 }
 
 export interface LovelaceCardConfig {

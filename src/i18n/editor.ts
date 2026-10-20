@@ -252,6 +252,18 @@ const en = {
   amb_counter: 'Send counter (optional)',
   amb_counter_helper: 'A firmware sensor that changes on every confirmed send',
   amb_halo: 'Halo',
+  hh_mode: 'Show',
+  hh_mode_all: 'The hub and every strip',
+  hh_mode_hub: 'The hub only',
+  hh_mode_strip: 'One LED strip',
+  hh_server: 'HyperHDR server',
+  hh_instance: 'LED strip (HyperHDR instance)',
+  hh_picture: 'Captured picture with its LED frame',
+  hh_found: '{servers} server · {strips} strips found',
+  hh_none_found: 'No HyperHDR found: add the HA-HyperHDR integration first.',
+  hh_first: 'Left empty: the first one found',
+  hh_options: 'Options',
+  hh_options_hint: 'name, picture, halo',
 };
 
 type EditorStrings = typeof en;
@@ -510,6 +522,18 @@ const fr: EditorStrings = {
   amb_counter: 'Compteur d’envois (optionnel)',
   amb_counter_helper: 'Un capteur du firmware qui change à chaque envoi confirmé',
   amb_halo: 'Halo',
+  hh_mode: 'Afficher',
+  hh_mode_all: 'Le hub et tous les bandeaux',
+  hh_mode_hub: 'Le hub seul',
+  hh_mode_strip: 'Un bandeau LED',
+  hh_server: 'Serveur HyperHDR',
+  hh_instance: 'Bandeau LED (instance HyperHDR)',
+  hh_picture: 'Image captée avec son cadre de LED',
+  hh_found: '{servers} serveur · {strips} bandeaux trouvés',
+  hh_none_found: 'Aucun HyperHDR trouvé : ajoutez d’abord l’intégration HA-HyperHDR.',
+  hh_first: 'Vide : le premier trouvé',
+  hh_options: 'Options',
+  hh_options_hint: 'nom, image, halo',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
