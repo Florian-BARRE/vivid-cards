@@ -88,3 +88,15 @@ if (params.has('details')) {
 }
 
 Object.assign(window, { vivid: { mocks, cards } });
+
+if (params.has('editor')) {
+  const editor = document.createElement('vivid-ambilight-card-editor') as Card;
+  editor.setConfig({
+    type: 'custom:vivid-ambilight-card',
+    name: 'Ambilight',
+    inputs,
+    hyperhdr_entity: HYPERHDR_ENTITY,
+  });
+  editor.hass = mocks[0]?.hass;
+  stage.prepend(editor);
+}
