@@ -237,6 +237,21 @@ const en = {
   lamp_columns_helper: 'Empty: as many as fit',
   lamp_icons_only: 'icons only',
   lamp_gestures_hint: 'On a lamp; the title always opens the details',
+  amb_device: 'Ambilight Manager (ESPHome device)',
+  amb_found: '{found}/{total} entities found',
+  amb_missing: 'missing: {list}',
+  amb_no_device: 'Pick the ESPHome device of the Ambilight Manager. Until then: prefix {prefix}',
+  amb_yaml_prefix: 'Prefix set in YAML: {prefix}',
+  amb_inputs: 'HDMI inputs',
+  amb_inputs_hint: 'names and icons',
+  amb_input_name: 'Input {n} · name',
+  amb_input_icon: 'Input {n} · icon',
+  amb_options: 'Options',
+  amb_options_hint: 'confirmation, send counter, halo',
+  amb_confirm_pi: 'Confirm before cutting the Pi',
+  amb_counter: 'Send counter (optional)',
+  amb_counter_helper: 'A firmware sensor that changes on every confirmed send',
+  amb_halo: 'Halo',
 };
 
 type EditorStrings = typeof en;
@@ -479,6 +494,22 @@ const fr: EditorStrings = {
   lamp_columns_helper: 'Vide : autant que la place le permet',
   lamp_icons_only: 'icônes seules',
   lamp_gestures_hint: 'Sur une lampe ; le titre ouvre toujours le détail',
+  amb_device: 'Ambilight Manager (appareil ESPHome)',
+  amb_found: '{found}/{total} entités trouvées',
+  amb_missing: 'manquantes : {list}',
+  amb_no_device:
+    'Choisis l’appareil ESPHome de l’Ambilight Manager. En attendant : préfixe {prefix}',
+  amb_yaml_prefix: 'Préfixe défini en YAML : {prefix}',
+  amb_inputs: 'Entrées HDMI',
+  amb_inputs_hint: 'noms et icônes',
+  amb_input_name: 'Entrée {n} · nom',
+  amb_input_icon: 'Entrée {n} · icône',
+  amb_options: 'Options',
+  amb_options_hint: 'confirmation, compteur d’envois, halo',
+  amb_confirm_pi: 'Confirmer avant de couper le Pi',
+  amb_counter: 'Compteur d’envois (optionnel)',
+  amb_counter_helper: 'Un capteur du firmware qui change à chaque envoi confirmé',
+  amb_halo: 'Halo',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
