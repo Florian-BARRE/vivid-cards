@@ -44,6 +44,10 @@ empties and turns red.
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-fan.png" alt="Fan curve of the Ambilight manager" width="400" /><br /><sub><b>Ambilight details: the fan curve, point by point</b></sub></td>
   </tr>
   <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr.png" alt="HyperHDR card, one strip" width="400" /><br /><sub><b>HyperHDR: the captured picture framed by its LED colors</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-all.png" alt="HyperHDR card, hub and strips" width="400" /><br /><sub><b>HyperHDR: the Pi and every strip</b></sub></td>
+  </tr>
+  <tr>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge details" width="400" /><br /><sub><b>LED badge: hold for every strip</b></sub></td>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/window-badge.png" alt="Window badge details" width="400" /><br /><sub><b>Window badge: open first, with how long</b></sub></td>
   </tr>
@@ -60,6 +64,7 @@ empties and turns red.
 | [`vivid-led-group`](#vivid-led-group) (card)           | A light group or a single light, WLED aware, with details per light    |
 | [`vivid-lamp-group`](#vivid-lamp-group) (card)         | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
 | [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperature and fan  |
+| [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: a strip with the captured picture, the Pi, or both           |
 | [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
@@ -708,6 +713,98 @@ prefix: salon_salon_ambilight_manager_
 Without `send_counter_entity`, sending the input that is already active
 changes nothing in Home Assistant: the card shows `sent`, without a check.
 
+## vivid-hyperhdr-card
+
+HyperHDR, the software that drives the Ambilight LEDs from the picture, as
+the [HA-HyperHDR](https://github.com/Florian-BARRE/HA-HyperHDR) integration
+exposes it. One card, three ways to show it:
+
+- **`strip`**: one LED strip (a HyperHDR instance), with the captured picture
+  framed by the colors of its edges, as the LEDs behind the screen show them.
+- **`hub`**: the machine HyperHDR runs on: temperature, CPU, memory, power
+  supply, grabber and signal.
+- **`all`** (default): the hub on top, then every strip of the server.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr.png" alt="HyperHDR card, one strip" width="428" />
+</p>
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-hub.png" alt="HyperHDR card, the hub" width="428" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-all.png" alt="HyperHDR card, hub and strips" width="428" />
+</p>
+
+Needs the HA-HyperHDR integration (HACS, custom repository). The card finds its
+devices and entities by itself.
+
+### What the card shows
+
+- **Strip**: the strip's icon and power button lit with the colors of the
+  picture (or of the effect, or of the color set); what drives the LEDs, the
+  brightness and the output rate; the captured picture with its LED frame;
+  brightness (HyperHDR's luminance gain, up to 200 %); chips for the source,
+  HDR tone mapping, smoothing and black borders.
+- **Hub**: green, orange from 70 °C, red from 80 °C or on undervoltage; the
+  Raspberry Pi icon on ARM, a server otherwise; CPU, memory, power supply,
+  then the grabber with its resolution, signal and capture rate.
+- **Details** (tap a strip or the hub), in four tabs:
+  - **Overview**: the live picture, the source (capture, an effect from the
+    list, a color from the swatches or Home Assistant's color picker), the
+    source forced on the LEDs if there is one, the brightness.
+  - **Colors**: saturation, gamma, dark threshold, color temperature and how
+    the picture becomes LED colors.
+  - **Processing**: smoothing (time and type), black border detection, HDR
+    tone mapping, continuous output, anti-flickering filter, background and
+    boot effects.
+  - **System**: the hub, the grabber, video capture and LED output, the
+    version; from the hub, the list of strips.
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-overview.png" alt="Details: overview" width="300" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-processing.png" alt="Details: processing" width="300" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-system.png" alt="Details: system" width="300" />
+</p>
+
+The picture streams only while it is on screen, and stops when the card or
+the details leave it; the integration then stops HyperHDR's image stream. The
+picture and most settings need the admin password in the integration; without
+it the card keeps the strips, the components and the hub.
+
+### Visual editor
+
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-editor.png" alt="Visual editor of the HyperHDR card" width="300" />
+</p>
+
+Pick what to show, then the HyperHDR server and, for one strip, the strip.
+Left empty, the card takes the first server and the first strip found.
+
+### Recipes
+
+```yaml
+# The Pi and every strip
+type: custom:vivid-hyperhdr-card
+
+# One strip with its picture
+type: custom:vivid-hyperhdr-card
+mode: strip
+instance: 0123456789abcdef0123456789abcdef # the strip's device
+```
+
+With the [Ambilight card](#vivid-ambilight-card) next to it, one column holds
+the whole chain: the box behind the TV (HDMI source, Pi power, fan), then
+HyperHDR and its strips.
+
+### Options
+
+| Option     | Default       | Description                                        |
+| ---------- | ------------- | -------------------------------------------------- |
+| `mode`     | `all`         | `all` (hub and strips), `hub` or `strip`.          |
+| `server`   | first found   | The HyperHDR server device.                        |
+| `instance` | first found   | `strip`: the strip's device (a HyperHDR instance). |
+| `name`     | device's name | Title of the card.                                 |
+| `picture`  | `true`        | `strip`: the captured picture with its LED frame.  |
+| `glow`     | `100`         | Halo strength in percent, see [Halos](#halos).     |
+
 ## Light badges
 
 Three badges for the badge bar of a dashboard (Home Assistant 2024.8 or later),
@@ -1040,6 +1137,10 @@ several situations, `/dev/lamps.html` for the lamp card.
 2. Merge into `main`. The **Auto release** workflow sees a version without a
    tag: it checks the code, builds it, creates the release `vX.Y.Z` with the
    changelog entry as notes and attaches `vivid-cards.js`, which HACS installs.
+
+A version such as `0.12.0-beta.1` is published as a **pre-release**: HACS
+offers it only with "Show beta versions" turned on, so betas can be tested
+from HACS before the final version.
 
 A release drafted by hand on GitHub works too: the **Release** workflow attaches
 the bundle to it.

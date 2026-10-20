@@ -2,7 +2,8 @@ name: Auto release
 
 # A version in package.json without a matching tag means a release is due:
 # check, build, create the release with the changelog entry and attach
-# vivid-cards.js, which HACS installs. Releases created here do not trigger the
+# vivid-cards.js, which HACS installs; a semver pre-release version becomes a
+# GitHub pre-release. Releases created here do not trigger the
 # Release workflow (GitHub does not chain workflows on the built-in token), so
 # the bundle is attached here.
 on:
@@ -64,7 +65,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" dist/vivid-cards.js \
+          tag="${{ steps.version.outputs.tag }}"
+          # A semver pre-release (0.12.0-beta.1) is published as a pre-release:
+          # HACS shows it only with "Show beta versions".
+          prerelease=()
+          if [[ "${tag}" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "${tag}" dist/vivid-cards.js \
             --target "${GITHUB_SHA}" \
-            --title "${{ steps.version.outputs.tag }}" \
-            --notes-file notes.md
+            --title "${tag}" \
+            --notes-file notes.md \
+            "${prerelease[@]}"
