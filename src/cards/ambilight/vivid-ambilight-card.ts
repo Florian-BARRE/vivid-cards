@@ -40,6 +40,7 @@ import {
   spinSeconds,
   statusLine,
 } from './view';
+import { HYPERHDR_INTEGRATION, devicePrefix, lookupDevices } from './devices';
 import './vivid-ambilight-card-editor';
 import './vivid-ambilight-details';
 
@@ -77,6 +78,9 @@ export class VividAmbilightCard extends LitElement {
   declare armed: boolean;
 
   private model?: AmbilightModel;
+  private rawConfig?: AmbilightCardConfig;
+  /** Registry the devices were last looked up in. */
+  private resolvedFor?: HomeAssistant['entities'];
   private dialog?: VividDialog;
   private pending?: PendingSend;
   private pendingTimer?: number;
@@ -96,13 +100,42 @@ export class VividAmbilightCard extends LitElement {
     return document.createElement('vivid-ambilight-card-editor');
   }
 
-  static getStubConfig(): Partial<AmbilightCardConfig> {
-    return { prefix: DEFAULT_PREFIX };
+  static getStubConfig(hass?: HomeAssistant): Partial<AmbilightCardConfig> {
+    const devices = Object.keys(hass?.devices ?? {});
+    const manager =
+      hass &&
+      devices.find((id) => {
+        const prefix = devicePrefix(hass, id);
+        return (
+          prefix !== undefined &&
+          !!hass.states[`switch.${prefix}relay`] &&
+          !!hass.states[`fan.${prefix}jonsbo_fan`]
+        );
+      });
+    const hyperhdr =
+      hass &&
+      devices.find((id) =>
+        Object.values(hass.entities ?? {}).some(
+          (entry) => entry.device_id === id && entry.platform === HYPERHDR_INTEGRATION,
+        ),
+      );
+    if (!manager) return { prefix: DEFAULT_PREFIX };
+    return { device: manager, ...(hyperhdr ? { hyperhdr_device: hyperhdr } : {}) };
   }
 
   setConfig(config: AmbilightCardConfig): void {
+    this.rawConfig = config;
+    this.resolvedFor = undefined;
     this._config = resolveAmbilightConfig(config);
     this.lastActive = undefined;
+  }
+
+  /** Finds the entities of the configured devices again when the registry changes. */
+  private resolveDevices(hass: HomeAssistant): void {
+    const raw = this.rawConfig;
+    if (!raw || (!raw.device && !raw.hyperhdr_device) || this.resolvedFor === hass.entities) return;
+    this.resolvedFor = hass.entities;
+    this._config = resolveAmbilightConfig(raw, lookupDevices(hass, raw));
   }
 
   getCardSize(): number {
@@ -383,6 +416,7 @@ export class VividAmbilightCard extends LitElement {
 
   protected override willUpdate(): void {
     const hass = this.hass;
+    if (hass) this.resolveDevices(hass);
     const config = this._config;
     if (!hass || !config) return;
     this.model = buildAmbilightModel(hass, config);

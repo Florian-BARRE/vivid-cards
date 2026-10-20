@@ -90,12 +90,16 @@ export interface AmbilightInputConfig {
 }
 
 export interface AmbilightCardConfig extends LovelaceCardConfig {
-  /** Entity id prefix of the device (the part after the domain). */
+  /** The Ambilight manager device (ESPHome): its entities are found from it. */
+  device?: string;
+  /** Entity id prefix of the device (the part after the domain); wins over `device`. */
   prefix?: string;
+  /** The HyperHDR device (HyperHDR integration): its light is followed. */
+  hyperhdr_device?: string;
   name?: string;
   /** Names and icons of the HDMI inputs, in order. */
   inputs?: (AmbilightInputConfig | string)[];
-  /** An entity of the HyperHDR integration: unavailable while HyperHDR is down. */
+  /** An entity of the HyperHDR integration (unavailable while HyperHDR is down); wins over `hyperhdr_device`. */
   hyperhdr_entity?: string;
   /** A sensor that changes on every send confirmed by the echo (optional firmware counter). */
   send_counter_entity?: string;
@@ -153,12 +157,21 @@ function optionalEntity(value: unknown): string | undefined {
   return typeof value === 'string' && value.includes('.') ? value.trim() : undefined;
 }
 
-export function resolveAmbilightConfig(config: AmbilightCardConfig): ResolvedAmbilightConfig {
+/** What the devices of the configuration point to, once Home Assistant is known. */
+export interface DeviceLookup {
+  prefix?: string;
+  hyperhdrEntity?: string;
+}
+
+export function resolveAmbilightConfig(
+  config: AmbilightCardConfig,
+  lookup: DeviceLookup = {},
+): ResolvedAmbilightConfig {
   if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
   const prefix =
     typeof config.prefix === 'string' && config.prefix.trim()
       ? config.prefix.trim()
-      : DEFAULT_PREFIX;
+      : (lookup.prefix ?? DEFAULT_PREFIX);
   const inputs = Array.from({ length: INPUT_COUNT }, (_, index) =>
     resolveInput(Array.isArray(config.inputs) ? config.inputs[index] : undefined, index),
   );
@@ -173,7 +186,7 @@ export function resolveAmbilightConfig(config: AmbilightCardConfig): ResolvedAmb
     name: typeof config.name === 'string' && config.name.trim() ? config.name.trim() : undefined,
     entities: entityMap(prefix, overrides),
     inputs,
-    hyperhdrEntity: optionalEntity(config.hyperhdr_entity),
+    hyperhdrEntity: optionalEntity(config.hyperhdr_entity) ?? lookup.hyperhdrEntity,
     sendCounterEntity: optionalEntity(config.send_counter_entity),
     confirmPiOff: config.confirm_pi_off !== false,
     glow: glowPercent(config.glow) ?? 100,

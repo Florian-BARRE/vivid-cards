@@ -9,6 +9,8 @@ import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
 
 export const HYPERHDR_ENTITY = 'light.hyperhdr';
 export const AMBILIGHT_IDS = entityMap(DEFAULT_PREFIX);
+export const MANAGER_DEVICE = 'device_ambilight_manager';
+export const HYPERHDR_DEVICE = 'device_hyperhdr';
 
 export interface AmbilightScenario {
   /** Climate board not detected: temperature, humidity and pressure unavailable. */
@@ -188,12 +190,26 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   const hyperhdr =
     !relayOn || scenario.booting || offline ? 'unavailable' : scenario.paused ? 'off' : 'on';
   put(HYPERHDR_ENTITY, hyperhdr, { friendly_name: 'HyperHDR' });
+  put('switch.hyperhdr_component_all', hyperhdr === 'unavailable' ? 'unavailable' : 'on');
+  put('sensor.hyperhdr_visible_priority', hyperhdr === 'unavailable' ? 'unavailable' : 'Grabber');
 
   put(ids.testStatus, sensorState('Self-test OK: 0 rpm stopped, 2090 rpm at 100 %'));
   put(ids.irDebug, sensorState('off'));
   put(ids.ledSteady, sensorState('off'));
   put(ids.rxFrames, sensorState('142'));
   put(ids.pwm, sensorState('100'), { min: 50, max: 1000, step: 1, unit_of_measurement: 'Hz' });
+
+  const registry: HomeAssistant['entities'] = {};
+  for (const id of Object.values(ids)) {
+    registry[id] = { entity_id: id, device_id: MANAGER_DEVICE, platform: 'esphome', labels: [] };
+  }
+  for (const id of [
+    HYPERHDR_ENTITY,
+    'switch.hyperhdr_component_all',
+    'sensor.hyperhdr_visible_priority',
+  ]) {
+    registry[id] = { entity_id: id, device_id: HYPERHDR_DEVICE, platform: 'hyperhdr', labels: [] };
+  }
 
   let hass: HomeAssistant;
   const publish = () => {
@@ -342,8 +358,25 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
 
   hass = {
     states,
-    entities: {},
-    devices: {},
+    entities: registry,
+    devices: {
+      [MANAGER_DEVICE]: {
+        id: MANAGER_DEVICE,
+        name: 'Salon Ambilight Manager',
+        name_by_user: null,
+        manufacturer: 'Espressif',
+        model: 'Wemos D1 mini',
+        area_id: 'salon',
+      },
+      [HYPERHDR_DEVICE]: {
+        id: HYPERHDR_DEVICE,
+        name: 'HyperHDR',
+        name_by_user: null,
+        manufacturer: 'HyperHDR',
+        model: 'Raspberry Pi 4',
+        area_id: 'salon',
+      },
+    },
     language,
     locale: { language },
     themes: { darkMode: true },

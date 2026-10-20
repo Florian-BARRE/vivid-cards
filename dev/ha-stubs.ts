@@ -78,6 +78,8 @@ interface FieldSchema {
 
 interface StubHass {
   states: Record<string, { attributes: Record<string, unknown> }>;
+  entities?: Record<string, { device_id?: string; platform?: string }>;
+  devices?: Record<string, { id: string; name: string | null; name_by_user: string | null }>;
 }
 
 const FORM_STYLE = `
@@ -232,13 +234,15 @@ class StubForm extends HTMLElement {
     wrap.append(box);
 
     let input: HTMLInputElement | HTMLSelectElement;
-    if (kind === 'select' || kind === 'entity') {
+    if (kind === 'select' || kind === 'entity' || kind === 'device') {
       const select = document.createElement('select');
       const choices =
         kind === 'select'
           ? ((opts.options as { value: string; label: string }[]) ?? [])
-          : this.entityChoices(opts);
-      if (kind === 'entity') select.append(new Option('—', ''));
+          : kind === 'device'
+            ? this.deviceChoices(opts)
+            : this.entityChoices(opts);
+      if (kind === 'entity' || kind === 'device') select.append(new Option('—', ''));
       for (const choice of choices) select.append(new Option(choice.label, choice.value));
       select.addEventListener('change', () => this.emit(field.name, select.value || undefined));
       input = select;
@@ -279,6 +283,22 @@ class StubForm extends HTMLElement {
     }
     this.inputs.set(field.name, input);
     return wrap;
+  }
+
+  private deviceChoices(options: Record<string, unknown>): { value: string; label: string }[] {
+    const integration = options.integration === undefined ? undefined : String(options.integration);
+    const entries = Object.values(this.hass?.entities ?? {});
+    return Object.values(this.hass?.devices ?? {})
+      .filter(
+        (device) =>
+          !integration ||
+          entries.some((entry) => entry.device_id === device.id && entry.platform === integration),
+      )
+      .map((device) => ({
+        value: device.id,
+        label: device.name_by_user ?? device.name ?? device.id,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }
 
   private entityChoices(options: Record<string, unknown>): { value: string; label: string }[] {

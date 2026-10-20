@@ -211,3 +211,28 @@ describe('HDMI send tracking', () => {
     ).toBe('ok');
   });
 });
+
+describe('ambilight devices', () => {
+  it('finds the prefix and the HyperHDR light from the devices', async () => {
+    const { MANAGER_DEVICE, HYPERHDR_DEVICE } = await import('../dev/ambilight-mock');
+    const { devicePrefix, hyperhdrEntityOf, lookupDevices, coverage } =
+      await import('../src/cards/ambilight/devices');
+    const hass = createAmbilightMock().hass;
+    expect(devicePrefix(hass, MANAGER_DEVICE)).toBe(DEFAULT_PREFIX);
+    expect(hyperhdrEntityOf(hass, HYPERHDR_DEVICE)).toBe(HYPERHDR_ENTITY);
+    const raw = {
+      type: 'custom:vivid-ambilight-card',
+      device: MANAGER_DEVICE,
+      hyperhdr_device: HYPERHDR_DEVICE,
+    };
+    const resolved = resolveAmbilightConfig(raw, lookupDevices(hass, raw));
+    expect(resolved.hyperhdrEntity).toBe(HYPERHDR_ENTITY);
+    const found = coverage(hass, resolved.entities);
+    expect(found.missing).toEqual([]);
+    expect(found.found).toBe(found.total);
+    // A prefix written in YAML wins over the device.
+    expect(
+      resolveAmbilightConfig({ ...raw, prefix: 'box_' }, lookupDevices(hass, raw)).entities.relay,
+    ).toBe('switch.box_relay');
+  });
+});

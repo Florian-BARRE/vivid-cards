@@ -4,7 +4,13 @@
  * first card), `tab` (overview, fan, ir, maint).
  */
 import { defineHaStubs } from './ha-stubs';
-import { HYPERHDR_ENTITY, createAmbilightMock, type AmbilightScenario } from './ambilight-mock';
+import {
+  HYPERHDR_DEVICE,
+  HYPERHDR_ENTITY,
+  MANAGER_DEVICE,
+  createAmbilightMock,
+  type AmbilightScenario,
+} from './ambilight-mock';
 import type { HomeAssistant } from '../src/core/hass-types';
 
 defineHaStubs();
@@ -90,13 +96,29 @@ if (params.has('details')) {
 Object.assign(window, { vivid: { mocks, cards } });
 
 if (params.has('editor')) {
-  const editor = document.createElement('vivid-ambilight-card-editor') as Card;
-  editor.setConfig({
-    type: 'custom:vivid-ambilight-card',
-    name: 'Ambilight',
-    inputs,
-    hyperhdr_entity: HYPERHDR_ENTITY,
-  });
+  type Editor = HTMLElement & { hass?: HomeAssistant; setConfig(config: unknown): void };
+  const editor = document.createElement('vivid-ambilight-card-editor') as Editor;
+  // `fresh`: a card just added, before any device is picked.
+  let current: Record<string, unknown> = params.has('fresh')
+    ? { type: 'custom:vivid-ambilight-card' }
+    : {
+        type: 'custom:vivid-ambilight-card',
+        name: 'Ambilight',
+        device: MANAGER_DEVICE,
+        hyperhdr_device: HYPERHDR_DEVICE,
+        inputs,
+      };
+  editor.setConfig(current);
   editor.hass = mocks[0]?.hass;
-  stage.prepend(editor);
+  cards[0]?.setConfig(current);
+  const yaml = document.createElement('pre');
+  yaml.style.cssText = 'font-size:11px;color:var(--secondary-text-color);white-space:pre-wrap';
+  yaml.textContent = JSON.stringify(current, null, 2);
+  editor.addEventListener('config-changed', (event) => {
+    current = (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config;
+    editor.setConfig(current);
+    cards[0]?.setConfig(current);
+    yaml.textContent = JSON.stringify(current, null, 2);
+  });
+  stage.prepend(editor, yaml);
 }
