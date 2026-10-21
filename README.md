@@ -623,6 +623,11 @@ switch by replaying its remote's IR codes (and checks the echo), and powers
 the Raspberry Pi running HyperHDR through a relay. The compact card keeps what
 is used every day under the thumb; a tap opens everything else.
 
+With the [HA-HyperHDR](https://github.com/Florian-BARRE/HA-HyperHDR)
+integration and the firmware that knows it, the card also follows the Pi:
+its CPU temperature (the fan follows a CPU curve while HyperHDR is
+connected), its health, and a clean shutdown before the power is cut.
+
 <p>
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="428" />
 </p>
@@ -631,11 +636,16 @@ is used every day under the thumb; a tap opens everything else.
 
 - **Header**: the fan icon, turning faster with the speed and colored by the
   box temperature (blue, green, amber, red at the overheat threshold); the
-  worst alarm first (offline, overheating, fan stalled, sensor missing), else
-  the fan mode and the Pi; the temperature and the fan speed.
-- **Pi switch**: the relay of the Pi's 5 V supply. Turning it on is
-  immediate; turning it off is a hard power cut, so it asks for a second tap
-  (`Cut?`) within 3 s (`confirm_pi_off: false` removes it).
+  worst alarm first (offline, overheating, Pi CPU overheating, fan stalled,
+  sensor missing), else the fan mode and the Pi; the temperature that drives
+  the fan (the box's, or the Pi's CPU while HyperHDR is connected, or the one
+  overheating) and the fan speed.
+- **Pi switch**: with the firmware's `Pi power`, turning it off shuts the Pi
+  down cleanly first (over SSH, through HA-HyperHDR's Power off button), then
+  the relay opens: it asks `Shut down?`, then shows `Stopping…` until the
+  power is cut. With an older firmware it is the relay itself, a hard power
+  cut that asks `Cut?` (`confirm_pi_off: false` removes the question for the
+  relay). Turning it on is immediate.
 - **The five HDMI inputs**, the active one lit. A tap sends the input: waves
   while the IR LED emits, a check when the Wemos hears its own frame back, then
   the input turns active; orange (`no echo`) when nothing came back after the
@@ -643,18 +653,25 @@ is used every day under the thumb; a tap opens everything else.
   The echo proves the frame left the LED, not that the switch obeyed it (the
   switch gives no feedback).
 - **Details** (tap the header), in four tabs:
-  - **Overview**: alarms, temperature, humidity, pressure and fan speed, the
-    inputs, the Pi, Auto / Manual with where the box sits on the curve.
+  - **Overview**: alarms, box and CPU temperatures, humidity, pressure and
+    fan speed, the inputs, the Pi with its shutdown steps, Auto / Manual with
+    where the temperature sits on the curve that drives the fan.
   - **Fan**: the curve (temperature → speed) with its four points, dragged
     with a finger or set with − / +, the hysteresis band and the overheat
     zone; hysteresis, overheat threshold, stop below point 1; manual speeds
-    (a speed switches the fan to Manual, as the firmware does).
+    (a speed switches the fan to Manual, as the firmware does). With
+    HyperHDR, **Box / Pi CPU** switches between the two curves, the dot
+    marking the one that drives the fan; each has its own overheat threshold,
+    and the box curve its lowest speed while the Pi is on without a CPU
+    temperature.
   - **HDMI & IR**: the code stored for each input, the last code received,
     and the learning wizard (listen, keep the capture, test the replay, save)
     with the firmware's `IR Status` shown as the live instruction.
-  - **Maintenance**: Pi supply and forced restart (3 s cut), fan tests, PWM
-    frequency, IR tests and detailed logs, Wi-Fi, IP, uptime, refresh and
-    restart. What cuts or erases asks for a second tap.
+  - **Maintenance**: the Pi (clean shutdown, hard cut, restart over SSH,
+    forced restart by a 3 s cut), the HyperHDR server (CPU, temperature,
+    memory, undervoltage, version), fan tests, PWM frequency, IR tests and
+    detailed logs, Wi-Fi, IP, uptime, refresh and restart. What cuts or
+    erases asks for a second tap.
 
 <p>
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-overview.png" alt="Details: overview" width="300" />
@@ -705,10 +722,14 @@ prefix: salon_salon_ambilight_manager_
 | `prefix`              | `salon_salon_ambilight_manager_` | Entity id prefix of the device; wins over `device`.                                                |
 | `name`                | `Ambilight`                      | Title of the card.                                                                                 |
 | `inputs`              | `HDMI 1` … `HDMI 5`              | Up to five inputs, each a name or `{ name, icon }` (default icon `mdi:video-input-hdmi`).          |
-| `confirm_pi_off`      | `true`                           | Turning the Pi off asks for a second tap.                                                          |
+| `hyperhdr`            | the only one                     | The HA-HyperHDR server device (CPU temperature, health, restart); found when there is only one.    |
+| `confirm_pi_off`      | `true`                           | Turning the Pi off asks for a second tap (always for the clean shutdown).                          |
 | `send_counter_entity` | none                             | A firmware sensor that changes on every confirmed send: confirms a resend of the input already on. |
 | `entities`            | none                             | Entities that do not follow the prefix, by key (`relay: switch.pi_power`); keys as in the source.  |
 | `glow`                | `100`                            | Halo strength in percent, see [Halos](#halos).                                                     |
+
+The firmware's `Pi status` steps are translated; any other text from it is
+shown as it is.
 
 Without `send_counter_entity`, sending the input that is already active
 changes nothing in Home Assistant: the card shows `sent`, without a check.

@@ -4,7 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [0.12.0-beta.1] - 2026-10-20
+## [0.12.0-beta.2] - 2026-10-21
+
+The Ambilight card with HyperHDR, for the firmware that drives the fan from
+the Pi's CPU and shuts the Pi down cleanly.
+
+### Added
+
+- Ambilight card: the Pi's CPU temperature from the HA-HyperHDR integration
+  (server found by itself, or `hyperhdr` / the editor's picker), shown when it
+  drives the fan; the Box / Pi CPU curves in the fan tab, each with its
+  points and overheat threshold, and the lowest speed while the Pi is on
+  without a CPU temperature; the Pi CPU overheat alarm.
+- Ambilight card: the Pi switch uses the firmware's `Pi power` (clean
+  shutdown, then the relay), with its steps; in Maintenance, a hard cut,
+  restarting the Pi over SSH and the HyperHDR server's health.
+
+### Changed
+
+- The firmware from before HyperHDR still works: its missing entities are
+  not counted as missing.
 
 First beta of the HyperHDR card, to test from HACS ("Show beta versions").
 
@@ -294,6 +313,7 @@ First beta of the HyperHDR card, to test from HACS ("Show beta versions").
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.12.0-beta.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.2
 [0.12.0-beta.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.1
 [0.11.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.11.0
 [0.10.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.10.0

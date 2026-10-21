@@ -28,8 +28,19 @@ const SCENARIOS: {
   scenario: AmbilightScenario;
   config?: Record<string, unknown>;
 }[] = [
-  { title: fr ? 'Normal' : 'Normal', scenario: {} },
+  {
+    title: fr ? 'Normal · CPU du Pi aux commandes' : 'Normal · Pi CPU drives the fan',
+    scenario: {},
+  },
+  {
+    title: fr ? 'HyperHDR non connecté · courbe boîtier' : 'HyperHDR away · box curve',
+    scenario: { hyperhdr: 'away' },
+  },
   { title: fr ? 'Pi éteint' : 'Pi off', scenario: { piOff: true } },
+  {
+    title: fr ? 'CPU du Pi en surchauffe' : 'Pi CPU overheating',
+    scenario: { cpuTemperature: 84 },
+  },
   { title: fr ? 'Capteur absent (aujourd’hui)' : 'Sensor missing', scenario: { noSensor: true } },
   { title: fr ? 'Surchauffe' : 'Overheat', scenario: { overheat: true } },
   { title: fr ? 'Ventilateur bloqué' : 'Fan stalled', scenario: { stalled: true } },
@@ -37,6 +48,10 @@ const SCENARIOS: {
   {
     title: fr ? 'Manuel · HDMI 3 sans écho' : 'Manual · HDMI 3 no echo',
     scenario: { manual: true, failInputs: [2] },
+  },
+  {
+    title: fr ? 'Ancien firmware (sans HyperHDR)' : 'Firmware before HyperHDR',
+    scenario: { legacy: true },
   },
 ];
 

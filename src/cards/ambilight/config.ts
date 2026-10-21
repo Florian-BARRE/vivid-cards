@@ -79,7 +79,42 @@ export const ENTITY_SUFFIXES = {
   fanSweep: 'button.test_fan_sweep',
   fanStopTests: 'button.test_fan_stop_tests',
   pwm: 'number.test_fan_pwm_frequency',
+  // Firmware with HyperHDR (optional): CPU fan curve and clean Pi shutdown.
+  piPower: 'switch.pi_power',
+  piStatus: 'sensor.pi_status',
+  fanSource: 'sensor.fan_source',
+  fanControlTemp: 'sensor.fan_control_temperature',
+  cpuOverheat: 'binary_sensor.cpu_overheat',
+  c1: 'number.fan_cpu_t1',
+  cs1: 'number.fan_cpu_s1',
+  c2: 'number.fan_cpu_t2',
+  cs2: 'number.fan_cpu_s2',
+  c3: 'number.fan_cpu_t3',
+  cs3: 'number.fan_cpu_s3',
+  c4: 'number.fan_cpu_t4',
+  cs4: 'number.fan_cpu_s4',
+  cpuOverheatTemp: 'number.fan_cpu_overheat_temp',
+  piMinSpeed: 'number.fan_auto_min_speed_pi_on_without_cpu_temp',
 } as const;
+
+/** Entities of the firmware with HyperHDR: an older firmware has none of them. */
+export const HYPERHDR_KEYS: readonly EntityKey[] = [
+  'piPower',
+  'piStatus',
+  'fanSource',
+  'fanControlTemp',
+  'cpuOverheat',
+  'c1',
+  'cs1',
+  'c2',
+  'cs2',
+  'c3',
+  'cs3',
+  'c4',
+  'cs4',
+  'cpuOverheatTemp',
+  'piMinSpeed',
+];
 
 export type EntityKey = keyof typeof ENTITY_SUFFIXES;
 export type EntityMap = Record<EntityKey, string>;
@@ -92,6 +127,8 @@ export interface AmbilightInputConfig {
 export interface AmbilightCardConfig extends LovelaceCardConfig {
   /** The Ambilight manager device (ESPHome): its entities are found from it. */
   device?: string;
+  /** The HyperHDR server (HA-HyperHDR integration); the only one found when left out. */
+  hyperhdr?: string;
   /** Entity id prefix of the device (the part after the domain); wins over `device`. */
   prefix?: string;
   name?: string;
@@ -113,6 +150,7 @@ export interface ResolvedInput {
 
 export interface ResolvedAmbilightConfig {
   name?: string;
+  hyperhdr?: string;
   entities: EntityMap;
   inputs: ResolvedInput[];
   sendCounterEntity?: string;
@@ -178,6 +216,10 @@ export function resolveAmbilightConfig(
   }
   return {
     name: typeof config.name === 'string' && config.name.trim() ? config.name.trim() : undefined,
+    hyperhdr:
+      typeof config.hyperhdr === 'string' && config.hyperhdr.trim()
+        ? config.hyperhdr.trim()
+        : undefined,
     entities: entityMap(prefix, overrides),
     inputs,
     sendCounterEntity: optionalEntity(config.send_counter_entity),

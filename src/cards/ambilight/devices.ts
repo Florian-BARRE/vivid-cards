@@ -2,6 +2,7 @@ import { domainOf, objectIdOf } from '../../core/entities';
 import type { HomeAssistant } from '../../core/hass-types';
 import {
   ENTITY_SUFFIXES,
+  HYPERHDR_KEYS,
   type AmbilightCardConfig,
   type DeviceLookup,
   type EntityKey,
@@ -55,7 +56,11 @@ export function coverage(
   hass: HomeAssistant,
   entities: EntityMap,
 ): { found: number; total: number; missing: string[] } {
-  const keys = Object.keys(entities) as EntityKey[];
+  let keys = Object.keys(entities) as EntityKey[];
+  // A firmware without HyperHDR has none of its entities: they are not missing.
+  if (HYPERHDR_KEYS.every((key) => !hass.states[entities[key]])) {
+    keys = keys.filter((key) => !HYPERHDR_KEYS.includes(key));
+  }
   const missing = keys.map((key) => entities[key]).filter((id) => !hass.states[id]);
   return { found: keys.length - missing.length, total: keys.length, missing };
 }

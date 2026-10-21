@@ -13,6 +13,7 @@ import {
   type AmbilightCardConfig,
   type AmbilightInputConfig,
 } from './config';
+import { HYPERHDR_INTEGRATION } from '../hyperhdr/model';
 import { MANAGER_INTEGRATION, coverage, devicePrefix, lookupDevices } from './devices';
 
 type FormData = Record<string, unknown>;
@@ -322,17 +323,29 @@ export class VividAmbilightCardEditor extends LitElement {
   private renderSettings(config: AmbilightCardConfig) {
     return this.form(
       [
+        {
+          name: 'hyperhdr',
+          selector: {
+            device: {
+              filter: { integration: HYPERHDR_INTEGRATION },
+              entity: { domain: 'binary_sensor' },
+            },
+          },
+        },
         { name: 'confirm_pi_off', selector: { boolean: {} } },
         { name: 'send_counter_entity', selector: { entity: { domain: 'sensor' } } },
         { name: 'glow', selector: GLOW_SLIDER },
       ],
       {
+        hyperhdr: config.hyperhdr ?? '',
         confirm_pi_off: config.confirm_pi_off !== false,
         send_counter_entity: config.send_counter_entity ?? '',
         glow: config.glow ?? 100,
       },
       (value) => {
         const next: Record<string, unknown> = { ...config };
+        if (typeof value.hyperhdr === 'string' && value.hyperhdr) next.hyperhdr = value.hyperhdr;
+        else delete next.hyperhdr;
         if (value.confirm_pi_off === false) next.confirm_pi_off = false;
         else delete next.confirm_pi_off;
         const counter =
@@ -344,11 +357,15 @@ export class VividAmbilightCardEditor extends LitElement {
         this.commit(next);
       },
       {
+        hyperhdr: this.t('amb_hyperhdr'),
         confirm_pi_off: this.t('amb_confirm_pi'),
         send_counter_entity: this.t('amb_counter'),
         glow: this.t('amb_halo'),
       },
-      { send_counter_entity: this.t('amb_counter_helper') },
+      {
+        hyperhdr: this.t('amb_hyperhdr_helper'),
+        send_counter_entity: this.t('amb_counter_helper'),
+      },
     );
   }
 

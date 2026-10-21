@@ -54,6 +54,8 @@ const PHASE_MS: Record<Exclude<SourcePhase, 'sending'>, number> = {
 };
 /** The "Cut?" confirmation of the Pi switch waits this long for the second tap. */
 const ARM_MS = 3000;
+/** A clean shutdown (shutdown over SSH, then the relay) shows as such this long at most. */
+const STOP_MS = 120_000;
 
 /**
  * The box behind the TV that runs the Ambilight: its HDMI switch (sent by
@@ -68,6 +70,7 @@ export class VividAmbilightCard extends LitElement {
     _config: { state: true },
     phases: { state: true },
     armed: { state: true },
+    stopping: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -75,6 +78,8 @@ export class VividAmbilightCard extends LitElement {
   declare phases: Partial<Record<number, SourcePhase>>;
   /** The Pi switch waits for a second tap before cutting the power. */
   declare armed: boolean;
+  /** When the clean shutdown of the Pi was asked, until the relay opens. */
+  declare stopping?: number;
 
   private model?: AmbilightModel;
   private rawConfig?: AmbilightCardConfig;
@@ -85,6 +90,7 @@ export class VividAmbilightCard extends LitElement {
   private pendingTimer?: number;
   private phaseTimers = new Map<number, number>();
   private armTimer?: number;
+  private stopTimer?: number;
   /** Last confirmed input and when, to notice a change made with the remote. */
   private lastActive?: { index?: number; changed?: string };
 
@@ -271,6 +277,7 @@ export class VividAmbilightCard extends LitElement {
       .value.alarm {
         color: var(--error-color, #ef5350);
       }
+
       .pi {
         display: inline-flex;
         align-items: center;
@@ -288,6 +295,12 @@ export class VividAmbilightCard extends LitElement {
       .pi.armed {
         background: color-mix(in srgb, var(--error-color, #ef5350) 22%, var(--vivid-layer-2));
         color: var(--error-color, #ef5350);
+      }
+      .pi.stopping {
+        color: rgb(255, 193, 7);
+      }
+      .pi.stopping:disabled {
+        opacity: 1;
       }
       .pi:disabled {
         opacity: 0.5;
@@ -344,12 +357,14 @@ export class VividAmbilightCard extends LitElement {
       }
       /* Narrow cards: the Pi label goes, the values tighten. */
       @container (max-width: 400px) {
-        .pi:not(.armed) .label {
+        .pi:not(.armed):not(.stopping) .label {
           display: none;
         }
-        .head:has(.pi.armed) .values {
+        .head:has(.pi.armed) .values,
+        .head:has(.pi.stopping) .values {
           display: none;
         }
+
         .values {
           gap: 5px;
         }
@@ -373,6 +388,7 @@ export class VividAmbilightCard extends LitElement {
     super.disconnectedCallback();
     window.clearTimeout(this.pendingTimer);
     window.clearTimeout(this.armTimer);
+    window.clearTimeout(this.stopTimer);
     for (const timer of this.phaseTimers.values()) window.clearTimeout(timer);
     this.phaseTimers.clear();
     this.dialog?.unmount();
@@ -393,6 +409,8 @@ export class VividAmbilightCard extends LitElement {
     if (!hass || !config) return;
     this.model = buildAmbilightModel(hass, config);
     this.trackSends(hass, config);
+    // The relay opened: the shutdown is over.
+    if (this.stopping !== undefined && !this.model.relay.on) this.stopping = undefined;
   }
 
   protected override updated(): void {
@@ -470,10 +488,11 @@ export class VividAmbilightCard extends LitElement {
     const config = this._config;
     const model = this.model;
     if (!hass || !config || !model?.relay.available) return;
-    const relay = config.entities.relay;
+    const power = model.power.entityId;
+    if (this.stopping !== undefined || model.power.stopping) return;
     if (!model.relay.on) {
       haptic(this, 'light');
-      void hass.callService('switch', 'turn_on', {}, { entity_id: relay });
+      void hass.callService('switch', 'turn_on', {}, { entity_id: power });
       return;
     }
     if (config.confirmPiOff && !this.armed) {
@@ -485,7 +504,14 @@ export class VividAmbilightCard extends LitElement {
     }
     this.disarm();
     haptic(this, 'medium');
-    void hass.callService('switch', 'turn_off', {}, { entity_id: relay });
+    if (model.power.clean) {
+      this.stopping = Date.now();
+      window.clearTimeout(this.stopTimer);
+      this.stopTimer = window.setTimeout(() => {
+        this.stopping = undefined;
+      }, STOP_MS);
+    }
+    void hass.callService('switch', 'turn_off', {}, { entity_id: power });
   };
 
   /* --------------------------------- details -------------------------------- */
@@ -532,15 +558,34 @@ export class VividAmbilightCard extends LitElement {
   private renderHead(model: AmbilightModel) {
     const hass = this.hass;
     const color = healthColor(model);
-    const alarm = model.alarms.some((item) => item === 'overheat' || item === 'stalled');
+    const alarm = model.alarms.some(
+      (item) => item === 'overheat' || item === 'cpuoverheat' || item === 'stalled',
+    );
     const tone = color ? tintTone(color, alarm ? 0.95 : 0.8) : undefined;
     const spin = model.online ? spinSeconds(model.fan.percentage) : undefined;
     const status = statusLine(hass, model);
-    const t = model.controlTemperature;
-    const tColor = t === undefined ? undefined : temperatureColor(t, overheatOf(model));
+    // Box temperature, and the Pi's CPU when HyperHDR sends it: the one that
+    // drives the fan stands out.
+    const box = model.temperature ?? model.temperatureBmp;
+    const boxColor = box === undefined ? undefined : temperatureColor(box, overheatOf(model));
+    const cpu = model.cpuTemperature;
+    const cpuColor =
+      cpu === undefined ? undefined : temperatureColor(cpu, model.cpu?.overheat.value ?? 80);
+    const byCpu = model.fan.source === 'cpu';
+    // The head has room for one temperature: the one that overheats, else
+    // the one that drives the fan.
+    const boxHot = model.alarms.includes('overheat');
+    const cpuHot = model.alarms.includes('cpuoverheat') && cpu !== undefined;
+    const showCpu = boxHot || cpuHot ? cpuHot : byCpu && cpu !== undefined;
+    const showBox = boxHot || !showCpu;
     const speed = model.fan.percentage;
     const pi = piTone(model.pi);
-    const piLabel = this.armed ? localize(hass, 'amb_cut_confirm') : localize(hass, 'amb_pi');
+    const stopping = this.stopping !== undefined || model.power.stopping;
+    const piLabel = stopping
+      ? localize(hass, 'amb_stopping')
+      : this.armed
+        ? localize(hass, model.power.clean ? 'amb_shutdown_confirm' : 'amb_cut_confirm')
+        : localize(hass, 'amb_pi');
     const piTitle = `${localize(hass, 'amb_pi_title')} · ${piText(hass, model.pi)}`;
     return html`<div class="head">
       <button
@@ -572,13 +617,33 @@ export class VividAmbilightCard extends LitElement {
         title=${localize(hass, 'details')}
         @click=${() => this.openDetails()}
       >
-        <span class=${classMap({ value: true, alarm: model.alarms.includes('overheat') })}>
-          <ha-icon
-            icon="mdi:thermometer"
-            style=${styleMap({ color: tColor ? rgbCss(tColor) : 'var(--secondary-text-color)' })}
-          ></ha-icon
-          >${t === undefined ? '—' : fixed(hass, t, 1)}<small>°C</small>
-        </span>
+        ${
+          showBox
+            ? html`<span
+                class=${classMap({ value: true, alarm: model.alarms.includes('overheat') })}
+              >
+                <ha-icon
+                  icon="mdi:thermometer"
+                  style=${styleMap({ color: boxColor ? rgbCss(boxColor) : 'var(--secondary-text-color)' })}
+                ></ha-icon
+                >${box === undefined ? '—' : fixed(hass, box, 1)}<small>°C</small>
+              </span>`
+            : nothing
+        }
+        ${
+          showCpu && cpu !== undefined
+            ? html`<span
+                class=${classMap({ value: true, alarm: model.alarms.includes('cpuoverheat') })}
+                title=${localize(hass, 'amb_curve_cpu')}
+              >
+                <ha-icon
+                  icon="mdi:cpu-64-bit"
+                  style=${styleMap({ color: cpuColor ? rgbCss(cpuColor) : 'var(--secondary-text-color)' })}
+                ></ha-icon
+                >${fixed(hass, cpu, 1)}<small>°C</small>
+              </span>`
+            : nothing
+        }
         <span class=${classMap({ value: true, alarm: model.fan.stalled })}>
           <ha-icon
             icon="mdi:fan"
@@ -589,12 +654,12 @@ export class VividAmbilightCard extends LitElement {
       </button>
       <button
         type="button"
-        class=${classMap({ reset: true, pi: true, armed: this.armed })}
+        class=${classMap({ reset: true, pi: true, armed: this.armed, stopping })}
         role="switch"
         aria-checked=${model.relay.on ? 'true' : 'false'}
         aria-label=${piTitle}
         title=${piTitle}
-        ?disabled=${!model.online || !model.relay.available}
+        ?disabled=${!model.online || !model.relay.available || stopping}
         @click=${this.togglePi}
       >
         <span
