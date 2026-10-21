@@ -3,13 +3,22 @@ import { blendStops } from '../../core/glow';
 import { isAvailable, parseNumericState } from '../../core/entities';
 import type { HassEntity, HomeAssistant, Rgb } from '../../core/hass-types';
 import { INPUT_COUNT, type EntityKey, type ResolvedAmbilightConfig } from './config';
+import { buildHub, findDevices, type HubModel } from '../hyperhdr/model';
 
 export type FanMode = 'auto' | 'manual';
 
 /** Power of the Raspberry Pi, from its relay: `unknown` when the relay is unavailable. */
 export type PiStatus = 'off' | 'on' | 'unknown';
 
-export type Alarm = 'offline' | 'overheat' | 'stalled' | 'nosensor';
+export type Alarm = 'offline' | 'overheat' | 'cpuoverheat' | 'stalled' | 'nosensor';
+
+/** What the fan follows: the box temperature, or the Pi's CPU while HyperHDR is connected. */
+export type FanSource = 'box' | 'cpu';
+
+export interface CurveModel {
+  points: CurvePoint[];
+  overheat: NumberSetting;
+}
 
 export interface NumberSetting {
   entityId: string;
@@ -57,7 +66,15 @@ export interface AmbilightModel {
     rpm?: number;
     stalled: boolean;
     overheat: boolean;
+    /** Firmware with HyperHDR: the curve that drives the fan now. */
+    source?: FanSource;
   };
+  /** Firmware with HyperHDR: the CPU curve, its overheat threshold and the floor speed. */
+  cpu?: CurveModel & { minSpeed: NumberSetting; overheating: boolean };
+  /** The Raspberry Pi's CPU temperature (HyperHDR). */
+  cpuTemperature?: number;
+  /** The HyperHDR server, when the HA-HyperHDR integration has one. */
+  hub?: HubModel;
   curve: {
     points: CurvePoint[];
     hysteresis: NumberSetting;
@@ -78,6 +95,11 @@ export interface AmbilightModel {
     targetOptions: string[];
   };
   relay: { available: boolean; on: boolean; changedAt?: number };
+  /**
+   * What switches the Pi: the firmware's "Pi power" (clean shutdown, then the
+   * relay) when it has one, else the relay itself.
+   */
+  power: { entityId: string; clean: boolean; status?: string; stopping: boolean };
   pi: PiStatus;
   alarms: Alarm[];
   diag: { rssi?: number; ip?: string; ssid?: string; uptime?: number };
@@ -166,6 +188,19 @@ export function temperatureColor(t: number | undefined, overheat = 55): Rgb {
   );
 }
 
+/** The HyperHDR server: the one configured, else the only one there is. */
+export function hyperhdrHub(hass: HomeAssistant, server: string | undefined): HubModel | undefined {
+  const devices = findDevices(hass);
+  const id =
+    server && devices.entities[server]
+      ? server
+      : devices.servers.length === 1
+        ? devices.servers[0]
+        : undefined;
+  const entities = id ? devices.entities[id] : undefined;
+  return id && entities ? buildHub(hass, id, entities) : undefined;
+}
+
 function piStatus(relay: AmbilightModel['relay']): PiStatus {
   if (!relay.available) return 'unknown';
   return relay.on ? 'on' : 'off';
@@ -220,6 +255,19 @@ export function buildAmbilightModel(
     s: numberSetting(hass, ids[`s${n}` as EntityKey], { min: 0, max: 100, step: 1 }),
   }));
 
+  const hasCpuCurve = hass.states[ids.c1] !== undefined;
+  const cpuPoints: CurvePoint[] = [1, 2, 3, 4].map((n) => ({
+    index: n - 1,
+    t: numberSetting(hass, ids[`c${n}` as EntityKey], { min: 30, max: 90, step: 0.5 }),
+    s: numberSetting(hass, ids[`cs${n}` as EntityKey], { min: 0, max: 100, step: 1 }),
+  }));
+  const cpuOverheating = boolState(st('cpuOverheat')) === true;
+  const sourceText = textState(st('fanSource'))?.toLowerCase();
+  const source: FanSource | undefined =
+    sourceText === 'cpu' ? 'cpu' : sourceText === 'box' ? 'box' : undefined;
+  const hub = hyperhdrHub(hass, config.hyperhdr);
+  const cpuTemperature = hub?.connected ? hub.temperature : undefined;
+
   const codes = parseStoredCodes(textState(st('irCodes')));
   const inputs: InputModel[] = config.inputs.map((input, index) => {
     const button = ids[`hdmi${index + 1}` as EntityKey];
@@ -250,12 +298,15 @@ export function buildAmbilightModel(
   if (!online) alarms.push('offline');
   else {
     if (overheat) alarms.push('overheat');
+    if (cpuOverheating) alarms.push('cpuoverheat');
     if (stalled) alarms.push('stalled');
     if (controlTemperature === undefined) alarms.push('nosensor');
   }
 
   const watched = new Set<string>(Object.values(ids));
   if (config.sendCounterEntity) watched.add(config.sendCounterEntity);
+  for (const id of Object.values(hub?.entities ?? {})) watched.add(id);
+  const piPower = hass.states[ids.piPower];
 
   return {
     name: config.name ?? 'Ambilight',
@@ -264,7 +315,21 @@ export function buildAmbilightModel(
     humidity: num('humidity'),
     pressure: num('pressure'),
     temperatureBmp,
-    controlTemperature,
+    // The fan follows the CPU while the firmware says so.
+    controlTemperature:
+      source === 'cpu'
+        ? (num('fanControlTemp') ?? cpuTemperature ?? controlTemperature)
+        : controlTemperature,
+    cpuTemperature,
+    hub,
+    cpu: hasCpuCurve
+      ? {
+          points: cpuPoints,
+          overheat: numberSetting(hass, ids.cpuOverheatTemp, { min: 50, max: 95, step: 1 }),
+          minSpeed: numberSetting(hass, ids.piMinSpeed, { min: 0, max: 100, step: 5 }),
+          overheating: cpuOverheating,
+        }
+      : undefined,
     fan: {
       entityId: ids.fan,
       available: isAvailable(fanState),
@@ -277,6 +342,7 @@ export function buildAmbilightModel(
       rpm: num('rpm') ?? num('rpmRaw'),
       stalled,
       overheat,
+      source,
     },
     curve: {
       points,
@@ -296,6 +362,14 @@ export function buildAmbilightModel(
       targetOptions,
     },
     relay,
+    power: {
+      entityId: piPower ? ids.piPower : ids.relay,
+      clean: piPower !== undefined,
+      status: textState(st('piStatus')),
+      // "Shutting the Pi down cleanly...", "Pi shutting down, waiting …": the
+      // switch stays on until the relay opens.
+      stopping: /^(pi )?shutting/i.test(textState(st('piStatus')) ?? '') && relay.on,
+    },
     pi: piStatus(relay),
     alarms,
     diag: {

@@ -33,17 +33,36 @@ export function overheatOf(model: AmbilightModel): number {
   return model.curve.overheat.value ?? 55;
 }
 
+/** Overheat threshold of the curve that drives the fan now. */
+export function drivingOverheat(model: AmbilightModel): number {
+  return model.fan.source === 'cpu' && model.cpu
+    ? (model.cpu.overheat.value ?? 80)
+    : overheatOf(model);
+}
+
 /** Color of the box: its temperature, red on an alarm, amber without sensor. */
 export function healthColor(model: AmbilightModel): Rgb | undefined {
   if (!model.online) return undefined;
-  if (model.alarms.includes('overheat') || model.alarms.includes('stalled')) return RED;
+  if (
+    model.alarms.some(
+      (alarm) => alarm === 'overheat' || alarm === 'cpuoverheat' || alarm === 'stalled',
+    )
+  ) {
+    return RED;
+  }
   if (model.alarms.includes('nosensor')) return AMBER;
-  return temperatureColor(model.controlTemperature, overheatOf(model));
+  return temperatureColor(model.controlTemperature, drivingOverheat(model));
 }
 
 export function healthIcon(model: AmbilightModel): string {
   if (!model.online) return 'mdi:lan-disconnect';
-  if (model.alarms.includes('overheat') || model.alarms.includes('stalled')) return 'mdi:fan-alert';
+  if (
+    model.alarms.some(
+      (alarm) => alarm === 'overheat' || alarm === 'cpuoverheat' || alarm === 'stalled',
+    )
+  ) {
+    return 'mdi:fan-alert';
+  }
   return 'mdi:fan';
 }
 
@@ -63,7 +82,7 @@ export function piTone(status: PiStatus): ChipTone | undefined {
 }
 
 /** The worst alarm first. */
-export const ALARM_ORDER: Alarm[] = ['offline', 'overheat', 'stalled', 'nosensor'];
+export const ALARM_ORDER: Alarm[] = ['offline', 'overheat', 'cpuoverheat', 'stalled', 'nosensor'];
 
 export function topAlarm(model: AmbilightModel): Alarm | undefined {
   return ALARM_ORDER.find((alarm) => model.alarms.includes(alarm));
@@ -72,6 +91,7 @@ export function topAlarm(model: AmbilightModel): Alarm | undefined {
 const ALARM_SHORT: Record<Alarm, StringKey> = {
   offline: 'amb_offline',
   overheat: 'amb_overheat',
+  cpuoverheat: 'amb_cpu_overheat',
   stalled: 'amb_stalled',
   nosensor: 'amb_nosensor',
 };
@@ -128,6 +148,18 @@ export function alarmViews(hass: HomeAssistant | undefined, model: AmbilightMode
           max: celsius(hass, overheatOf(model), 0),
         }),
       });
+    } else if (alarm === 'cpuoverheat') {
+      const t = model.cpuTemperature;
+      views.push({
+        alarm,
+        color: RED,
+        icon: 'mdi:raspberry-pi',
+        title: localize(hass, 'amb_alarm_cpuoverheat_t'),
+        detail: localize(hass, 'amb_alarm_cpuoverheat', {
+          t: t === undefined ? '—' : celsius(hass, t),
+          max: celsius(hass, model.cpu?.overheat.value ?? 80, 0),
+        }),
+      });
     } else if (alarm === 'stalled') {
       views.push({
         alarm,
@@ -142,7 +174,11 @@ export function alarmViews(hass: HomeAssistant | undefined, model: AmbilightMode
         color: AMBER,
         icon: 'mdi:thermometer-off',
         title: localize(hass, 'amb_alarm_nosensor_t'),
-        detail: localize(hass, 'amb_alarm_nosensor'),
+        // The firmware falls back to 100 % only without the CPU temperature either.
+        detail: localize(
+          hass,
+          model.fan.source === 'cpu' ? 'amb_alarm_nosensor_cpu' : 'amb_alarm_nosensor',
+        ),
       });
     }
   }
@@ -162,4 +198,19 @@ export function sourceLabels(hass: HomeAssistant | undefined): SourceLabels {
     fail: localize(hass, 'amb_fail'),
     sent: localize(hass, 'amb_sent'),
   };
+}
+
+/** The firmware's "Pi status" (English), in the card's language; unknown texts as they are. */
+export function piStatusText(hass: HomeAssistant | undefined, status: string): string {
+  const known: [RegExp, StringKey][] = [
+    [/^pi powered/i, 'amb_ps_on'],
+    [/^pi off/i, 'amb_ps_off'],
+    [/^pi starting/i, 'amb_ps_starting'],
+    [/^shutting the pi down/i, 'amb_ps_shutting'],
+    [/^pi shutting down/i, 'amb_ps_halting'],
+    [/did not shut down/i, 'amb_ps_timeout'],
+    [/^home assistant away/i, 'amb_ps_noha'],
+  ];
+  const key = known.find(([pattern]) => pattern.test(status))?.[1];
+  return key ? localize(hass, key) : status;
 }

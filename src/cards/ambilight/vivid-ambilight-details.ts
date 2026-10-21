@@ -14,7 +14,15 @@ import '../../components/vivid-source-row';
 import type { SourcePhase } from '../../components/vivid-source-row';
 import { SOURCE_RGB } from '../../components/vivid-source-row';
 import type { EntityKey, ResolvedAmbilightConfig } from './config';
-import { temperatureColor, type AmbilightModel, type FanMode, type NumberSetting } from './model';
+import {
+  temperatureColor,
+  type AmbilightModel,
+  type CurvePoint,
+  type FanMode,
+  type FanSource,
+  type NumberSetting,
+} from './model';
+import type { HubModel } from '../hyperhdr/model';
 import {
   FAN_RGB,
   GREEN,
@@ -25,6 +33,7 @@ import {
   healthColor,
   healthIcon,
   overheatOf,
+  piStatusText,
   sourceLabels,
   spinSeconds,
 } from './view';
@@ -66,6 +75,7 @@ export class VividAmbilightDetails extends LitElement {
     step: { state: true },
     armed: { state: true },
     open: { state: true },
+    curveTab: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -81,6 +91,8 @@ export class VividAmbilightDetails extends LitElement {
   declare armed?: string;
   /** Expanded maintenance sections. */
   declare open: Record<string, boolean>;
+  /** Curve shown in the fan tab; follows the driving one until picked. */
+  declare curveTab?: FanSource;
 
   private armTimer?: number;
 
@@ -90,7 +102,7 @@ export class VividAmbilightDetails extends LitElement {
     this.tab = 'overview';
     this.point = 1;
     this.step = 0;
-    this.open = { pi: true, fan: true, ir: false, system: true };
+    this.open = { pi: true, hyperhdr: true, fan: true, ir: false, system: true };
   }
 
   override disconnectedCallback(): void {
@@ -425,6 +437,27 @@ export class VividAmbilightDetails extends LitElement {
         display: flex;
         align-items: center;
         gap: 10px;
+      }
+      .curvesel {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+      }
+      .curvesel small {
+        flex: 1 1 140px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .curvesel small b {
+        color: var(--primary-text-color);
+        font-weight: 600;
+      }
+      .seg .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgb(${unsafeCSS(FAN_RGB.join(', '))});
       }
       .fanline .mini {
         display: flex;
@@ -766,6 +799,9 @@ export class VividAmbilightDetails extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .diag span.bad {
+        color: var(--error-color, #ef5350);
+      }
       @media (prefers-reduced-motion: reduce) {
         .disc.spin ha-icon {
           animation: none;
@@ -881,6 +917,8 @@ export class VividAmbilightDetails extends LitElement {
 
   private colorAt = (t: number): Rgb =>
     temperatureColor(t, this.model ? overheatOf(this.model) : 55);
+  private cpuColorAt = (t: number): Rgb =>
+    temperatureColor(t, this.model?.cpu?.overheat.value ?? 80);
   private format = (value: number, digits: number): string => fixed(this.hass, value, digits);
 
   /* --------------------------------- sections ------------------------------- */
@@ -961,10 +999,19 @@ export class VividAmbilightDetails extends LitElement {
 
   private renderClimate(model: AmbilightModel) {
     const hass = this.hass;
-    const t = model.temperature ?? model.controlTemperature;
+    const t = model.temperature ?? model.temperatureBmp;
     const rpm = model.fan.rpm;
     return html`<div class="badges">
       ${this.badge('mdi:thermometer', t === undefined ? undefined : celsius(hass, t), t === undefined ? undefined : this.colorAt(t))}
+      ${
+        model.cpuTemperature === undefined
+          ? nothing
+          : this.badge(
+              'mdi:cpu-64-bit',
+              celsius(hass, model.cpuTemperature, 0),
+              this.cpuColorAt(model.cpuTemperature),
+            )
+      }
       ${this.badge('mdi:water-percent', model.humidity === undefined ? undefined : `${fixed(hass, model.humidity, 0)}\u00a0%`, GREEN, 0.4)}
       ${this.badge('mdi:gauge', model.pressure === undefined ? undefined : `${fixed(hass, model.pressure, 0)}\u00a0hPa`, [144, 164, 174], 0.35)}
       ${
@@ -984,14 +1031,23 @@ export class VividAmbilightDetails extends LitElement {
     const hass = this.hass;
     const disabled = !model.online || !model.relay.available;
     const relayOn = model.relay.on;
+    const clean = model.power.clean;
+    const stopping = model.power.stopping;
+    const powerKey: EntityKey = clean ? 'piPower' : 'relay';
+    const reboot = model.hub?.entities['button.reboot'];
+    const status = clean
+      ? model.power.status === undefined
+        ? localize(hass, 'amb_power_clean')
+        : piStatusText(hass, model.power.status)
+      : localize(hass, relayOn ? 'amb_power_on' : 'amb_power_off');
     return html`<div class="row">
-        ${this.icon('mdi:raspberry-pi', relayOn ? GREEN : undefined, 0.7)}
+        ${this.icon('mdi:raspberry-pi', stopping ? FAN_RGB : relayOn ? GREEN : undefined, 0.7)}
         <span class="text"
-          >${localize(hass, 'amb_power')}<small
+          >${localize(hass, clean ? 'amb_pi_title' : 'amb_power')}<small
             >${
               this.armed === 'relay'
-                ? localize(hass, 'amb_tap_again')
-                : localize(hass, relayOn ? 'amb_power_on' : 'amb_power_off')
+                ? localize(hass, clean ? 'amb_shutdown_confirm' : 'amb_tap_again')
+                : status
             }</small
           ></span
         >
@@ -1000,16 +1056,59 @@ export class VividAmbilightDetails extends LitElement {
           class=${classMap({ reset: true, switch: true, danger: this.armed === 'relay' })}
           role="switch"
           aria-label=${localize(hass, 'amb_power')}
-          aria-checked=${relayOn ? 'true' : 'false'}
-          ?disabled=${disabled}
+          aria-checked=${relayOn && !stopping ? 'true' : 'false'}
+          ?disabled=${disabled || stopping}
           @click=${() => {
-            if (!relayOn) this.switchTo('relay', true);
-            else if (this.config?.confirmPiOff)
-              this.confirm('relay', () => this.switchTo('relay', false));
-            else this.switchTo('relay', false);
+            if (!relayOn) this.switchTo(powerKey, true);
+            else if (this.config?.confirmPiOff || clean)
+              this.confirm('relay', () => this.switchTo(powerKey, false));
+            else this.switchTo(powerKey, false);
           }}
         ></button>
       </div>
+      ${
+        withPulse && clean
+          ? html`<div class="row">
+              ${this.icon('mdi:power-plug-off', RED, 0.5)}
+              <span class="text"
+                >${localize(hass, 'amb_relay_hard')}<small
+                  >${localize(hass, 'amb_relay_hard_hint')}</small
+                ></span
+              >
+              <button
+                type="button"
+                class=${classMap({ reset: true, btn: true, danger: true, armed: this.armed === 'hard' })}
+                ?disabled=${disabled || !relayOn}
+                @click=${() => this.confirm('hard', () => this.switchTo('relay', false))}
+              >
+                ${this.armed === 'hard' ? localize(hass, 'amb_tap_again') : localize(hass, 'amb_cut')}
+              </button>
+            </div>`
+          : nothing
+      }
+      ${
+        withPulse && reboot
+          ? html`<div class="row">
+              ${this.icon('mdi:restart')}
+              <span class="text"
+                >${localize(hass, 'amb_pi_reboot')}<small
+                  >${localize(hass, 'amb_pi_reboot_hint')}</small
+                ></span
+              >
+              <button
+                type="button"
+                class=${classMap({ reset: true, btn: true, danger: true, armed: this.armed === 'reboot' })}
+                ?disabled=${!model.hub?.connected || this.hass?.states[reboot]?.state === 'unavailable'}
+                @click=${() =>
+                  this.confirm('reboot', () => {
+                    if (this.hass) void pressButton(this.hass, reboot);
+                  })}
+              >
+                ${this.armed === 'reboot' ? localize(hass, 'amb_tap_again') : localize(hass, 'amb_reboot_btn')}
+              </button>
+            </div>`
+          : nothing
+      }
       ${
         withPulse
           ? html`<div class="row">
@@ -1068,9 +1167,31 @@ export class VividAmbilightDetails extends LitElement {
     </span>`;
   }
 
-  private handles(model: AmbilightModel): CurveHandle[] | undefined {
+  /** The curve the fan follows now: the CPU one while the firmware says so. */
+  private drivingCurve(model: AmbilightModel): FanSource {
+    return model.fan.source === 'cpu' && model.cpu ? 'cpu' : 'box';
+  }
+
+  private curveOf(model: AmbilightModel, kind: FanSource) {
+    const cpu = kind === 'cpu' ? model.cpu : undefined;
+    return cpu
+      ? {
+          points: cpu.points,
+          overheat: cpu.overheat,
+          temperature: model.cpuTemperature,
+          colorAt: this.cpuColorAt,
+        }
+      : {
+          points: model.curve.points,
+          overheat: model.curve.overheat,
+          temperature: model.temperature ?? model.temperatureBmp,
+          colorAt: this.colorAt,
+        };
+  }
+
+  private handles(points: CurvePoint[]): CurveHandle[] | undefined {
     const handles: CurveHandle[] = [];
-    for (const point of model.curve.points) {
+    for (const point of points) {
       if (point.t.value === undefined || point.s.value === undefined) return undefined;
       handles.push({
         t: point.t.value,
@@ -1088,7 +1209,8 @@ export class VividAmbilightDetails extends LitElement {
 
   private renderMiniCurve(model: AmbilightModel) {
     const hass = this.hass;
-    const handles = this.handles(model);
+    const curve = this.curveOf(model, this.drivingCurve(model));
+    const handles = this.handles(curve.points);
     const t = model.controlTemperature;
     const caption =
       model.fan.mode === 'manual'
@@ -1108,7 +1230,7 @@ export class VividAmbilightDetails extends LitElement {
               .points=${handles}
               .temperature=${t}
               .stop=${model.curve.stopBelowT1 === true}
-              .colorAt=${this.colorAt}
+              .colorAt=${curve.colorAt}
             ></vivid-fan-curve>`
           : nothing
       }
@@ -1154,13 +1276,47 @@ export class VividAmbilightDetails extends LitElement {
       ${model.fan.mode === 'manual' ? this.renderSpeeds(model) : nothing}`;
   }
 
+  private renderCurveSwitch(model: AmbilightModel, kind: FanSource) {
+    const hass = this.hass;
+    const driving = this.drivingCurve(model);
+    return html`<div class="curvesel">
+      <span class="seg" role="group">
+        ${(['box', 'cpu'] as const).map(
+          (item) =>
+            html`<button
+              type="button"
+              class="reset"
+              aria-pressed=${kind === item ? 'true' : 'false'}
+              @click=${() => {
+                this.curveTab = item;
+              }}
+            >
+              <ha-icon
+                .icon=${item === 'box' ? 'mdi:package-variant-closed' : 'mdi:cpu-64-bit'}
+              ></ha-icon
+              >${localize(hass, item === 'box' ? 'amb_curve_box' : 'amb_curve_cpu')}${
+                driving === item ? html`<span class="dot" aria-hidden="true"></span>` : nothing
+              }
+            </button>`,
+        )}
+      </span>
+      <small
+        >${
+          driving === kind ? html`<b>${localize(hass, 'amb_drives')}</b> · ` : nothing
+        }${localize(hass, kind === 'box' ? 'amb_box_curve_hint' : 'amb_cpu_curve_hint')}</small
+      >
+    </div>`;
+  }
+
   private renderFan(model: AmbilightModel) {
     const hass = this.hass;
-    const handles = this.handles(model);
+    const kind: FanSource = model.cpu ? (this.curveTab ?? this.drivingCurve(model)) : 'box';
+    const curve = this.curveOf(model, kind);
+    const handles = this.handles(curve.points);
     const disabled = !model.online;
-    const point = model.curve.points[this.point];
-    const color = point?.t.value === undefined ? undefined : this.colorAt(point.t.value);
-    const first = model.curve.points.reduce<number | undefined>(
+    const point = curve.points[this.point];
+    const color = point?.t.value === undefined ? undefined : curve.colorAt(point.t.value);
+    const first = curve.points.reduce<number | undefined>(
       (low, item) =>
         item.t.value === undefined
           ? low
@@ -1169,22 +1325,24 @@ export class VividAmbilightDetails extends LitElement {
             : Math.min(low, item.t.value),
       undefined,
     );
-    const firstSpeed = model.curve.points.find((item) => item.t.value === first)?.s.value;
+    const firstSpeed = curve.points.find((item) => item.t.value === first)?.s.value;
     const hyst = model.curve.hysteresis.value;
+    const overheat = curve.overheat;
     return html`<div class="fanline">
         ${this.renderModeSwitch(model)}<span class="control mono">${model.fan.control ?? '—'}</span>
       </div>
+      ${model.cpu ? this.renderCurveSwitch(model, kind) : nothing}
       ${
         handles
           ? html`<div class="curvebox">
               <vivid-fan-curve
                 .points=${handles}
-                .temperature=${model.controlTemperature}
+                .temperature=${curve.temperature}
                 .stop=${model.curve.stopBelowT1 === true}
                 .hysteresis=${hyst}
-                .overheat=${model.curve.overheat.value}
+                .overheat=${overheat.value}
                 .selected=${this.point}
-                .colorAt=${this.colorAt}
+                .colorAt=${curve.colorAt}
                 .format=${this.format}
                 ?editable=${!disabled}
                 @vivid-curve-select=${(event: CustomEvent<{ index: number }>) => {
@@ -1193,7 +1351,7 @@ export class VividAmbilightDetails extends LitElement {
                 @vivid-curve-change=${(
                   event: CustomEvent<{ index: number; t: number; s: number }>,
                 ) => {
-                  const target = model.curve.points[event.detail.index];
+                  const target = curve.points[event.detail.index];
                   if (!target) return;
                   if (target.t.value !== event.detail.t) this.setValue(target.t, event.detail.t);
                   if (target.s.value !== event.detail.s) this.setValue(target.s, event.detail.s);
@@ -1204,7 +1362,7 @@ export class VividAmbilightDetails extends LitElement {
       }
       <div class="points">
         <span class="pchips">
-          ${model.curve.points.map(
+          ${curve.points.map(
             (_, index) =>
               html`<button
                 type="button"
@@ -1248,18 +1406,35 @@ export class VividAmbilightDetails extends LitElement {
       <div class="row">
         ${this.icon('mdi:thermometer-alert', RED, 0.6)}
         <span class="text"
-          >${localize(hass, 'amb_overheat_temp')}<small
-            >${localize(hass, 'amb_overheat_hint')}</small
+          >${localize(hass, kind === 'cpu' ? 'amb_cpu_overheat_temp' : 'amb_overheat_temp')}<small
+            >${localize(hass, kind === 'cpu' ? 'amb_cpu_overheat_hint' : 'amb_overheat_hint')}</small
           ></span
         >
         ${this.stepper(
-          model.curve.overheat,
-          model.curve.overheat.value === undefined
-            ? '—'
-            : celsius(hass, model.curve.overheat.value, 0),
+          overheat,
+          overheat.value === undefined ? '—' : celsius(hass, overheat.value, 0),
           disabled,
         )}
       </div>
+      ${
+        kind === 'box' && model.cpu
+          ? html`<div class="row">
+              ${this.icon('mdi:raspberry-pi')}
+              <span class="text"
+                >${localize(hass, 'amb_pi_min')}<small
+                  >${localize(hass, 'amb_pi_min_hint')}</small
+                ></span
+              >
+              ${this.stepper(
+                model.cpu.minSpeed,
+                model.cpu.minSpeed.value === undefined
+                  ? '—'
+                  : `${fixed(hass, model.cpu.minSpeed.value, 0)}\u00a0%`,
+                disabled,
+              )}
+            </div>`
+          : nothing
+      }
       <div class="row">
         ${this.icon('mdi:fan-off')}
         <span class="text"
@@ -1447,6 +1622,39 @@ export class VividAmbilightDetails extends LitElement {
     </div>`;
   }
 
+  private renderHub(hub: HubModel) {
+    const hass = this.hass;
+    const value = (text: string | undefined) => text ?? '—';
+    const memory = hub.memory === undefined ? undefined : `${fixed(hass, hub.memory, 0)}\u00a0%`;
+    return this.section(
+      'hyperhdr',
+      'mdi:television-ambient-light',
+      localize(hass, 'amb_hyperhdr_server'),
+      localize(hass, hub.connected ? 'amb_hh_connected' : 'amb_hh_away'),
+      () =>
+        html`<div class="diag">
+          <div>
+            <small>${localize(hass, 'amb_cpu')}</small
+            ><span
+              >${value(hub.cpu === undefined ? undefined : `${fixed(hass, hub.cpu, 0)}\u00a0%`)}${
+                hub.temperature === undefined ? '' : ` · ${celsius(hass, hub.temperature, 0)}`
+              }</span
+            >
+          </div>
+          <div><small>${localize(hass, 'amb_ram')}</small><span>${value(memory)}</span></div>
+          <div>
+            <small>${localize(hass, 'hh_undervoltage')}</small
+            ><span class=${classMap({ bad: hub.undervoltage === true })}
+              >${hub.undervoltage === undefined ? '—' : localize(hass, hub.undervoltage ? 'hh_undervoltage_detected' : 'amb_none')}</span
+            >
+          </div>
+          <div>
+            <small>${localize(hass, 'hh_version')}</small><span>${value(hub.version)}</span>
+          </div>
+        </div>`,
+    );
+  }
+
   private renderMaint(model: AmbilightModel) {
     const hass = this.hass;
     const disabled = !model.online;
@@ -1468,6 +1676,7 @@ export class VividAmbilightDetails extends LitElement {
       undefined,
       () => this.renderPiRows(model, true),
     )}
+    ${model.hub ? this.renderHub(model.hub) : nothing}
     ${this.section(
       'fan',
       'mdi:fan',

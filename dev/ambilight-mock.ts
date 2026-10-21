@@ -3,12 +3,40 @@
  * preview page and the tests: buttons, selects, numbers and switches behave
  * like the firmware described in the device brief.
  */
-import { DEFAULT_PREFIX, ENTITY_SUFFIXES, entityMap } from '../src/cards/ambilight/config';
+import {
+  DEFAULT_PREFIX,
+  ENTITY_SUFFIXES,
+  HYPERHDR_KEYS,
+  entityMap,
+} from '../src/cards/ambilight/config';
 import { curveAt } from '../src/cards/ambilight/model';
 import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
 
 export const AMBILIGHT_IDS = entityMap(DEFAULT_PREFIX);
 export const MANAGER_DEVICE = 'device_ambilight_manager';
+/** The HA-HyperHDR server device, named with the prefix `salon-ambilight-hyperhdr`. */
+export const HUB_DEVICE = 'device_hyperhdr_hub';
+const HUB = 'salon_ambilight_hyperhdr_hub';
+export const HUB_IDS = {
+  connected: `binary_sensor.${HUB}_connected`,
+  undervoltage: `binary_sensor.${HUB}_undervoltage`,
+  cpu: `sensor.${HUB}_cpu`,
+  temperature: `sensor.${HUB}_cpu_temperature`,
+  memory: `sensor.${HUB}_memory`,
+  version: `sensor.${HUB}_version`,
+  powerOff: `button.${HUB}_power_off`,
+  reboot: `button.${HUB}_restart`,
+} as const;
+const HUB_KEYS: Record<keyof typeof HUB_IDS, string> = {
+  connected: 'connected',
+  undervoltage: 'undervoltage',
+  cpu: 'cpu',
+  temperature: 'cpu_temperature',
+  memory: 'memory',
+  version: 'version',
+  powerOff: 'poweroff',
+  reboot: 'reboot',
+};
 
 export interface AmbilightScenario {
   /** Climate board not detected: temperature, humidity and pressure unavailable. */
@@ -20,6 +48,12 @@ export interface AmbilightScenario {
   manual?: boolean;
   /** Inputs (0-based) whose echo never comes back. */
   failInputs?: number[];
+  /** Firmware from before HyperHDR: no CPU curve, no "Pi power". */
+  legacy?: boolean;
+  /** HyperHDR server: none, or connected (default, while the Pi is on). */
+  hyperhdr?: 'none' | 'connected' | 'away';
+  /** The Pi's CPU temperature (°C). */
+  cpuTemperature?: number;
   /** Milliseconds the device takes to confirm a send. */
   echoMs?: number;
   language?: string;
@@ -69,24 +103,33 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   };
 
   const curve = { t: [30, 35, 40, 45], s: [30, 50, 75, 100] };
+  const cpuCurve = { t: [50, 60, 70, 75], s: [30, 50, 75, 100] };
   const temperature = scenario.overheat ? 56 : scenario.stalled ? 46 : 37.2;
-  const autoSpeed = () =>
-    Math.round(
+  const cpuTemperature = scenario.cpuTemperature ?? 58;
+  const legacy = scenario.legacy === true;
+  const withHub = !legacy && scenario.hyperhdr !== 'none';
+  let relayOn = !scenario.piOff;
+  let hubConnected = withHub && relayOn && scenario.hyperhdr !== 'away';
+  const piMin = 50;
+  const byCpu = () => hubConnected && !scenario.offline;
+  const autoSpeed = () => {
+    const pick = byCpu() ? cpuCurve : curve;
+    const speed = Math.round(
       curveAt(
-        curve.t.map((t, i) => ({ t, s: curve.s[i] ?? 0 })),
-        temperature,
+        pick.t.map((t, i) => ({ t, s: pick.s[i] ?? 0 })),
+        byCpu() ? cpuTemperature : temperature,
         true,
       ),
     );
+    // The Pi is on but its temperature is not known: never too slow.
+    return !legacy && !byCpu() && relayOn ? Math.max(speed, piMin) : speed;
+  };
   let mode: 'Auto (temperature curve)' | 'Manual' = scenario.manual
     ? 'Manual'
     : 'Auto (temperature curve)';
-  let speed =
-    scenario.noSensor || scenario.overheat || scenario.stalled
-      ? 100
-      : scenario.manual
-        ? 75
-        : autoSpeed();
+  // No box temperature: 100 %, unless the CPU one drives the fan.
+  const forced = () => (scenario.noSensor && !byCpu()) || scenario.overheat === true;
+  let speed = forced() || scenario.stalled ? 100 : scenario.manual ? 75 : autoSpeed();
 
   const offline = scenario.offline === true;
   const sensorState = (value: string) => (offline ? 'unavailable' : value);
@@ -114,9 +157,11 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
 
   const controlText = () => {
     if (mode === 'Manual') return 'Manual';
-    if (scenario.noSensor) return 'no temperature reading -> 100 %';
-    if (scenario.overheat) return `OVERHEAT ${temperature.toFixed(1)} C -> 100 %`;
-    return `Auto: ${temperature.toFixed(1)} C -> ${speed} %`;
+    if (scenario.noSensor && !byCpu()) return 'no temperature reading -> 100 %';
+    if (scenario.overheat) return `OVERHEAT box ${temperature.toFixed(1)} C -> 100 %`;
+    if (legacy) return `Auto: ${temperature.toFixed(1)} C -> ${speed} %`;
+    if (byCpu()) return `Auto CPU: ${cpuTemperature.toFixed(1)} C -> ${speed} %`;
+    return `Auto box: ${temperature.toFixed(1)} C -> ${speed} %`;
   };
   const publishFan = () => {
     put(ids.fan, sensorState(speed > 0 ? 'on' : 'off'), { percentage: speed, percentage_step: 1 });
@@ -132,6 +177,19 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
     put(ids.rpmRaw, sensorState(String(scenario.stalled ? 0 : Math.round(speed * 21))), {
       unit_of_measurement: 'RPM',
     });
+    if (!legacy) {
+      put(ids.fanSource, sensorState(byCpu() ? 'CPU' : 'Box'));
+      put(
+        ids.fanControlTemp,
+        sensorState(String(byCpu() ? cpuTemperature : climate(String(temperature)))),
+        { unit_of_measurement: '°C' },
+      );
+    }
+  };
+  const refreshAuto = () => {
+    if (forced()) speed = 100;
+    else if (mode !== 'Manual' && !scenario.stalled) speed = autoSpeed();
+    publishFan();
   };
   publishFan();
   put(ids.stalled, sensorState(scenario.stalled ? 'on' : 'off'), { device_class: 'problem' });
@@ -176,8 +234,62 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   });
   for (let n = 1; n <= 5; n += 1) put(ids[`hdmi${n}` as 'hdmi1'], sensorState('unknown'));
 
-  const relayOn = !scenario.piOff;
   put(ids.relay, sensorState(relayOn ? 'on' : 'off'), {}, 2 * 3600_000);
+
+  // Firmware with HyperHDR: the CPU curve and the clean power switch.
+  if (legacy) {
+    const dropped = new Set(HYPERHDR_KEYS.map((key) => ids[key]));
+    states = Object.fromEntries(Object.entries(states).filter(([id]) => !dropped.has(id)));
+  } else {
+    for (let n = 1; n <= 4; n += 1) {
+      put(ids[`c${n}` as 'c1'], sensorState(String(cpuCurve.t[n - 1])), {
+        min: 30,
+        max: 90,
+        step: 0.5,
+        unit_of_measurement: '°C',
+      });
+      put(ids[`cs${n}` as 'cs1'], sensorState(String(cpuCurve.s[n - 1])), {
+        min: 0,
+        max: 100,
+        step: 1,
+        unit_of_measurement: '%',
+      });
+    }
+    put(ids.cpuOverheatTemp, sensorState('80'), {
+      min: 50,
+      max: 95,
+      step: 1,
+      unit_of_measurement: '°C',
+    });
+    put(ids.piMinSpeed, sensorState(String(piMin)), {
+      min: 0,
+      max: 100,
+      step: 5,
+      unit_of_measurement: '%',
+    });
+    put(ids.cpuOverheat, sensorState(byCpu() && cpuTemperature >= 80 ? 'on' : 'off'), {
+      device_class: 'heat',
+    });
+    put(ids.piPower, sensorState(relayOn ? 'on' : 'off'), {}, 2 * 3600_000);
+    put(ids.piStatus, sensorState(relayOn ? 'Pi powered' : 'Pi off'));
+  }
+  const publishHub = () => {
+    if (!withHub) return;
+    const live = (value: string) => (hubConnected ? value : 'unavailable');
+    put(HUB_IDS.connected, hubConnected ? 'on' : 'off', { device_class: 'connectivity' });
+    put(HUB_IDS.undervoltage, live('off'), { device_class: 'problem' });
+    put(HUB_IDS.cpu, live('23'), { unit_of_measurement: '%' });
+    put(HUB_IDS.temperature, live(String(cpuTemperature)), {
+      unit_of_measurement: '°C',
+      device_class: 'temperature',
+    });
+    put(HUB_IDS.memory, live('41'), { unit_of_measurement: '%' });
+    put(HUB_IDS.version, live('22.0.0.0'), { architecture: 'aarch64' });
+    put(HUB_IDS.powerOff, live('unknown'));
+    put(HUB_IDS.reboot, live('unknown'));
+  };
+  publishHub();
+  if (!legacy) refreshAuto();
 
   put(ids.testStatus, sensorState('Self-test OK: 0 rpm stopped, 2090 rpm at 100 %'));
   put(ids.irDebug, sensorState('off'));
@@ -187,7 +299,19 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
 
   const registry: HomeAssistant['entities'] = {};
   for (const id of Object.values(ids)) {
+    if (!states[id]) continue;
     registry[id] = { entity_id: id, device_id: MANAGER_DEVICE, platform: 'esphome', labels: [] };
+  }
+  if (withHub) {
+    for (const [key, id] of Object.entries(HUB_IDS) as [keyof typeof HUB_IDS, string][]) {
+      registry[id] = {
+        entity_id: id,
+        device_id: HUB_DEVICE,
+        platform: 'ha_hyperhdr',
+        translation_key: HUB_KEYS[key],
+        labels: [],
+      };
+    }
   }
 
   let hass: HomeAssistant;
@@ -275,6 +399,15 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
         codes = codes.map((code, i) => (i === target ? null : code));
         publishCodes();
         put(ids.irStatus, `Code of HDMI ${target + 1} erased.`);
+      } else if (entityId === HUB_IDS.reboot) {
+        hubConnected = false;
+        publishHub();
+        refreshAuto();
+        later(3000, () => {
+          hubConnected = relayOn;
+          publishHub();
+          refreshAuto();
+        });
       } else if (entityId === ids.relayPulse) {
         put(ids.relay, 'off');
         later(3000, () => put(ids.relay, 'on'));
@@ -295,8 +428,7 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
       const option = String((data as { option?: unknown }).option);
       if (entityId === ids.fanMode) {
         mode = option.startsWith('Auto') ? 'Auto (temperature curve)' : 'Manual';
-        if (mode !== 'Manual' && !scenario.noSensor && !scenario.overheat) speed = autoSpeed();
-        publishFan();
+        refreshAuto();
       } else put(entityId, option);
       publish();
       return;
@@ -308,10 +440,11 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
         if (entityId === ids[`t${n}` as 't1']) curve.t[n - 1] = value;
         if (entityId === ids[`s${n}` as 's1']) curve.s[n - 1] = value;
       }
-      if (mode !== 'Manual' && !scenario.noSensor && !scenario.overheat) {
-        speed = autoSpeed();
-        publishFan();
+      for (let n = 1; n <= 4; n += 1) {
+        if (entityId === ids[`c${n}` as 'c1']) cpuCurve.t[n - 1] = value;
+        if (entityId === ids[`cs${n}` as 'cs1']) cpuCurve.s[n - 1] = value;
       }
+      refreshAuto();
       publish();
       return;
     }
@@ -324,7 +457,39 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
     if (domain === 'switch' || domain === 'homeassistant') {
       const current = states[entityId]?.state === 'on';
       const on = service === 'toggle' ? !current : service === 'turn_on';
-      put(entityId, on ? 'on' : 'off');
+      const setRelay = (value: boolean) => {
+        relayOn = value;
+        put(ids.relay, value ? 'on' : 'off');
+        if (!legacy) put(ids.piPower, value ? 'on' : 'off');
+        if (!value) hubConnected = false;
+        publishHub();
+        refreshAuto();
+      };
+      if (entityId === ids.piPower && !on && relayOn) {
+        // The firmware's clean shutdown: Power off over SSH, HyperHDR goes away,
+        // the Pi gets its time to halt, then the relay opens.
+        put(ids.piStatus, 'Shutting the Pi down cleanly...');
+        later(1500, () => {
+          hubConnected = false;
+          publishHub();
+          refreshAuto();
+          put(ids.piStatus, 'Pi shutting down, waiting 20s before cutting the power...');
+        });
+        later(4000, () => {
+          setRelay(false);
+          put(ids.piStatus, 'Pi off');
+        });
+      } else if (entityId === ids.piPower || entityId === ids.relay) {
+        setRelay(on);
+        if (!legacy) put(ids.piStatus, on ? 'Pi starting' : 'Pi off');
+        if (on && withHub && scenario.hyperhdr !== 'away') {
+          later(2500, () => {
+            hubConnected = relayOn;
+            publishHub();
+            refreshAuto();
+          });
+        }
+      } else put(entityId, on ? 'on' : 'off');
       publish();
     }
   };
@@ -341,6 +506,18 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
         model: 'Wemos D1 mini',
         area_id: 'salon',
       },
+      ...(withHub
+        ? {
+            [HUB_DEVICE]: {
+              id: HUB_DEVICE,
+              name: 'salon-ambilight-hyperhdr-hub',
+              name_by_user: null,
+              manufacturer: 'HyperHDR',
+              model: 'HyperHDR server',
+              area_id: 'salon',
+            },
+          }
+        : {}),
     },
     language,
     locale: { language },

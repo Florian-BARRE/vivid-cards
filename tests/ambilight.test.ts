@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { AMBILIGHT_IDS, createAmbilightMock } from '../dev/ambilight-mock';
+import { describe, expect, it, vi } from 'vitest';
+import { AMBILIGHT_IDS, HUB_DEVICE, HUB_IDS, createAmbilightMock } from '../dev/ambilight-mock';
 import { DEFAULT_PREFIX, entityMap, resolveAmbilightConfig } from '../src/cards/ambilight/config';
 import {
   SEND_TIMEOUT_MS,
@@ -103,7 +103,7 @@ describe('ambilight parsing', () => {
 
 describe('ambilight model', () => {
   it('reads a healthy device', () => {
-    const mock = createAmbilightMock();
+    const mock = createAmbilightMock({ hyperhdr: 'none' });
     const model = buildAmbilightModel(mock.hass, config());
     expect(model.online).toBe(true);
     expect(model.temperature).toBe(37.2);
@@ -119,7 +119,10 @@ describe('ambilight model', () => {
   });
 
   it('flags a missing climate sensor and keeps the fan at 100 %', () => {
-    const model = buildAmbilightModel(createAmbilightMock({ noSensor: true }).hass, config());
+    const model = buildAmbilightModel(
+      createAmbilightMock({ noSensor: true, hyperhdr: 'none' }).hass,
+      config(),
+    );
     expect(model.temperature).toBeUndefined();
     expect(model.controlTemperature).toBeUndefined();
     expect(model.fan.percentage).toBe(100);
@@ -127,7 +130,7 @@ describe('ambilight model', () => {
   });
 
   it('falls back to the BMP280 temperature for the controller', () => {
-    const mock = createAmbilightMock();
+    const mock = createAmbilightMock({ hyperhdr: 'none' });
     mock.setState(AMBILIGHT_IDS.temperature, 'unavailable');
     const model = buildAmbilightModel(mock.hass, config());
     expect(model.controlTemperature).toBeCloseTo(37.8, 5);
@@ -152,6 +155,96 @@ describe('ambilight model', () => {
     const mock = createAmbilightMock();
     mock.setState(AMBILIGHT_IDS.relay, 'unavailable');
     expect(buildAmbilightModel(mock.hass, config()).pi).toBe('unknown');
+  });
+});
+
+describe('ambilight with HyperHDR', () => {
+  it('follows the CPU curve while HyperHDR is connected', () => {
+    const model = buildAmbilightModel(createAmbilightMock().hass, config());
+    expect(model.fan.source).toBe('cpu');
+    expect(model.cpuTemperature).toBe(58);
+    expect(model.controlTemperature).toBe(58);
+    // CPU curve 50 °C → 30 %, 60 °C → 50 %: 58 °C → 46 %.
+    expect(model.fan.percentage).toBe(46);
+    expect(model.cpu?.points.map((point) => point.t.value)).toEqual([50, 60, 70, 75]);
+    expect(model.cpu?.overheat.value).toBe(80);
+    expect(model.cpu?.minSpeed.value).toBe(50);
+    expect(model.hub?.name).toBe('salon-ambilight-hyperhdr-hub');
+    expect(model.hub?.entities['button.reboot']).toBe(HUB_IDS.reboot);
+    expect(model.power).toEqual({
+      entityId: AMBILIGHT_IDS.piPower,
+      clean: true,
+      status: 'Pi powered',
+      stopping: false,
+    });
+    expect(model.alarms).toEqual([]);
+  });
+
+  it('follows the box curve while HyperHDR is away', () => {
+    const model = buildAmbilightModel(createAmbilightMock({ hyperhdr: 'away' }).hass, config());
+    expect(model.fan.source).toBe('box');
+    expect(model.hub?.connected).toBe(false);
+    // A stale CPU temperature is not shown.
+    expect(model.cpuTemperature).toBeUndefined();
+    expect(model.controlTemperature).toBe(37.2);
+  });
+
+  it('keeps the CPU curve without the box sensor', () => {
+    const model = buildAmbilightModel(createAmbilightMock({ noSensor: true }).hass, config());
+    expect(model.alarms).toEqual(['nosensor']);
+    expect(model.controlTemperature).toBe(58);
+    expect(model.fan.percentage).toBe(46);
+  });
+
+  it('raises the CPU overheat alarm', () => {
+    const model = buildAmbilightModel(createAmbilightMock({ cpuTemperature: 84 }).hass, config());
+    expect(model.alarms).toEqual(['cpuoverheat']);
+  });
+
+  it('picks the configured server, else the only one', () => {
+    const hass = createAmbilightMock().hass;
+    expect(buildAmbilightModel(hass, config({ hyperhdr: HUB_DEVICE })).hub?.deviceId).toBe(
+      HUB_DEVICE,
+    );
+    expect(buildAmbilightModel(hass, config({ hyperhdr: 'unknown' })).hub?.deviceId).toBe(
+      HUB_DEVICE,
+    );
+    const alone = buildAmbilightModel(createAmbilightMock({ hyperhdr: 'none' }).hass, config());
+    expect(alone.hub).toBeUndefined();
+    expect(alone.cpuTemperature).toBeUndefined();
+  });
+
+  it('shows the clean shutdown until the relay opens', async () => {
+    vi.useFakeTimers();
+    try {
+      const mock = createAmbilightMock();
+      await mock.hass.callService('switch', 'turn_off', {}, { entity_id: AMBILIGHT_IDS.piPower });
+      let model = buildAmbilightModel(mock.hass, config());
+      expect(model.power.stopping).toBe(true);
+      expect(model.relay.on).toBe(true);
+      vi.advanceTimersByTime(2000);
+      model = buildAmbilightModel(mock.hass, config());
+      expect(model.power.stopping).toBe(true);
+      expect(model.fan.source).toBe('box');
+      vi.advanceTimersByTime(3000);
+      model = buildAmbilightModel(mock.hass, config());
+      expect(model.power.stopping).toBe(false);
+      expect(model.relay.on).toBe(false);
+      expect(model.power.status).toBe('Pi off');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('works with the firmware from before HyperHDR', async () => {
+    const hass = createAmbilightMock({ legacy: true }).hass;
+    const model = buildAmbilightModel(hass, config());
+    expect(model.cpu).toBeUndefined();
+    expect(model.fan.source).toBeUndefined();
+    expect(model.power).toEqual({ entityId: AMBILIGHT_IDS.relay, clean: false, stopping: false });
+    const { coverage } = await import('../src/cards/ambilight/devices');
+    // Its entities are all there: the HyperHDR ones are not counted as missing.
+    expect(coverage(hass, config().entities).missing).toEqual([]);
   });
 });
 
