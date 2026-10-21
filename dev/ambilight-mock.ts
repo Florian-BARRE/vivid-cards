@@ -52,6 +52,10 @@ export interface AmbilightScenario {
   legacy?: boolean;
   /** HyperHDR server: none, or connected (default, while the Pi is on). */
   hyperhdr?: 'none' | 'connected' | 'away';
+  /** The firmware does not read the server's entities (wrong ids in its YAML). */
+  espBlind?: boolean;
+  /** SSH not set up in HA-HyperHDR: no Power off nor Restart button. */
+  noSsh?: boolean;
   /** The Pi's CPU temperature (°C). */
   cpuTemperature?: number;
   /** Milliseconds the device takes to confirm a send. */
@@ -107,11 +111,11 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   const temperature = scenario.overheat ? 56 : scenario.stalled ? 46 : 37.2;
   const cpuTemperature = scenario.cpuTemperature ?? 58;
   const legacy = scenario.legacy === true;
-  const withHub = !legacy && scenario.hyperhdr !== 'none';
+  const withHub = scenario.hyperhdr !== 'none';
   let relayOn = !scenario.piOff;
   let hubConnected = withHub && relayOn && scenario.hyperhdr !== 'away';
   const piMin = 50;
-  const byCpu = () => hubConnected && !scenario.offline;
+  const byCpu = () => !legacy && hubConnected && !scenario.offline && !scenario.espBlind;
   const autoSpeed = () => {
     const pick = byCpu() ? cpuCurve : curve;
     const speed = Math.round(
@@ -273,10 +277,10 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
     put(ids.piPower, sensorState(relayOn ? 'on' : 'off'), {}, 2 * 3600_000);
     put(ids.piStatus, sensorState(relayOn ? 'Pi powered' : 'Pi off'));
   }
-  const publishHub = () => {
+  const publishHub = (msAgo = 0) => {
     if (!withHub) return;
     const live = (value: string) => (hubConnected ? value : 'unavailable');
-    put(HUB_IDS.connected, hubConnected ? 'on' : 'off', { device_class: 'connectivity' });
+    put(HUB_IDS.connected, hubConnected ? 'on' : 'off', { device_class: 'connectivity' }, msAgo);
     put(HUB_IDS.undervoltage, live('off'), { device_class: 'problem' });
     put(HUB_IDS.cpu, live('23'), { unit_of_measurement: '%' });
     put(HUB_IDS.temperature, live(String(cpuTemperature)), {
@@ -285,10 +289,12 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
     });
     put(HUB_IDS.memory, live('41'), { unit_of_measurement: '%' });
     put(HUB_IDS.version, live('22.0.0.0'), { architecture: 'aarch64' });
-    put(HUB_IDS.powerOff, live('unknown'));
-    put(HUB_IDS.reboot, live('unknown'));
+    if (!scenario.noSsh) {
+      put(HUB_IDS.powerOff, live('unknown'));
+      put(HUB_IDS.reboot, live('unknown'));
+    }
   };
-  publishHub();
+  publishHub(2 * 3600_000);
   if (!legacy) refreshAuto();
 
   put(ids.testStatus, sensorState('Self-test OK: 0 rpm stopped, 2090 rpm at 100 %'));
@@ -304,6 +310,7 @@ export function createAmbilightMock(scenario: AmbilightScenario = {}): Ambilight
   }
   if (withHub) {
     for (const [key, id] of Object.entries(HUB_IDS) as [keyof typeof HUB_IDS, string][]) {
+      if (!states[id]) continue;
       registry[id] = {
         entity_id: id,
         device_id: HUB_DEVICE,

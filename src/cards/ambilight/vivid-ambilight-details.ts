@@ -15,6 +15,7 @@ import type { SourcePhase } from '../../components/vivid-source-row';
 import { SOURCE_RGB } from '../../components/vivid-source-row';
 import type { EntityKey, ResolvedAmbilightConfig } from './config';
 import {
+  hyperhdrLink,
   temperatureColor,
   type AmbilightModel,
   type CurvePoint,
@@ -24,14 +25,17 @@ import {
 } from './model';
 import type { HubModel } from '../hyperhdr/model';
 import {
+  AMBER,
   FAN_RGB,
   GREEN,
   RED,
   alarmViews,
+  type AlarmView,
   celsius,
   fixed,
   healthColor,
   healthIcon,
+  linkView,
   overheatOf,
   piStatusText,
   sourceLabels,
@@ -799,6 +803,18 @@ export class VividAmbilightDetails extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .yaml {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: var(--surface);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        user-select: all;
+      }
       .diag span.bad {
         color: var(--error-color, #ef5350);
       }
@@ -972,8 +988,28 @@ export class VividAmbilightDetails extends LitElement {
       </div>`;
   }
 
+  /** Alarms, then what keeps the box and HyperHDR from working together. */
   private renderAlarms(model: AmbilightModel) {
-    return alarmViews(this.hass, model).map((view) => {
+    const hass = this.hass;
+    const views: Omit<AlarmView, 'alarm'>[] = alarmViews(hass, model);
+    const link = hass ? hyperhdrLink(hass, model) : undefined;
+    if (link?.state === 'unseen') {
+      views.push({
+        color: AMBER,
+        icon: 'mdi:link-variant-off',
+        title: localize(hass, 'amb_link_unseen'),
+        detail: localize(hass, 'amb_link_see_maint'),
+      });
+    }
+    if (link?.noPowerOff) {
+      views.push({
+        color: AMBER,
+        icon: 'mdi:power-plug-off-outline',
+        title: localize(hass, 'amb_link_nopoweroff_t'),
+        detail: localize(hass, 'amb_link_nopoweroff'),
+      });
+    }
+    return views.map((view) => {
       const tone = tintTone(view.color, 0.9);
       return html`<div class="alarm" style=${styleMap({ '--alarm-rgb': view.color.join(', ') })}>
         <span
@@ -1622,7 +1658,33 @@ export class VividAmbilightDetails extends LitElement {
     </div>`;
   }
 
-  private renderHub(hub: HubModel) {
+  /** Where the link stands, with the substitutions to write when the box does not see HyperHDR. */
+  private renderLink(model: AmbilightModel) {
+    const hass = this.hass;
+    if (!hass) return nothing;
+    const link = hyperhdrLink(hass, model);
+    const view = linkView(link.state);
+    const yaml = [
+      ['hyperhdr_connected', link.ids.connected],
+      ['hyperhdr_cpu_temperature', link.ids.cpuTemperature],
+      ['hyperhdr_power_off', link.ids.powerOff],
+    ].filter((line): line is [string, string] => line[1] !== undefined);
+    return html`<div class="row">
+        ${this.icon(view.icon, view.rgb, 0.6)}
+        <span class="text">${localize(hass, view.label)}</span>
+      </div>
+      ${
+        link.state === 'unseen'
+          ? html`<div class="hint">${localize(hass, 'amb_link_unseen_hint')}</div>
+              <pre class="yaml">
+substitutions:
+${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
+              <div class="hint">${localize(hass, 'amb_link_unseen_after')}</div>`
+          : nothing
+      }`;
+  }
+
+  private renderHub(hub: HubModel, model: AmbilightModel) {
     const hass = this.hass;
     const value = (text: string | undefined) => text ?? '—';
     const memory = hub.memory === undefined ? undefined : `${fixed(hass, hub.memory, 0)}\u00a0%`;
@@ -1632,26 +1694,27 @@ export class VividAmbilightDetails extends LitElement {
       localize(hass, 'amb_hyperhdr_server'),
       localize(hass, hub.connected ? 'amb_hh_connected' : 'amb_hh_away'),
       () =>
-        html`<div class="diag">
-          <div>
-            <small>${localize(hass, 'amb_cpu')}</small
-            ><span
-              >${value(hub.cpu === undefined ? undefined : `${fixed(hass, hub.cpu, 0)}\u00a0%`)}${
-                hub.temperature === undefined ? '' : ` · ${celsius(hass, hub.temperature, 0)}`
-              }</span
-            >
-          </div>
-          <div><small>${localize(hass, 'amb_ram')}</small><span>${value(memory)}</span></div>
-          <div>
-            <small>${localize(hass, 'hh_undervoltage')}</small
-            ><span class=${classMap({ bad: hub.undervoltage === true })}
-              >${hub.undervoltage === undefined ? '—' : localize(hass, hub.undervoltage ? 'hh_undervoltage_detected' : 'amb_none')}</span
-            >
-          </div>
-          <div>
-            <small>${localize(hass, 'hh_version')}</small><span>${value(hub.version)}</span>
-          </div>
-        </div>`,
+        html`${this.renderLink(model)}
+          <div class="diag">
+            <div>
+              <small>${localize(hass, 'amb_cpu')}</small
+              ><span
+                >${value(hub.cpu === undefined ? undefined : `${fixed(hass, hub.cpu, 0)}\u00a0%`)}${
+                  hub.temperature === undefined ? '' : ` · ${celsius(hass, hub.temperature, 0)}`
+                }</span
+              >
+            </div>
+            <div><small>${localize(hass, 'amb_ram')}</small><span>${value(memory)}</span></div>
+            <div>
+              <small>${localize(hass, 'hh_undervoltage')}</small
+              ><span class=${classMap({ bad: hub.undervoltage === true })}
+                >${hub.undervoltage === undefined ? '—' : localize(hass, hub.undervoltage ? 'hh_undervoltage_detected' : 'amb_none')}</span
+              >
+            </div>
+            <div>
+              <small>${localize(hass, 'hh_version')}</small><span>${value(hub.version)}</span>
+            </div>
+          </div>`,
     );
   }
 
@@ -1676,7 +1739,7 @@ export class VividAmbilightDetails extends LitElement {
       undefined,
       () => this.renderPiRows(model, true),
     )}
-    ${model.hub ? this.renderHub(model.hub) : nothing}
+    ${model.hub ? this.renderHub(model.hub, model) : nothing}
     ${this.section(
       'fan',
       'mdi:fan',

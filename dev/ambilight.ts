@@ -36,6 +36,10 @@ const SCENARIOS: {
     title: fr ? 'HyperHDR non connecté · courbe boîtier' : 'HyperHDR away · box curve',
     scenario: { hyperhdr: 'away' },
   },
+  {
+    title: fr ? 'Le boîtier ne voit pas HyperHDR' : 'The box does not see HyperHDR',
+    scenario: { espBlind: true, noSsh: true },
+  },
   { title: fr ? 'Pi éteint' : 'Pi off', scenario: { piOff: true } },
   {
     title: fr ? 'CPU du Pi en surchauffe' : 'Pi CPU overheating',

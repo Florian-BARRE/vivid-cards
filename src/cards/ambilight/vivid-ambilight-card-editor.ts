@@ -1,8 +1,11 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
 import { fireEvent } from '../../core/actions';
-import { GLOW_SLIDER } from '../../core/glow';
+import { GLOW_SLIDER, tintTone } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
-import type { HomeAssistant } from '../../core/hass-types';
+import type { HomeAssistant, Rgb } from '../../core/hass-types';
+import { localize } from '../../i18n';
+import '../../components/vivid-source-row';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
@@ -13,8 +16,10 @@ import {
   type AmbilightCardConfig,
   type AmbilightInputConfig,
 } from './config';
-import { HYPERHDR_INTEGRATION } from '../hyperhdr/model';
-import { MANAGER_INTEGRATION, coverage, devicePrefix, lookupDevices } from './devices';
+import { HYPERHDR_INTEGRATION, hubIcon } from '../hyperhdr/model';
+import { buildAmbilightModel, hyperhdrLink, type HyperHdrLink } from './model';
+import { AMBER, GREEN, GREY, RED, celsius, linkView, sourceLabels } from './view';
+import { MANAGER_INTEGRATION, coverage, lookupDevices } from './devices';
 
 type FormData = Record<string, unknown>;
 type Schema = Record<string, unknown>[];
@@ -32,15 +37,19 @@ export class VividAmbilightCardEditor extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _open: { state: true },
+    _input: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: AmbilightCardConfig;
   declare _open: Set<string>;
+  /** Input edited in the inputs section. */
+  declare _input: number;
 
   constructor() {
     super();
     this._open = new Set(['inputs']);
+    this._input = 0;
   }
 
   static override styles = [
@@ -131,6 +140,146 @@ export class VividAmbilightCardEditor extends LitElement {
         gap: 10px;
         padding: 4px 14px 14px;
       }
+      .hint-line {
+        font-size: 12.5px;
+        color: var(--secondary-text-color);
+      }
+      /* The two devices, joined by their link. */
+      .chain {
+        display: flex;
+        flex-direction: column;
+      }
+      .chain > .status {
+        margin: 8px 0 0;
+      }
+      .tile {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 16px;
+        background: rgba(var(--vivid-rgb-text), 0.04);
+        border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
+      }
+      .tile-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+      .disc {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: var(--disc-bg, rgba(var(--vivid-rgb-text), 0.07));
+        box-shadow: var(--disc-shadow, none);
+        color: var(--disc-color, var(--secondary-text-color));
+      }
+      .disc ha-icon {
+        --mdc-icon-size: 22px;
+      }
+      .tile-names {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.3;
+      }
+      .tile-names small {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+      }
+      .tile-names b {
+        font-size: 15px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 6px;
+        font-size: 12.5px;
+        color: var(--secondary-text-color);
+      }
+      .facts i {
+        font-style: normal;
+        opacity: 0.6;
+      }
+      .warn {
+        color: var(--warning-color, #ffa000);
+      }
+      .link {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 12px 10px 15px;
+        font-size: 12.5px;
+        line-height: 1.4;
+        color: var(--secondary-text-color);
+      }
+      /* The wire from one tile to the other, through the state dot. */
+      .link::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 32px;
+        width: 2px;
+        border-radius: 1px;
+        background: var(--link-color, var(--divider-color, rgba(255, 255, 255, 0.12)));
+        opacity: 0.6;
+      }
+      .link.ok {
+        --link-color: var(--success-color, #66bb6a);
+      }
+      .link.warn {
+        --link-color: var(--warning-color, #ffa000);
+        color: var(--secondary-text-color);
+      }
+      .link-dot {
+        position: relative;
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--disc-bg);
+        box-shadow: var(--disc-shadow, none);
+        color: var(--disc-color);
+      }
+      .link-dot ha-icon {
+        --mdc-icon-size: 18px;
+      }
+      .link-text {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        padding-top: 8px;
+      }
+      .link-text b {
+        font-weight: 600;
+        color: var(--primary-text-color);
+      }
+      .link-text pre {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(var(--vivid-rgb-text), 0.06);
+        color: var(--primary-text-color);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        user-select: all;
+      }
     `,
   ];
 
@@ -211,111 +360,231 @@ export class VividAmbilightCardEditor extends LitElement {
 
   /* --------------------------------- devices -------------------------------- */
 
-  private renderDevice(config: AmbilightCardConfig) {
-    const labels = { device: this.t('amb_device'), name: editorText(this.hass, 'name') };
-    const onChange = (value: FormData) => {
-      const next: Record<string, unknown> = { ...config };
-      for (const key of ['device', 'name'] as const) {
+  private picker(config: AmbilightCardConfig, key: 'device' | 'hyperhdr') {
+    const selector =
+      key === 'device'
+        ? { device: { integration: MANAGER_INTEGRATION } }
+        : {
+            device: {
+              filter: { integration: HYPERHDR_INTEGRATION },
+              entity: { domain: 'binary_sensor' },
+            },
+          };
+    return this.form(
+      [{ name: key, selector }],
+      { [key]: config[key] ?? '' },
+      (value) => {
+        const next: Record<string, unknown> = { ...config };
         const text = typeof value[key] === 'string' ? (value[key] as string).trim() : '';
         if (text) next[key] = text;
         else delete next[key];
-      }
-      // A device picked here replaces the prefix the YAML pointed at.
-      if (next.device !== config.device) delete next.prefix;
-      this.commit(next);
-    };
-    const deviceForm = this.form(
-      [{ name: 'device', selector: { device: { integration: MANAGER_INTEGRATION } } }],
-      { device: config.device ?? '' },
-      (value) => onChange({ ...value, name: config.name }),
-      labels,
+        // A device picked here replaces the prefix the YAML pointed at.
+        if (key === 'device' && next.device !== config.device) delete next.prefix;
+        this.commit(next);
+      },
+      { device: this.t('amb_device'), hyperhdr: this.t('amb_hyperhdr') },
+      { hyperhdr: this.t('amb_hyperhdr_helper') },
     );
-    const nameForm = this.form(
-      [{ name: 'name', selector: { text: {} } }],
-      { name: config.name ?? '' },
-      (value) => onChange({ ...value, device: config.device }),
-      labels,
-    );
-    return html`${deviceForm}${this.managerStatus(config)}${nameForm}`;
   }
 
-  private managerStatus(config: AmbilightCardConfig) {
+  /** A device as a tile: its icon lit by its state, its name, what the card sees of it. */
+  private tile(
+    icon: string,
+    rgb: Rgb | undefined,
+    title: string,
+    name: string | undefined,
+    facts: unknown[],
+    picker: TemplateResult,
+  ) {
+    const tone = rgb ? tintTone(rgb, 0.7) : undefined;
+    return html`<div class="tile">
+      <div class="tile-head">
+        <span
+          class="disc"
+          style=${styleMap({
+            '--disc-bg': tone?.background,
+            '--disc-shadow': tone?.shadow,
+            '--disc-color': tone?.iconColor,
+          })}
+          ><ha-icon .icon=${icon}></ha-icon
+        ></span>
+        <span class="tile-names"
+          ><small>${title}</small><b>${name ?? '—'}</b
+          ><span class="facts"
+            >${facts
+              .filter((fact) => fact !== undefined && fact !== '')
+              .map(
+                (fact, index) => html`${index ? html`<i>·</i>` : nothing}<span>${fact}</span>`,
+              )}</span
+          ></span
+        >
+      </div>
+      ${picker}
+    </div>`;
+  }
+
+  private renderDevices(config: AmbilightCardConfig) {
     const hass = this.hass;
     if (!hass) return nothing;
     const resolved = resolveAmbilightConfig(config, lookupDevices(hass, config));
+    const model = buildAmbilightModel(hass, resolved);
     const { found, total, missing } = coverage(hass, resolved.entities);
-    const prefix = config.prefix ?? (config.device ? devicePrefix(hass, config.device) : undefined);
-    const lines: unknown[] = [];
-    if (!config.device && !config.prefix) {
-      lines.push(this.t('amb_no_device', { prefix: DEFAULT_PREFIX }), html`<br />`);
-    } else if (config.prefix) {
-      lines.push(
-        html`${this.t('amb_yaml_prefix', { prefix: '' })}<span class="mono">${config.prefix}</span
-          ><br />`,
-      );
-    }
-    lines.push(html`<b>${this.t('amb_found', { found, total })}</b>`);
-    if (missing.length) {
-      const shown = missing.slice(0, MISSING_SHOWN).join(', ');
-      const more = missing.length > MISSING_SHOWN ? ` … (+${missing.length - MISSING_SHOWN})` : '';
-      lines.push(
-        html` · ${this.t('amb_missing', { list: '' })}<span class="mono">${shown}${more}</span>`,
-      );
-    } else if (prefix !== undefined) {
-      lines.push(html` · <span class="mono">${prefix}</span>`);
-    }
-    return this.status(
-      missing.length ? 'warn' : config.device || config.prefix ? 'ok' : 'info',
-      lines,
-    );
+    const picked = Boolean(config.device || config.prefix);
+    const device = config.device ? hass.devices?.[config.device] : undefined;
+    const boxName = (device ? device.name_by_user || device.name : config.prefix) ?? undefined;
+    const boxRgb = !picked ? undefined : !model.online ? RED : missing.length ? AMBER : GREEN;
+    const boxFacts: unknown[] = picked
+      ? [
+          localize(hass, model.online ? 'amb_online_short' : 'amb_offline'),
+          html`<span class=${missing.length ? 'warn' : ''}
+            >${localize(hass, 'amb_entities', { found, total })}</span
+          >`,
+        ]
+      : [this.t('amb_no_device', { prefix: DEFAULT_PREFIX })];
+    const missingLine = missing.length
+      ? this.status(
+          'warn',
+          html`${this.t('amb_missing', { list: '' })}<span class="mono"
+              >${missing.slice(0, MISSING_SHOWN).join(', ')}${
+                missing.length > MISSING_SHOWN ? ` … (+${missing.length - MISSING_SHOWN})` : ''
+              }</span
+            >`,
+        )
+      : config.prefix
+        ? this.status(
+            'info',
+            html`${this.t('amb_yaml_prefix', { prefix: '' })}<span class="mono"
+                >${config.prefix}</span
+              >`,
+          )
+        : nothing;
+
+    const hub = model.hub;
+    const link = hyperhdrLink(hass, model);
+    const hubRgb = !hub ? undefined : hub.connected ? GREEN : GREY;
+    const hubFacts: unknown[] = hub
+      ? [
+          localize(hass, hub.connected ? 'amb_hh_connected' : 'amb_hh_away'),
+          hub.temperature === undefined || !hub.connected
+            ? undefined
+            : `${localize(hass, 'amb_cpu')} ${celsius(hass, hub.temperature, 0)}`,
+        ]
+      : [localize(hass, 'amb_link_none')];
+
+    return html`<div class="chain">
+      ${this.tile(
+        'mdi:fan',
+        boxRgb,
+        localize(hass, 'amb_box'),
+        boxName,
+        boxFacts,
+        this.picker(config, 'device'),
+      )}
+      ${missingLine} ${this.renderLink(link)}
+      ${this.tile(
+        hub ? hubIcon(hub) : 'mdi:raspberry-pi',
+        hubRgb,
+        localize(hass, 'amb_hyperhdr_server'),
+        hub?.name,
+        hubFacts,
+        this.picker(config, 'hyperhdr'),
+      )}
+    </div>`;
+  }
+
+  /** The link between the two tiles, and what to fix when it does not work. */
+  private renderLink(link: HyperHdrLink) {
+    const hass = this.hass;
+    const view = linkView(link.state);
+    const tone = tintTone(view.rgb, 0.6);
+    const yaml = [
+      ['hyperhdr_connected', link.ids.connected],
+      ['hyperhdr_cpu_temperature', link.ids.cpuTemperature],
+      ['hyperhdr_power_off', link.ids.powerOff],
+    ].filter((line): line is [string, string] => line[1] !== undefined);
+    return html`<div class=${`link ${view.kind}`}>
+      <span
+        class="link-dot"
+        style=${styleMap({
+          '--disc-bg': tone.background,
+          '--disc-shadow': tone.shadow,
+          '--disc-color': tone.iconColor,
+        })}
+        ><ha-icon .icon=${view.icon}></ha-icon
+      ></span>
+      <div class="link-text">
+        <b>${localize(hass, view.label)}</b>
+        ${
+          link.state === 'unseen'
+            ? html`<span>${localize(hass, 'amb_link_unseen_hint')}</span>
+                <pre class="mono">
+substitutions:
+${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
+                <span>${localize(hass, 'amb_link_unseen_after')}</span>`
+            : nothing
+        }
+        ${
+          link.noPowerOff
+            ? html`<span class="warn">${localize(hass, 'amb_link_nopoweroff')}</span>`
+            : nothing
+        }
+      </div>
+    </div>`;
   }
 
   /* ---------------------------------- inputs -------------------------------- */
 
   private renderInputs(config: AmbilightCardConfig) {
-    const data: FormData = {};
-    const labels: Record<string, string> = {};
-    const schema: Schema = [];
-    for (let index = 0; index < INPUT_COUNT; index += 1) {
-      const n = index + 1;
-      const input = config.inputs?.[index];
-      const value: AmbilightInputConfig =
-        typeof input === 'string' ? { name: input } : (input ?? {});
-      data[`name${n}`] = value.name ?? '';
-      data[`icon${n}`] = value.icon ?? '';
-      labels[`name${n}`] = this.t('amb_input_name', { n });
-      labels[`icon${n}`] = this.t('amb_input_icon', { n });
-      schema.push({
-        type: 'grid',
-        name: '',
-        schema: [
-          { name: `name${n}`, selector: { text: {} } },
-          { name: `icon${n}`, selector: { icon: { placeholder: 'mdi:video-input-hdmi' } } },
-        ],
-      });
-    }
-    return this.form(
-      schema,
-      data,
-      (value) => {
+    const hass = this.hass;
+    const inputs = resolveAmbilightConfig(config).inputs;
+    const index = Math.min(this._input, INPUT_COUNT - 1);
+    const n = index + 1;
+    const raw = config.inputs?.[index];
+    const value: AmbilightInputConfig = typeof raw === 'string' ? { name: raw } : (raw ?? {});
+    const preview = html`<vivid-source-row
+      .items=${inputs.map((input) => ({ name: input.name, icon: input.icon, available: true }))}
+      .active=${index}
+      .labels=${sourceLabels(hass)}
+      @vivid-source-select=${(event: CustomEvent<{ index: number }>) => {
+        event.stopPropagation();
+        this._input = event.detail.index;
+      }}
+    ></vivid-source-row>`;
+    const form = this.form(
+      [
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'name', selector: { text: {} } },
+            { name: 'icon', selector: { icon: { placeholder: 'mdi:video-input-hdmi' } } },
+          ],
+        },
+      ],
+      { name: value.name ?? '', icon: value.icon ?? '' },
+      (changed) => {
         const text = (key: string) =>
-          typeof value[key] === 'string' ? (value[key] as string).trim() : '';
-        const inputs: AmbilightInputConfig[] = [];
-        for (let n = 1; n <= INPUT_COUNT; n += 1) {
-          const name = text(`name${n}`);
-          const icon = text(`icon${n}`);
-          inputs.push({ ...(name ? { name } : {}), ...(icon ? { icon } : {}) });
-        }
-        while (inputs.length && Object.keys(inputs[inputs.length - 1] ?? {}).length === 0) {
-          inputs.pop();
-        }
+          typeof changed[key] === 'string' ? (changed[key] as string).trim() : '';
+        const list: AmbilightInputConfig[] = Array.from({ length: INPUT_COUNT }, (_, i) => {
+          const item = config.inputs?.[i];
+          return typeof item === 'string' ? { name: item } : { ...(item ?? {}) };
+        });
+        const name = text('name');
+        const icon = text('icon');
+        list[index] = { ...(name ? { name } : {}), ...(icon ? { icon } : {}) };
+        while (list.length && Object.keys(list[list.length - 1] ?? {}).length === 0) list.pop();
         const next: Record<string, unknown> = { ...config };
-        if (inputs.length) next.inputs = inputs;
+        if (list.length) next.inputs = list;
         else delete next.inputs;
         this.commit(next);
       },
-      labels,
+      {
+        name: this.t('amb_input_name', { n }),
+        icon: this.t('amb_input_icon', { n }),
+      },
     );
+    return html`<div class="hint-line">${this.t('amb_inputs_pick')}</div>
+      ${preview}${form}`;
   }
 
   /* --------------------------------- options -------------------------------- */
@@ -323,29 +592,22 @@ export class VividAmbilightCardEditor extends LitElement {
   private renderSettings(config: AmbilightCardConfig) {
     return this.form(
       [
-        {
-          name: 'hyperhdr',
-          selector: {
-            device: {
-              filter: { integration: HYPERHDR_INTEGRATION },
-              entity: { domain: 'binary_sensor' },
-            },
-          },
-        },
+        { name: 'name', selector: { text: {} } },
         { name: 'confirm_pi_off', selector: { boolean: {} } },
-        { name: 'send_counter_entity', selector: { entity: { domain: 'sensor' } } },
         { name: 'glow', selector: GLOW_SLIDER },
+        { name: 'send_counter_entity', selector: { entity: { domain: 'sensor' } } },
       ],
       {
-        hyperhdr: config.hyperhdr ?? '',
+        name: config.name ?? '',
         confirm_pi_off: config.confirm_pi_off !== false,
         send_counter_entity: config.send_counter_entity ?? '',
         glow: config.glow ?? 100,
       },
       (value) => {
         const next: Record<string, unknown> = { ...config };
-        if (typeof value.hyperhdr === 'string' && value.hyperhdr) next.hyperhdr = value.hyperhdr;
-        else delete next.hyperhdr;
+        const name = typeof value.name === 'string' ? value.name.trim() : '';
+        if (name) next.name = name;
+        else delete next.name;
         if (value.confirm_pi_off === false) next.confirm_pi_off = false;
         else delete next.confirm_pi_off;
         const counter =
@@ -357,15 +619,12 @@ export class VividAmbilightCardEditor extends LitElement {
         this.commit(next);
       },
       {
-        hyperhdr: this.t('amb_hyperhdr'),
+        name: editorText(this.hass, 'name'),
         confirm_pi_off: this.t('amb_confirm_pi'),
         send_counter_entity: this.t('amb_counter'),
         glow: this.t('amb_halo'),
       },
-      {
-        hyperhdr: this.t('amb_hyperhdr_helper'),
-        send_counter_entity: this.t('amb_counter_helper'),
-      },
+      { send_counter_entity: this.t('amb_counter_helper') },
     );
   }
 
@@ -373,7 +632,7 @@ export class VividAmbilightCardEditor extends LitElement {
     const config = this._config;
     if (!config) return nothing;
     return html`<div class="editor">
-      ${this.renderDevice(config)}
+      ${this.renderDevices(config)}
       ${this.section(
         'inputs',
         'mdi:video-input-hdmi',
@@ -384,8 +643,8 @@ export class VividAmbilightCardEditor extends LitElement {
       ${this.section(
         'options',
         'mdi:tune-variant',
-        this.t('amb_options'),
-        this.t('amb_options_hint'),
+        this.t('amb_display'),
+        this.t('amb_display_hint'),
         () => this.renderSettings(config),
       )}
     </div>`;

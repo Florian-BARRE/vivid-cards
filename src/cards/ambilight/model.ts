@@ -188,6 +188,52 @@ export function temperatureColor(t: number | undefined, overheat = 55): Rgb {
   );
 }
 
+/**
+ * How the box and HyperHDR work together, to tell what is missing:
+ * - `none`: no HA-HyperHDR server found;
+ * - `legacy`: the firmware predates HyperHDR (no CPU curve, no clean shutdown);
+ * - `away`: HyperHDR is not connected (Pi off or starting): box curve, as meant;
+ * - `ok`: the firmware follows the Pi's CPU;
+ * - `waiting`: HyperHDR just connected or sends no CPU temperature yet;
+ * - `unseen`: HyperHDR is connected with a CPU temperature for a while, but the
+ *   firmware still follows the box: it does not read the server's entities
+ *   (wrong entity ids in its substitutions, most likely).
+ */
+export type LinkState = 'none' | 'legacy' | 'away' | 'ok' | 'waiting' | 'unseen';
+
+export interface HyperHdrLink {
+  state: LinkState;
+  /** The server's entities the firmware must read and press, for its YAML. */
+  ids: { connected?: string; cpuTemperature?: string; powerOff?: string };
+  /** Clean shutdown asked for, but the server has no Power off button (SSH not set up). */
+  noPowerOff: boolean;
+}
+
+/** HyperHDR connected this long without the firmware following the CPU: it does not see it. */
+export const LINK_GRACE_MS = 45_000;
+
+export function hyperhdrLink(
+  hass: HomeAssistant,
+  model: AmbilightModel,
+  now = Date.now(),
+): HyperHdrLink {
+  const hub = model.hub;
+  const ids = {
+    connected: hub?.entities['binary_sensor.connected'],
+    cpuTemperature: hub?.entities['sensor.cpu_temperature'],
+    powerOff: hub?.entities['button.poweroff'],
+  };
+  const noPowerOff = hub !== undefined && model.power.clean && ids.powerOff === undefined;
+  const link = (state: LinkState): HyperHdrLink => ({ state, ids, noPowerOff });
+  if (!hub) return link('none');
+  if (!model.cpu) return link('legacy');
+  if (!hub.connected) return link('away');
+  if (model.fan.source === 'cpu') return link('ok');
+  const since = Date.parse(hass.states[ids.connected ?? '']?.last_changed ?? '');
+  const settled = Number.isFinite(since) && now - since >= LINK_GRACE_MS;
+  return link(hub.temperature !== undefined && settled && model.online ? 'unseen' : 'waiting');
+}
+
 /** The HyperHDR server: the one configured, else the only one there is. */
 export function hyperhdrHub(hass: HomeAssistant, server: string | undefined): HubModel | undefined {
   const devices = findDevices(hass);
