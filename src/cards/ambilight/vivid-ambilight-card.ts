@@ -2,9 +2,8 @@ import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from '
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo, pressButton } from '../../core/actions';
-import { rgbCss } from '../../core/color';
 import { glowSize, glowVars, tintTone } from '../../core/glow';
-import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
+import type { HomeAssistant, LovelaceGridOptions, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
 import { buttonReset, tokens } from '../../components/shared-styles';
@@ -32,7 +31,6 @@ import {
 } from './model';
 import {
   FAN_RGB,
-  GREEN,
   RED,
   fixed,
   healthColor,
@@ -60,6 +58,10 @@ const PHASE_MS: Record<Exclude<SourcePhase, 'sending'>, number> = {
 const ARM_MS = 3000;
 /** A clean shutdown (shutdown over SSH, then the relay) shows as such this long at most. */
 const STOP_MS = 120_000;
+/** Colors of the values next to the name. */
+const HUMIDITY_RGB: Rgb = [38, 198, 218];
+const PRESSURE_RGB: Rgb = [171, 145, 249];
+const RPM_RGB: Rgb = [255, 167, 38];
 
 /**
  * The box behind the TV that runs the Ambilight: its HDMI switch (sent by
@@ -150,7 +152,7 @@ export class VividAmbilightCard extends LitElement {
   getGridOptions(): LovelaceGridOptions {
     return this._config?.layout === 'tiles'
       ? { columns: 12, min_columns: 6, rows: 3, min_rows: 3 }
-      : { columns: 12, min_columns: 6, rows: 1, min_rows: 1 };
+      : { columns: 12, min_columns: 6, rows: 'auto', min_rows: 1 };
   }
 
   static override styles = [
@@ -278,6 +280,29 @@ export class VividAmbilightCard extends LitElement {
       .value ha-icon {
         --mdc-icon-size: 16px;
         display: inline-flex;
+        color: rgb(var(--v-rgb, var(--vivid-rgb-text)));
+      }
+      /* Each value in its own color: a tinted pill, the number lit by it. */
+      .value {
+        padding: 2px 8px 2px 5px;
+        border-radius: 12px;
+        background: rgba(var(--v-rgb, var(--vivid-rgb-text)), 0.16);
+        color: color-mix(
+          in srgb,
+          rgb(var(--v-rgb, var(--vivid-rgb-text))) 30%,
+          var(--primary-text-color)
+        );
+      }
+      .values .value {
+        padding: 2px 6px 2px 4px;
+        font-size: 14px;
+      }
+      .value.none {
+        background: rgba(var(--vivid-rgb-text), 0.06);
+        color: var(--secondary-text-color);
+      }
+      .value.none ha-icon {
+        color: var(--secondary-text-color);
       }
       .value small {
         margin-left: 1px;
@@ -287,6 +312,7 @@ export class VividAmbilightCard extends LitElement {
       }
       .value.alarm {
         color: var(--error-color, #ef5350);
+        box-shadow: inset 0 0 0 1.5px rgba(239, 83, 80, 0.7);
       }
 
       .pi {
@@ -394,27 +420,32 @@ export class VividAmbilightCard extends LitElement {
         min-width: 0;
       }
       .name-row .name {
-        flex: 0 1 auto;
-        min-width: 4.5em;
+        flex: none;
+        max-width: 60%;
       }
-      /* Values that do not fit go whole, to a second line that is hidden. */
+      .name-row .status {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .names:has(.inline) {
+        gap: 3px;
+      }
+      /* Values that do not fit go to the next line. */
       .inline {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 18px 7px;
-        flex: 1 1 0;
+        gap: 4px 5px;
         min-width: 0;
-        height: 18px;
-        overflow: hidden;
       }
       .title:has(.inline) .names {
         flex: 1 1 auto;
       }
       .inline .value {
         flex: none;
-        line-height: 18px;
-        font-size: 13.5px;
+        line-height: 16px;
+        padding: 1px 7px 1px 4px;
+        font-size: 13px;
       }
       .inline .value ha-icon {
         --mdc-icon-size: 14px;
@@ -810,18 +841,20 @@ export class VividAmbilightCard extends LitElement {
     ></span>`;
   }
 
+  /** A value as a pill tinted with its own color. */
   private value(
     icon: string,
-    color: string,
+    rgb: Rgb | undefined,
     text: string,
     unit: string,
     alarm = false,
     title = '',
   ) {
-    return html`<span class=${classMap({ value: true, alarm })} title=${title}
-      ><ha-icon .icon=${icon} style=${styleMap({ color })}></ha-icon>${text}<small
-        >${unit}</small
-      ></span
+    return html`<span
+      class=${classMap({ value: true, alarm, none: rgb === undefined })}
+      title=${title}
+      style=${styleMap({ '--v-rgb': rgb ? rgb.join(', ') : undefined })}
+      ><ha-icon .icon=${icon}></ha-icon>${text}<small>${unit}</small></span
     >`;
   }
 
@@ -832,11 +865,10 @@ export class VividAmbilightCard extends LitElement {
     const cpu = model.cpuTemperature;
     const boxHot = model.alarms.includes('overheat');
     const cpuHot = model.alarms.includes('cpuoverheat') && cpu !== undefined;
-    const muted = 'var(--secondary-text-color)';
     const boxValue = () =>
       this.value(
         'mdi:thermometer',
-        box === undefined ? muted : rgbCss(temperatureColor(box, overheatOf(model))),
+        box === undefined ? undefined : temperatureColor(box, overheatOf(model)),
         box === undefined ? '—' : fixed(hass, box, 1),
         '°C',
         boxHot,
@@ -847,7 +879,7 @@ export class VividAmbilightCard extends LitElement {
         ? nothing
         : this.value(
             'mdi:cpu-64-bit',
-            rgbCss(temperatureColor(cpu, model.cpu?.overheat.value ?? 80)),
+            temperatureColor(cpu, model.cpu?.overheat.value ?? 80),
             fixed(hass, cpu, 0),
             '°C',
             cpuHot,
@@ -868,7 +900,7 @@ export class VividAmbilightCard extends LitElement {
         case 'fan':
           return this.value(
             'mdi:fan',
-            rgbCss(model.fan.stalled ? RED : FAN_RGB),
+            model.fan.stalled ? RED : FAN_RGB,
             model.fan.percentage === undefined ? '—' : String(model.fan.percentage),
             '%',
             model.fan.stalled,
@@ -876,15 +908,15 @@ export class VividAmbilightCard extends LitElement {
         case 'humidity':
           return model.humidity === undefined
             ? nothing
-            : this.value('mdi:water-percent', rgbCss(GREEN), fixed(hass, model.humidity, 0), '%');
+            : this.value('mdi:water-percent', HUMIDITY_RGB, fixed(hass, model.humidity, 0), '%');
         case 'pressure':
           return model.pressure === undefined
             ? nothing
-            : this.value('mdi:gauge', muted, fixed(hass, model.pressure, 0), 'hPa');
+            : this.value('mdi:gauge', PRESSURE_RGB, fixed(hass, model.pressure, 0), 'hPa');
         case 'rpm':
           return model.fan.rpm === undefined
             ? nothing
-            : this.value('mdi:rotate-right', muted, fixed(hass, model.fan.rpm, 0), 'rpm');
+            : this.value('mdi:rotate-right', RPM_RGB, fixed(hass, model.fan.rpm, 0), 'rpm');
         default:
           return nothing;
       }
@@ -966,22 +998,21 @@ export class VividAmbilightCard extends LitElement {
               tone: 'warn' as const,
             }
           : statusLine(hass, model);
-    return html`<span class="names">
-      <span class="name-row"
-        ><span class="name">${model.name}</span>${
-          withValues && config
-            ? html`<span class="inline">${this.renderValues(model, config.info)}</span>`
-            : nothing
-        }</span
-      >
-      ${
-        config?.showStatus === false && !this.armed && !stopping
-          ? nothing
-          : html`<span class=${classMap({ status: true, [status.tone ?? 'plain']: true })}
-              >${status.text}</span
-            >`
-      }
-    </span>`;
+    const showStatus = config?.showStatus !== false || this.armed || stopping;
+    const statusText = showStatus
+      ? html`<span class=${classMap({ status: true, [status.tone ?? 'plain']: true })}
+          >${status.text}</span
+        >`
+      : nothing;
+    const values = withValues && config && config.info.length ? config.info : undefined;
+    // The line: the name and its state on top, the values under it, in full.
+    if (values) {
+      return html`<span class="names">
+        <span class="name-row"><span class="name">${model.name}</span>${statusText}</span>
+        <span class="inline">${this.renderValues(model, values)}</span>
+      </span>`;
+    }
+    return html`<span class="names"> <span class="name">${model.name}</span>${statusText} </span>`;
   }
 
   /* ------------------------------ input menu ------------------------------ */

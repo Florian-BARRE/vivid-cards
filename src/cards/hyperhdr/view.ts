@@ -74,7 +74,7 @@ export function stripLine(
     }
   });
   if (model.on && ledOff) parts.unshift(localize(hass, 'hh_led_output_off'));
-  const text = parts.filter(Boolean).join(' · ');
+  const text = keepWhole(parts).join(' · ');
   return {
     text: text || localize(hass, model.on ? 'on' : 'off'),
     tone: model.on && ledOff ? 'warn' : 'plain',
@@ -136,7 +136,7 @@ export function hubLine(
     parts.unshift(localize(hass, 'hh_hot'));
     tone = hub.health === 'alarm' ? 'alarm' : 'warn';
   }
-  return { text: parts.filter(Boolean).join(' · ') || hub.name, tone };
+  return { text: keepWhole(parts).join(' · ') || hub.name, tone };
 }
 
 export function sourceText(hass: HomeAssistant | undefined, model: InstanceModel): string {
@@ -469,3 +469,8 @@ export const hyperhdrStyles = css`
     cursor: default;
   }
 `;
+
+/** The parts of a line, each kept whole when the line wraps ("60 Hz" stays together). */
+function keepWhole(parts: (string | undefined)[]): string[] {
+  return parts.filter((part): part is string => !!part).map((part) => part.replace(/ /g, '\u00a0'));
+}

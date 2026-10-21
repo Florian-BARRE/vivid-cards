@@ -2,7 +2,6 @@ import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo, toggleEntity } from '../../core/actions';
-import { rgbCss } from '../../core/color';
 import { glowVars, tintTone } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
@@ -174,9 +173,19 @@ export class VividHyperHdrCard extends LitElement {
       .values,
       .icons {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         align-items: center;
-        gap: 8px;
+        gap: 4px 5px;
         flex: none;
+        max-width: 45%;
+      }
+      /* The second line wraps instead of cutting what was asked for. */
+      .line .status,
+      .strip .status {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
       }
       .icons {
         gap: 4px;
@@ -188,14 +197,22 @@ export class VividHyperHdrCard extends LitElement {
         display: inline-flex;
         align-items: center;
         gap: 1px;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
       .value ha-icon {
-        --mdc-icon-size: 16px;
+        --mdc-icon-size: 15px;
         display: inline-flex;
+        color: rgb(var(--v-rgb));
+      }
+      /* Each value in its own color: a tinted pill, the number lit by it. */
+      .value {
+        padding: 2px 8px 2px 5px;
+        border-radius: 12px;
+        background: rgba(var(--v-rgb), 0.16);
+        color: color-mix(in srgb, rgb(var(--v-rgb)) 30%, var(--primary-text-color));
       }
       .value small {
         margin-left: 1px;
@@ -377,10 +394,8 @@ export class VividHyperHdrCard extends LitElement {
     const line = hubLine(hass, hub, model.strips, config.hubInfo);
     const rgb = healthColor(hub.health);
     const value = (icon: string, color: Rgb, text: string, unit: string, key: string) =>
-      html`<span class="value ${key}"
-        ><ha-icon .icon=${icon} style=${styleMap({ color: rgbCss(color) })}></ha-icon>${text}<small
-          >${unit}</small
-        ></span
+      html`<span class="value ${key}" style=${styleMap({ '--v-rgb': color.join(', ') })}
+        ><ha-icon .icon=${icon}></ha-icon>${text}<small>${unit}</small></span
       >`;
     const values = hub.connected
       ? config.hubValues.map((key) => {

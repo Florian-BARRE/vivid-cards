@@ -638,13 +638,13 @@ One line (`layout: line`, the default):
 
 - **The fan icon**, turning faster with the speed and colored by the box
   temperature (blue, green, amber, red at the overheat threshold).
-- **The name and the values you pick next to it** (`info`): the temperature
-  that drives the fan (the box's, or the Pi's CPU while HyperHDR is
-  connected, or the one overheating), the fan speed, the humidity by default;
-  also the box and CPU temperatures apart, pressure, rpm. Those that do not
-  fit go, from the last. Under the name: the worst alarm (offline,
-  overheating, Pi CPU overheating, fan stalled, sensor missing), else the fan
-  mode and the Pi.
+- **The name and its state**: the worst alarm (offline, overheating, Pi CPU
+  overheating, fan stalled, sensor missing), else the fan mode and the Pi.
+- **The values you pick, under it** (`info`), as pills in their own color:
+  the temperature that drives the fan (the box's, or the Pi's CPU while
+  HyperHDR is connected, or the one overheating), the fan speed, the
+  humidity by default; also the box and CPU temperatures apart, pressure,
+  rpm. They wrap when they do not fit.
 - **The input menu**: the active input (icon and name, icon only or name
   only: `source_display`). A tap opens the inputs; picking one sends it: IR
   waves while the LED emits (`sending IR…`), a check when the Wemos hears its

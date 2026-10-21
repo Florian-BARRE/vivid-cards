@@ -9,6 +9,9 @@ const SWIPE_CLOSE_PX = 90;
 
 /**
  * Modal sheet mounted on `document.body`, so no dashboard layout can clip it.
+ * It opens as a native modal `<dialog>`, in the browser's top layer: above
+ * Home Assistant's own dialogs too (the card editor's preview), which would
+ * otherwise cover it and make it inert.
  * Bottom sheet on narrow screens, centered panel otherwise. Closes on backdrop
  * click, Escape and a downward swipe on the handle; it only fires
  * `vivid-dialog-close-request` — the owner decides when to call `hide()`.
@@ -56,6 +59,24 @@ export class VividDialog extends LitElement {
       }
       :host([open]) {
         pointer-events: auto;
+      }
+      /* The top-layer wrapper: it covers the viewport and draws nothing itself. */
+      dialog.layer {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        overflow: visible;
+      }
+      dialog.layer::backdrop {
+        background: transparent;
       }
       .backdrop {
         position: absolute;
@@ -170,6 +191,7 @@ export class VividDialog extends LitElement {
       document.body.appendChild(this);
       document.body.style.overflow = 'hidden';
     }
+    void this.updateComplete.then(() => this.raise());
     requestAnimationFrame(() => {
       this.open = true;
       void this.updateComplete.then(() => {
@@ -194,11 +216,33 @@ export class VividDialog extends LitElement {
     if (!this.isConnected) return;
     this.open = false;
     document.body.style.overflow = this.previousOverflow;
+    this.layer()?.close();
     this.remove();
     if (this.previousFocus instanceof HTMLElement && this.previousFocus.isConnected) {
       this.previousFocus.focus({ preventScroll: true });
     }
   }
+
+  private layer(): HTMLDialogElement | null {
+    return this.renderRoot.querySelector('dialog.layer');
+  }
+
+  /** Into the top layer, above any dialog already open. */
+  private raise(): void {
+    const layer = this.layer();
+    if (!layer || layer.open || typeof layer.showModal !== 'function') return;
+    try {
+      layer.showModal();
+    } catch {
+      // Not connected yet, or already open elsewhere: the z-index still applies.
+    }
+  }
+
+  /** Escape on the native dialog: the owner decides, the dialog stays. */
+  private readonly onCancel = (event: Event): void => {
+    event.preventDefault();
+    this.requestClose();
+  };
 
   private readonly requestClose = (): void => {
     fireEvent(this, 'vivid-dialog-close-request');
@@ -239,7 +283,8 @@ export class VividDialog extends LitElement {
   };
 
   protected override render() {
-    return html`<div class="backdrop" @click=${this.requestClose}></div>
+    return html`<dialog class="layer" @cancel=${this.onCancel}>
+      <div class="backdrop" @click=${this.requestClose}></div>
       <div
         class="sheet"
         role="dialog"
@@ -261,7 +306,8 @@ export class VividDialog extends LitElement {
           ${this.closeLabel ?? 'Close'}
         </button>
         <div class="body">${this.content ?? nothing}</div>
-      </div>`;
+      </div>
+    </dialog>`;
   }
 }
 
