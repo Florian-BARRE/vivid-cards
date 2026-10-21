@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] - 2026-10-21
+
+The HyperHDR card, the Ambilight card working with HyperHDR, and compact cards
+on one line. Sums up the betas 0.12.0-beta.1 to 0.13.0-beta.2.
+
+### Added
+
+- `vivid-hyperhdr-card`, for HyperHDR through the HA-HyperHDR integration:
+  the hub (what it captures, temperature, CPU, RAM) and one line per strip
+  (what drives it, its LED device and address, its rate, component states,
+  power). Details in four tabs: overview with the picture on demand (1, 2 or
+  5 minutes, then it stops by itself), colors, processing, system. The
+  editor picks the lines' items as numbered chips.
+- Ambilight card with HyperHDR: the Pi's CPU temperature, the Box / Pi CPU
+  fan curves and the CPU overheat alarm, the clean shutdown of the Pi with its
+  steps, restart over SSH, the server's health, and the editor's diagnosis of
+  the box ↔ HyperHDR link with the ESPHome substitutions to write.
+
+### Changed
+
+- Ambilight card on one line by default: the name and its state, the chosen
+  values as colored pills, the HDMI input as a menu showing the IR send and
+  its echo, a round Pi button. `layout: tiles` keeps the earlier card.
+- The details and the menus open in the browser's top layer, above Home
+  Assistant's dialogs (the card editor's preview).
+- Source buttons without their number.
+
 ## [0.13.0-beta.2] - 2026-10-21
 
 ### Fixed
@@ -379,6 +406,7 @@ First beta of the HyperHDR card, to test from HACS ("Show beta versions").
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.13.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.13.0
 [0.13.0-beta.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.13.0-beta.2
 [0.13.0-beta.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.13.0-beta.1
 [0.12.0-beta.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.3

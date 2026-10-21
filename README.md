@@ -40,12 +40,12 @@ empties and turns red.
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="400" /><br /><sub><b>Lamp details: today's timeline, energy and cost</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="400" /><br /><sub><b>Ambilight manager: HDMI source, Pi power, box temperature and fan</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="400" /><br /><sub><b>Ambilight manager on one line: values, HDMI input menu, Pi</b></sub></td>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-fan.png" alt="Fan curve of the Ambilight manager" width="400" /><br /><sub><b>Ambilight details: the fan curve, point by point</b></sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr.png" alt="HyperHDR card, one strip" width="400" /><br /><sub><b>HyperHDR: the captured picture framed by its LED colors</b></sub></td>
-    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-all.png" alt="HyperHDR card, hub and strips" width="400" /><br /><sub><b>HyperHDR: the Pi and every strip</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr.png" alt="HyperHDR card, one strip" width="400" /><br /><sub><b>HyperHDR: a strip, its LED device and its rate</b></sub></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-all.png" alt="HyperHDR card, hub and strips" width="400" /><br /><sub><b>HyperHDR: the Pi, what it captures, every strip</b></sub></td>
   </tr>
   <tr>
     <td align="center"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-badge.png" alt="LED badge details" width="400" /><br /><sub><b>LED badge: hold for every strip</b></sub></td>
@@ -63,8 +63,8 @@ empties and turns red.
 | ------------------------------------------------------ | ---------------------------------------------------------------------- |
 | [`vivid-led-group`](#vivid-led-group) (card)           | A light group or a single light, WLED aware, with details per light    |
 | [`vivid-lamp-group`](#vivid-lamp-group) (card)         | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
-| [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperature and fan  |
-| [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: a strip with the captured picture, the Pi, or both           |
+| [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperatures and fan |
+| [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: the Pi and what it captures, the strips and their devices    |
 | [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
@@ -626,7 +626,15 @@ is used every day under the thumb; a tap opens everything else.
 With the [HA-HyperHDR](https://github.com/Florian-BARRE/HA-HyperHDR)
 integration and the firmware that knows it, the card also follows the Pi:
 its CPU temperature (the fan follows a CPU curve while HyperHDR is
-connected), its health, and a clean shutdown before the power is cut.
+connected), its health, and a clean shutdown before the power is cut. For
+that, on the Home Assistant side:
+
+- HA-HyperHDR with SSH set up in its options (the **Power off** button);
+- the ESPHome device's options: "Allow the device to perform Home Assistant
+  actions" (the box presses **Power off** itself; without it Home Assistant
+  refuses and raises a repair, and the Pi is cut after the firmware's wait);
+- the firmware's substitutions naming the server's entities; the editor
+  checks the link and writes them when they are wrong.
 
 <p>
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight.png" alt="Ambilight manager card" width="428" />
@@ -1151,6 +1159,20 @@ entity enabled, and when `ambilight.enabled` is on.
 
 **The details do not open from another card.** Set `details.hash` on the LED
 card, and use the same hash, with `#`, in the other card's `navigation_path`.
+
+**The Pi is cut instead of shutting down (Ambilight card).** Home Assistant
+refused the box's action (a repair says "not allowed to perform Home
+Assistant actions"): turn on "Allow the device to perform Home Assistant
+actions" in the ESPHome device's options. The firmware waits for HyperHDR to
+go, then cuts the power anyway.
+
+**The fan stays on the box curve with HyperHDR connected.** The firmware does
+not read the server's entities: the Ambilight editor (and the Maintenance
+tab) shows the `substitutions` to write in the ESPHome YAML, with the real
+entity ids.
+
+**A beta version.** HACS → the repository → ⋮ → **Redownload** → **Show beta
+versions**, then reload without cache.
 
 **An error on the card.** The card explains which option is wrong; fix it in
 the YAML or open the editor, which keeps the last valid preview while you type.
