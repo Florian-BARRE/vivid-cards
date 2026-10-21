@@ -24,9 +24,9 @@ export interface HyperHdrMock {
 
 export const SERVER_DEVICE = 'hyperhdr_server';
 export const STRIPS = [
-  { device: 'hyperhdr_tv', slug: 'tv', name: 'TV', leds: 120 },
-  { device: 'hyperhdr_desk', slug: 'bureau', name: 'Bureau', leds: 64 },
-  { device: 'hyperhdr_bedroom', slug: 'chambre', name: 'Chambre', leds: 90 },
+  { device: 'hyperhdr_tv', slug: 'tv', name: 'TV', leds: 120, host: '192.168.1.42' },
+  { device: 'hyperhdr_desk', slug: 'bureau', name: 'Bureau', leds: 64, host: '192.168.1.43' },
+  { device: 'hyperhdr_bedroom', slug: 'chambre', name: 'Chambre', leds: 90, host: '192.168.1.44' },
 ] as const;
 
 const EFFECTS = [
@@ -166,6 +166,13 @@ export function createHyperHdrMock(scenario: HyperHdrScenario = {}): HyperHdrMoc
       },
     );
     add(strip.device, id('sensor', 'leds'), 'led_count', value(String(strip.leds)));
+    // The LED device needs the admin password, as in the integration.
+    if (!scenario.noAdmin) {
+      add(strip.device, id('sensor', 'led_device'), 'led_device', value('wled'), {
+        address: strip.host,
+        refresh_time_ms: 20,
+      });
+    }
     add(strip.device, id('select', 'source'), 'source', value('auto'), { options: ['auto'] });
     add(strip.device, id('button', 'give_back_to_capture'), 'clear', value('unknown'));
     const switches: [string, string, string][] = [

@@ -1,9 +1,9 @@
 import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { haptic, openMoreInfo, setBrightness, setNumber, toggleEntity } from '../../core/actions';
+import { haptic, openMoreInfo, toggleEntity } from '../../core/actions';
 import { rgbCss } from '../../core/color';
-import { glowVars } from '../../core/glow';
+import { glowVars, tintTone } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
@@ -15,6 +15,7 @@ import {
   resolveHyperHdrConfig,
   type HyperHdrCardConfig,
   type ResolvedHyperHdrConfig,
+  type StripIcon,
 } from './config';
 import {
   BLUE,
@@ -28,39 +29,40 @@ import {
   type HyperHdrDevices,
   type HyperHdrModel,
   type InstanceModel,
-  type ToggleKey,
+  RED,
 } from './model';
 import {
-  chip,
   disc,
   fixed,
-  hubStatus,
+  hubLine,
   hyperhdrStyles,
-  instanceStatus,
   powerStyle,
-  sourceText,
+  stripLine,
   temperatureRgb,
 } from './view';
-import { tintFrame } from './vivid-hyperhdr-screen';
 import type { DetailsTab } from './vivid-hyperhdr-details';
 import './vivid-hyperhdr-card-editor';
 import './vivid-hyperhdr-details';
-import './vivid-hyperhdr-screen';
-import './vivid-hyperhdr-slider';
 
 export const STRIP_ICON = 'mdi:television-ambient-light';
 
-/** Chips of the strip card: the components switched most often. */
-const STRIP_CHIPS: {
-  key: ToggleKey;
-  icon: string;
-  label: 'hh_hdr' | 'hh_smoothing' | 'hh_black_border';
-  rgb: Rgb;
-}[] = [
-  { key: 'hdr', icon: 'mdi:hdr', label: 'hh_hdr', rgb: [255, 213, 79] },
-  { key: 'smoothing', icon: 'mdi:waveform', label: 'hh_smoothing', rgb: [186, 104, 200] },
-  { key: 'black_border', icon: 'mdi:border-none-variant', label: 'hh_black_border', rgb: BLUE },
-];
+const VIOLET: Rgb = [167, 139, 250];
+
+/** How each component shows on a strip's line. */
+const ICONS: Record<
+  StripIcon,
+  {
+    icon: string;
+    label: 'hh_led_output' | 'hh_capture_switch' | 'hh_hdr' | 'hh_smoothing' | 'hh_black_border';
+    rgb: Rgb;
+  }
+> = {
+  led_output: { icon: 'mdi:led-on', label: 'hh_led_output', rgb: [102, 187, 106] },
+  video_capture: { icon: 'mdi:video-input-hdmi', label: 'hh_capture_switch', rgb: BLUE },
+  hdr: { icon: 'mdi:hdr', label: 'hh_hdr', rgb: [255, 213, 79] },
+  smoothing: { icon: 'mdi:waveform', label: 'hh_smoothing', rgb: [186, 104, 200] },
+  black_border: { icon: 'mdi:border-none-variant', label: 'hh_black_border', rgb: BLUE },
+};
 
 /**
  * HyperHDR, from the HA-HyperHDR integration: one LED strip (an instance)
@@ -106,9 +108,8 @@ export class VividHyperHdrCard extends LitElement {
 
   getCardSize(): number {
     const mode = this._config?.mode ?? 'all';
-    if (mode === 'strip') return this._config?.picture === false ? 3 : 6;
-    if (mode === 'hub') return 3;
-    return 2 + (this.model?.instances.length ?? 1);
+    if (mode !== 'all' || this._config?.showStrips === false) return 1;
+    return 1 + Math.ceil((this.model?.instances.length ?? 1) * 0.8);
   }
 
   getGridOptions(): LovelaceGridOptions {
@@ -134,8 +135,8 @@ export class VividHyperHdrCard extends LitElement {
       .panel {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding: 10px;
+        gap: 6px;
+        padding: 8px;
         border-radius: var(--vivid-tile-radius);
         background: var(--vivid-layer-1);
         container-type: inline-size;
@@ -144,34 +145,50 @@ export class VividHyperHdrCard extends LitElement {
         opacity: 0.55;
         filter: grayscale(0.8);
       }
-      .head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-      }
-      .title {
+      .line,
+      .strip .open {
         display: flex;
         align-items: center;
         gap: 10px;
         flex: 1 1 auto;
         min-width: 0;
         padding: 2px;
-        border-radius: 14px;
+        border-radius: 16px;
+        text-align: left;
       }
-      .values {
+      .strip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .strip.row {
+        padding: 4px 6px 4px 4px;
+        border-radius: 18px;
+        background: var(--vivid-layer-2);
+        --vivid-layer-2: color-mix(in srgb, var(--vivid-layer-0) 45%, var(--vivid-layer-1));
+      }
+      .strip.row .name {
+        font-size: 14px;
+      }
+      .values,
+      .icons {
         display: flex;
         align-items: center;
         gap: 8px;
         flex: none;
-        padding: 4px 2px;
-        border-radius: 12px;
+      }
+      .icons {
+        gap: 4px;
+      }
+      .icons:empty {
+        display: none;
       }
       .value {
         display: inline-flex;
         align-items: center;
         gap: 1px;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
@@ -186,63 +203,50 @@ export class VividHyperHdrCard extends LitElement {
         font-weight: 500;
         color: var(--secondary-text-color);
       }
+      /* A component's state: lit when on, faint when off. */
+      .state {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--disc-bg, transparent);
+        color: var(--disc-color, var(--secondary-text-color));
+      }
+      .state.off {
+        opacity: 0.45;
+      }
+      .state ha-icon {
+        --mdc-icon-size: 16px;
+        display: inline-flex;
+      }
       .rows {
         display: flex;
         flex-direction: column;
         gap: 6px;
       }
-      .row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 6px 6px 6px;
-        border-radius: 18px;
-        background: var(--vivid-layer-2);
-        --vivid-layer-2: color-mix(in srgb, var(--vivid-layer-0) 45%, var(--vivid-layer-1));
-      }
-      .row .open {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1 1 auto;
-        min-width: 0;
-        border-radius: 14px;
-      }
-      .row .name {
-        font-size: 14px;
+      .power {
+        width: 48px;
+        height: 34px;
+        flex: none;
       }
       .row .power {
-        width: 48px;
         height: 32px;
         background: var(
           --power-bg,
           color-mix(in srgb, var(--vivid-layer-0) 70%, var(--vivid-layer-1))
         );
       }
-      .grabber {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 10px 6px 6px;
-        border-radius: 18px;
-        background: var(--vivid-layer-2);
-        text-align: left;
-      }
-      .grabber .name {
-        font-size: 13.5px;
-        font-weight: 500;
-      }
-      .empty {
-        padding: 8px 4px;
-        font-size: 13px;
-        color: var(--secondary-text-color);
-      }
       .warning {
         padding: 16px;
         color: var(--error-color, #db4437);
       }
-      @container (max-width: 340px) {
-        .values .cpu {
+      /* Narrow cards: the values go before the text does. */
+      @container (max-width: 330px) {
+        .values .value:not(:first-child) {
+          display: none;
+        }
+        .icons {
           display: none;
         }
       }
@@ -300,32 +304,12 @@ export class VividHyperHdrCard extends LitElement {
     return [rgb, rgb.map((value) => Math.round(value * 0.7)) as Rgb];
   }
 
-  private readonly onColors = (deviceId: string) => (event: CustomEvent<{ colors: Rgb[] }>) => {
-    this.sampled = { ...this.sampled, [deviceId]: event.detail.colors };
-  };
-
   private toggle(model: InstanceModel, event?: Event): void {
     event?.stopPropagation();
     const hass = this.hass;
     if (!hass || !model.available) return;
     haptic(this, 'light');
     void toggleEntity(hass, model.light);
-  }
-
-  private toggleComponent(model: InstanceModel, key: ToggleKey): void {
-    const hass = this.hass;
-    const toggle = model.toggles[key];
-    if (!hass || !toggle?.available) return;
-    haptic(this, 'light');
-    void toggleEntity(hass, toggle.entity);
-  }
-
-  private setBrightness(model: InstanceModel, value: number): void {
-    const hass = this.hass;
-    if (!hass) return;
-    const gain = model.entities['number.brightness_gain'];
-    if (gain && hass.states[gain]) void setNumber(hass, gain, value);
-    else void setBrightness(hass, model.light, value);
   }
 
   /* --------------------------------- details -------------------------------- */
@@ -379,108 +363,68 @@ export class VividHyperHdrCard extends LitElement {
       .instances=${model.strips}
       .sampled=${instance ? this.sampled[instance.deviceId] : undefined}
       .initialTab=${reset ? target.tab : undefined}
+      .pictureTimeout=${config.pictureTimeout}
     ></vivid-hyperhdr-details>`;
   }
 
   /* --------------------------------- render --------------------------------- */
 
-  private renderHubHead(hub: HubModel, model: HyperHdrModel, full: boolean) {
+  /** The hub on one line: health, what it captures, a few values. */
+  private renderHubLine(hub: HubModel, model: HyperHdrModel) {
     const hass = this.hass;
-    const status = hubStatus(hass, hub, model.strips);
+    const config = this._config;
+    if (!config) return nothing;
+    const line = hubLine(hass, hub, model.strips, config.hubInfo);
     const rgb = healthColor(hub.health);
-    const t = hub.temperature;
-    return html`<div class="head">
-      <button
-        type="button"
-        class="reset title"
-        title=${localize(hass, 'details')}
-        @click=${() => this.openDetails(undefined, 'system')}
-      >
-        ${disc(hubIcon(hub), rgb, hub.health === 'ok' ? 0.7 : 0.95)}
-        <span class="names">
-          <span class="name">${this._config?.name ?? hub.name}</span>
-          <span class=${classMap({ status: true, [status.tone]: true })}>${status.text}</span>
-        </span>
-      </button>
-      ${
-        hub.connected
-          ? html`<button
-              type="button"
-              class="reset values"
-              title=${localize(hass, 'details')}
-              @click=${() => this.openDetails(undefined, 'system')}
-            >
-              ${
-                t === undefined
-                  ? nothing
-                  : html`<span class="value"
-                      ><ha-icon
-                        icon="mdi:thermometer"
-                        style=${styleMap({ color: rgbCss(temperatureRgb(t)) })}
-                      ></ha-icon
-                      >${fixed(hass, t, 1)}<small>°C</small></span
-                    >`
-              }
-              ${
-                full || hub.cpu === undefined
-                  ? nothing
-                  : html`<span class="value cpu"
-                      ><ha-icon
-                        icon="mdi:cpu-64-bit"
-                        style=${styleMap({ color: rgbCss(BLUE) })}
-                      ></ha-icon
-                      >${fixed(hass, hub.cpu, 0)}<small>%</small></span
-                    >`
-              }
-            </button>`
-          : nothing
-      }
-    </div>`;
-  }
-
-  private renderHubBody(hub: HubModel) {
-    const hass = this.hass;
-    if (!hub.connected) return nothing;
-    const chips = [
-      hub.cpu === undefined
-        ? nothing
-        : chip('mdi:cpu-64-bit', `${localize(hass, 'hh_cpu')} ${fixed(hass, hub.cpu, 0)}\u00a0%`),
-      hub.memory === undefined
-        ? nothing
-        : chip('mdi:memory', `${localize(hass, 'hh_ram')} ${fixed(hass, hub.memory, 0)}\u00a0%`),
-      hub.undervoltage === undefined
-        ? nothing
-        : chip(
-            hub.undervoltage ? 'mdi:flash-alert' : 'mdi:flash',
-            localize(hass, hub.undervoltage ? 'hh_undervoltage' : 'hh_power_ok'),
-            { on: true, rgb: hub.undervoltage ? [239, 83, 80] : [102, 187, 106] },
-          ),
-    ];
-    const signal = (hub.captureFps ?? 0) > 0;
-    const grabber = [hub.grabber, hub.videoMode].filter(Boolean).join(' · ');
-    const detail = [
-      localize(hass, signal ? 'hh_signal' : 'hh_no_signal'),
-      hub.captureFps === undefined
-        ? undefined
-        : localize(hass, 'hh_fps', { n: fixed(hass, hub.captureFps, 0) }),
-    ]
-      .filter(Boolean)
-      .join(' · ');
-    return html`<div class="chips">${chips}</div>
-      ${
-        grabber
-          ? html`<button
-              type="button"
-              class="reset grabber"
-              @click=${() => this.openDetails(undefined, 'system')}
-            >
-              ${disc('mdi:video-input-hdmi', signal ? BLUE : undefined, 0.6, 'small')}
-              <span class="names"
-                ><span class="name">${grabber}</span><span class="status">${detail}</span></span
-              >
-            </button>`
-          : nothing
-      }`;
+    const value = (icon: string, color: Rgb, text: string, unit: string, key: string) =>
+      html`<span class="value ${key}"
+        ><ha-icon .icon=${icon} style=${styleMap({ color: rgbCss(color) })}></ha-icon>${text}<small
+          >${unit}</small
+        ></span
+      >`;
+    const values = hub.connected
+      ? config.hubValues.map((key) => {
+          switch (key) {
+            case 'temperature':
+              return hub.temperature === undefined
+                ? nothing
+                : value(
+                    'mdi:thermometer',
+                    temperatureRgb(hub.temperature),
+                    fixed(hass, hub.temperature, 0),
+                    '°C',
+                    key,
+                  );
+            case 'cpu':
+              return hub.cpu === undefined
+                ? nothing
+                : value('mdi:cpu-64-bit', BLUE, fixed(hass, hub.cpu, 0), '%', key);
+            case 'memory':
+              return hub.memory === undefined
+                ? nothing
+                : value('mdi:memory', VIOLET, fixed(hass, hub.memory, 0), '%', key);
+            case 'capture_fps':
+              return hub.captureFps === undefined
+                ? nothing
+                : value('mdi:video-input-hdmi', BLUE, fixed(hass, hub.captureFps, 0), 'fps', key);
+            default:
+              return nothing;
+          }
+        })
+      : [];
+    return html`<button
+      type="button"
+      class="reset line"
+      title=${localize(hass, 'details')}
+      @click=${() => this.openDetails(undefined, 'system')}
+    >
+      ${disc(hubIcon(hub), rgb, hub.health === 'ok' ? 0.7 : 0.95)}
+      <span class="names">
+        <span class="name">${config.name ?? hub.name}</span>
+        <span class=${classMap({ status: true, [line.tone]: true })}>${line.text}</span>
+      </span>
+      <span class="values">${values}</span>
+    </button>`;
   }
 
   private renderPower(model: InstanceModel) {
@@ -501,99 +445,53 @@ export class VividHyperHdrCard extends LitElement {
     </button>`;
   }
 
-  private renderRow(model: InstanceModel) {
+  /** The state of the components chosen for the line, as small lit icons. */
+  private renderIcons(model: InstanceModel) {
+    const hass = this.hass;
+    const icons = this._config?.stripIcons ?? [];
+    return icons.map((key) => {
+      const look = ICONS[key];
+      const toggle = model.toggles[key];
+      if (!toggle) return nothing;
+      const on = toggle.on && model.on;
+      // The LED output stands out when it is off: nothing reaches the strip.
+      const rgb = key === 'led_output' && model.on && !toggle.on ? RED : on ? look.rgb : undefined;
+      const tone = rgb ? tintTone(rgb, 0.55) : undefined;
+      return html`<span
+        class=${classMap({ state: true, off: !rgb })}
+        title=${`${localize(hass, look.label)} · ${localize(hass, toggle.on ? 'on' : 'off')}`}
+        style=${styleMap({
+          '--disc-bg': tone?.background,
+          '--disc-color': tone?.iconColor,
+        })}
+        ><ha-icon .icon=${key === 'led_output' && !toggle.on ? 'mdi:led-off' : look.icon}></ha-icon
+      ></span>`;
+    });
+  }
+
+  /** One strip on one line: who it sends to and how fast, its state, its power. */
+  private renderStripLine(model: InstanceModel, row: boolean) {
+    const hass = this.hass;
+    const config = this._config;
+    if (!config) return nothing;
+    const line = stripLine(hass, model, config.stripInfo);
     const rgb = model.on ? this.colorOf(model) : undefined;
-    return html`<div class="row">
+    return html`<div class=${classMap({ strip: true, row })}>
       <button
         type="button"
         class="reset open"
-        title=${localize(this.hass, 'details')}
+        title=${localize(hass, 'details')}
         @click=${() => this.openDetails(model.deviceId)}
       >
-        ${disc(STRIP_ICON, rgb, 0.8, 'small')}
+        ${disc(STRIP_ICON, rgb, 0.85, row ? 'small' : '')}
         <span class="names">
-          <span class="name">${model.name}</span>
-          <span class="status">${instanceStatus(this.hass, model)}</span>
+          <span class="name">${row ? model.name : (config.name ?? model.name)}</span>
+          <span class=${classMap({ status: true, [line.tone]: true })}>${line.text}</span>
         </span>
+        <span class="icons">${this.renderIcons(model)}</span>
       </button>
-      ${this.renderPower(model)}
+      ${config.showPower ? this.renderPower(model) : nothing}
     </div>`;
-  }
-
-  private renderStrip(model: InstanceModel, hub: HubModel | undefined) {
-    const hass = this.hass;
-    const config = this._config;
-    const rgb = this.colorOf(model);
-    const camera = hub?.camera ?? model.ledCamera;
-    const gain = model.entities['number.brightness_gain'];
-    const gainState = gain ? hass?.states[gain] : undefined;
-    const max = typeof gainState?.attributes.max === 'number' ? gainState.attributes.max : 100;
-    const hdr = model.toggles.hdr?.on;
-    return html`<div class="head">
-        <button
-          type="button"
-          class="reset title"
-          title=${localize(hass, 'details')}
-          @click=${() => this.openDetails(model.deviceId)}
-        >
-          ${disc(STRIP_ICON, model.on ? rgb : undefined, 0.85)}
-          <span class="names">
-            <span class="name">${config?.name ?? model.name}</span>
-            <span class="status">${instanceStatus(hass, model)}</span>
-          </span>
-        </button>
-        ${this.renderPower(model)}
-      </div>
-      ${
-        config?.picture && camera
-          ? html`<vivid-hyperhdr-screen
-              class="dim"
-              .hass=${hass}
-              .camera=${camera}
-              .fallback=${tintFrame(model.on ? rgb : [70, 70, 70])}
-              .tags=${[localize(hass, 'hh_live'), hdr ? localize(hass, 'hh_hdr') : undefined]}
-              @vivid-screen-colors=${this.onColors(model.deviceId)}
-            ></vivid-hyperhdr-screen>`
-          : nothing
-      }
-      <vivid-hyperhdr-slider
-        .value=${model.brightness}
-        .min=${0}
-        .max=${max}
-        .step=${1}
-        icon="mdi:brightness-6"
-        unit="%"
-        .color=${rgbCss(model.on ? rgb : [120, 120, 120])}
-        ?disabled=${!model.available}
-        @vivid-slider-change=${(event: CustomEvent<{ value: number }>) =>
-          this.setBrightness(model, event.detail.value)}
-      ></vivid-hyperhdr-slider>
-      <div class="chips">
-        ${chip(
-          model.source === 'effect'
-            ? 'mdi:creation'
-            : model.source === 'color'
-              ? 'mdi:palette'
-              : 'mdi:video-input-hdmi',
-          sourceText(hass, model),
-          {
-            on: model.on,
-            rgb: model.source === 'capture' ? BLUE : rgb,
-            caret: true,
-            onClick: () => this.openDetails(model.deviceId),
-          },
-        )}
-        ${STRIP_CHIPS.map((item) => {
-          const toggle = model.toggles[item.key];
-          if (!toggle) return nothing;
-          return chip(item.icon, localize(hass, item.label), {
-            on: toggle.on,
-            rgb: item.rgb,
-            disabled: !toggle.available,
-            onClick: () => this.toggleComponent(model, item.key),
-          });
-        })}
-      </div>`;
   }
 
   protected override render() {
@@ -610,15 +508,19 @@ export class VividHyperHdrCard extends LitElement {
     if (config.mode === 'strip') {
       const instance = model.instances[0];
       body = instance
-        ? this.renderStrip(instance, hub)
+        ? this.renderStripLine(instance, false)
         : html`<div class="warning">${localize(hass, 'hh_not_found')}</div>`;
     } else if (config.mode === 'hub') {
-      body = hub
-        ? html`${this.renderHubHead(hub, model, true)}${this.renderHubBody(hub)}`
-        : nothing;
+      body = hub ? this.renderHubLine(hub, model) : nothing;
     } else {
-      body = html`${hub ? this.renderHubHead(hub, model, false) : nothing}
-        <div class="rows dim">${model.instances.map((item) => this.renderRow(item))}</div>`;
+      body = html`${hub ? this.renderHubLine(hub, model) : nothing}
+      ${
+        config.showStrips && model.instances.length
+          ? html`<div class="rows dim">
+              ${model.instances.map((item) => this.renderStripLine(item, true))}
+            </div>`
+          : nothing
+      }`;
     }
     return html`<ha-card>
       <div class=${classMap({ panel: true, offline })} style=${styleMap(glowVars(config.glow))}>

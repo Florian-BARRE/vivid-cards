@@ -41,6 +41,29 @@ describe('ambilight config', () => {
     expect(resolved.glow).toBe(100);
   });
 
+  it('defaults to the line, and keeps the known values in their order', () => {
+    expect(config()).toMatchObject({
+      layout: 'line',
+      sourceDisplay: 'both',
+      info: ['temperature', 'fan', 'humidity'],
+      showStatus: true,
+      showPi: true,
+    });
+    const custom = config({
+      layout: 'tiles',
+      source_display: 'icon',
+      info: ['rpm', 'nope', 'cpu', 'rpm'],
+      inputs: [{ name: 'TV', hidden: true }],
+    });
+    expect(custom).toMatchObject({ layout: 'tiles', sourceDisplay: 'icon', info: ['rpm', 'cpu'] });
+    expect(custom.inputs[0]?.hidden).toBe(true);
+    expect(custom.inputs[1]?.hidden).toBe(false);
+    expect(config({ layout: 'grid', source_display: 'x' })).toMatchObject({
+      layout: 'line',
+      sourceDisplay: 'both',
+    });
+  });
+
   it('accepts another prefix and per-entity overrides', () => {
     const resolved = config({
       prefix: 'box_',

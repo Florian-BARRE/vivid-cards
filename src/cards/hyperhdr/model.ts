@@ -186,7 +186,11 @@ export interface InstanceModel {
   /** Mean color of the LEDs, when its sensor is enabled. */
   average?: Rgb;
   outputFps?: number;
+  /** Frames sent to the LED device per second (its sensor is off by default). */
+  ledFps?: number;
   ledCount?: number;
+  /** The LED device HyperHDR drives (`wled`, `adalight`…) and where it sends (admin). */
+  device?: { type: string; address?: string };
   /** HyperHDR components and settings, by key, when they exist. */
   toggles: Partial<Record<ToggleKey, Toggle>>;
   /** The LED colors camera, when it is enabled. */
@@ -217,6 +221,14 @@ function sourceOf(hass: HomeAssistant, entities: EntityIndex, effect?: string | 
   if (effect === EFFECT_SOLID) return 'color';
   if (effect && effect !== EFFECT_CAPTURE) return 'effect';
   return visible === 'none' ? 'none' : 'capture';
+}
+
+function deviceOf(hass: HomeAssistant, entities: EntityIndex): InstanceModel['device'] | undefined {
+  const state = stateOf(hass, entities, 'sensor.led_device');
+  const type = textOf(hass, entities, 'sensor.led_device');
+  if (!type) return undefined;
+  const address = state?.attributes.address;
+  return { type, address: typeof address === 'string' && address ? address : undefined };
 }
 
 export function buildInstance(
@@ -269,7 +281,9 @@ export function buildInstance(
       ? (parseColor(average.attributes.rgb_color) ?? parseColor(average.state))
       : undefined,
     outputFps: numberOf(hass, entities, 'sensor.output_fps'),
+    ledFps: numberOf(hass, entities, 'sensor.led_fps'),
     ledCount: numberOf(hass, entities, 'sensor.led_count'),
+    device: deviceOf(hass, entities),
     toggles,
     ledCamera: ledCamera && isAvailable(hass.states[ledCamera]) ? ledCamera : undefined,
     entities,

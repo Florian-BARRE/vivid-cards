@@ -60,8 +60,11 @@ export function frameGradient(colors: readonly Rgb[]): string {
 
 /**
  * The picture HyperHDR captures, framed by the colors of its edges, as the
- * LEDs behind the screen show them. The camera streams only while the screen
- * is on screen; without a camera the frame shows `fallback`.
+ * LEDs behind the screen show them; without a camera the frame shows
+ * `fallback`. With `onDemand`, the picture plays only once asked, for
+ * `timeout` seconds (it can be extended or stopped); otherwise it plays while
+ * the screen is visible. It always stops when the screen leaves the viewport
+ * or the page is hidden: HyperHDR encodes each frame while it streams.
  */
 export class VividHyperHdrScreen extends LitElement {
   static override properties = {
@@ -70,8 +73,12 @@ export class VividHyperHdrScreen extends LitElement {
     fallback: { attribute: false },
     tags: { attribute: false },
     placeholder: {},
+    onDemand: { type: Boolean },
+    timeout: { type: Number },
+    labels: { attribute: false },
     colors: { state: true },
     live: { state: true },
+    left: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -84,7 +91,19 @@ export class VividHyperHdrScreen extends LitElement {
   declare colors: Rgb[];
   /** The stream is running. */
   declare live: boolean;
+  /** The picture plays only when asked. */
+  declare onDemand: boolean;
+  /** Seconds it plays once asked. */
+  declare timeout: number;
+  declare labels: { show: string; extend: string; stop: string; live: string; ended: string };
+  /** Seconds left before the picture stops by itself. */
+  declare left?: number;
 
+  /** When the asked picture stops by itself (ms), while it is asked for. */
+  private until?: number;
+  private tick?: number;
+  /** The asked picture ended by its timer: it says so until asked again. */
+  private ended = false;
   private url?: string;
   private observer?: IntersectionObserver;
   private visible = false;
@@ -99,6 +118,9 @@ export class VividHyperHdrScreen extends LitElement {
     this.tags = [];
     this.colors = [];
     this.live = false;
+    this.onDemand = false;
+    this.timeout = 120;
+    this.labels = { show: 'Show', extend: 'Extend', stop: 'Stop', live: 'Live', ended: '' };
   }
 
   static override styles = [
@@ -175,6 +197,55 @@ export class VividHyperHdrScreen extends LitElement {
       .tag.right {
         right: 8px;
       }
+      .ask {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.35);
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 12px;
+      }
+      button {
+        appearance: none;
+        border: none;
+        font: inherit;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 14px;
+        border-radius: 17px;
+        background: rgba(var(--vivid-rgb-text), 0.08);
+        color: var(--primary-text-color);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      button ha-icon {
+        --mdc-icon-size: 17px;
+        display: inline-flex;
+      }
+      button.big {
+        height: 40px;
+        padding: 0 18px;
+        background: rgba(167, 139, 250, 0.28);
+        color: #d6ccff;
+        font-size: 14px;
+        box-shadow: 0 0 18px rgba(167, 139, 250, 0.35);
+      }
+      button.quiet {
+        color: var(--secondary-text-color);
+      }
+      .controls {
+        position: relative;
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
       .dot {
         width: 6px;
         height: 6px;
@@ -201,7 +272,7 @@ export class VividHyperHdrScreen extends LitElement {
     this.observer?.disconnect();
     this.observer = undefined;
     this.visible = false;
-    this.stop();
+    this.release();
   }
 
   private readonly onVisibility = (): void => this.syncStream();
@@ -216,7 +287,38 @@ export class VividHyperHdrScreen extends LitElement {
   }
 
   private wanted(): boolean {
+    if (this.onDemand && this.until === undefined) return false;
     return !!this.camera && this.visible && document.visibilityState === 'visible';
+  }
+
+  /** Plays the picture for `timeout` seconds (from now, again when extended). */
+  ask(): void {
+    this.ended = false;
+    this.until = Date.now() + this.timeout * 1000;
+    window.clearInterval(this.tick);
+    this.tick = window.setInterval(() => this.countdown(), 1000);
+    this.countdown();
+    this.syncStream();
+  }
+
+  /** Stops the asked picture now. */
+  release(): void {
+    window.clearInterval(this.tick);
+    this.tick = undefined;
+    this.until = undefined;
+    this.left = undefined;
+    this.stop();
+  }
+
+  private countdown(): void {
+    if (this.until === undefined) return;
+    const left = Math.ceil((this.until - Date.now()) / 1000);
+    if (left <= 0) {
+      this.release();
+      this.ended = true;
+      return;
+    }
+    this.left = left;
   }
 
   private syncStream(): void {
@@ -268,6 +370,33 @@ export class VividHyperHdrScreen extends LitElement {
     }
   }
 
+  private renderAsk() {
+    const labels = this.labels;
+    if (!this.onDemand || !this.camera) return nothing;
+    if (this.until === undefined) {
+      return html`<div class="ask">
+        <button type="button" class="big" @click=${() => this.ask()}>
+          <ha-icon icon="mdi:monitor-eye"></ha-icon>${labels.show}
+        </button>
+        ${this.ended && labels.ended ? html`<small>${labels.ended}</small>` : nothing}
+      </div>`;
+    }
+    return nothing;
+  }
+
+  private renderControls() {
+    if (!this.onDemand || this.until === undefined) return nothing;
+    const labels = this.labels;
+    return html`<div class="controls">
+      <button type="button" @click=${() => this.ask()}>
+        <ha-icon icon="mdi:timer-sand-complete"></ha-icon>${labels.extend}
+      </button>
+      <button type="button" class="quiet" @click=${() => this.release()}>
+        <ha-icon icon="mdi:stop"></ha-icon>${labels.stop}
+      </button>
+    </div>`;
+  }
+
   private readonly onError = (): void => {
     // The token expired or the camera went away: try again with a new one.
     this.stop();
@@ -277,28 +406,35 @@ export class VividHyperHdrScreen extends LitElement {
   protected override render() {
     const colors = this.live && this.colors.length ? this.colors : this.fallback;
     const gradient = frameGradient(colors);
-    const [left, right] = this.tags;
+    const [tagLeft, right] = this.tags;
+    const left =
+      this.onDemand && this.left !== undefined
+        ? `${this.labels.live} · ${Math.floor(this.left / 60)}:${String(this.left % 60).padStart(2, '0')}`
+        : tagLeft;
     return html`<div class="screen">
-      <div class="glow" style=${styleMap({ background: gradient })}></div>
-      <div class="frame" style=${styleMap({ background: gradient })}></div>
-      <div class="pic">
-        ${
-          this.url
-            ? html`<img src=${this.url} alt="" @error=${this.onError} />`
-            : html`<div class="empty">
-                <ha-icon icon="mdi:monitor-screenshot"></ha-icon>${this.placeholder ?? nothing}
-              </div>`
-        }
-        ${
-          left
-            ? html`<span class="tag left"
-                >${this.live ? html`<span class="dot"></span>` : nothing}${left}</span
-              >`
-            : nothing
-        }
-        ${right ? html`<span class="tag right">${right}</span>` : nothing}
+        <div class="glow" style=${styleMap({ background: gradient })}></div>
+        <div class="frame" style=${styleMap({ background: gradient })}></div>
+        <div class="pic">
+          ${
+            this.url
+              ? html`<img src=${this.url} alt="" @error=${this.onError} />`
+              : this.onDemand && this.camera
+                ? nothing
+                : html`<div class="empty">
+                    <ha-icon icon="mdi:monitor-screenshot"></ha-icon>${this.placeholder ?? nothing}
+                  </div>`
+          }
+          ${
+            left && (!this.onDemand || this.live)
+              ? html`<span class="tag left"
+                  >${this.live ? html`<span class="dot"></span>` : nothing}${left}</span
+                >`
+              : nothing
+          }
+          ${right ? html`<span class="tag right">${right}</span>` : nothing} ${this.renderAsk()}
+        </div>
       </div>
-    </div>`;
+      ${this.renderControls()}`;
   }
 }
 

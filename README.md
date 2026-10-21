@@ -634,24 +634,35 @@ connected), its health, and a clean shutdown before the power is cut.
 
 ### What the card shows
 
-- **Header**: the fan icon, turning faster with the speed and colored by the
-  box temperature (blue, green, amber, red at the overheat threshold); the
-  worst alarm first (offline, overheating, Pi CPU overheating, fan stalled,
-  sensor missing), else the fan mode and the Pi; the temperature that drives
-  the fan (the box's, or the Pi's CPU while HyperHDR is connected, or the one
-  overheating) and the fan speed.
-- **Pi switch**: with the firmware's `Pi power`, turning it off shuts the Pi
-  down cleanly first (over SSH, through HA-HyperHDR's Power off button), then
-  the relay opens: it asks `Shut down?`, then shows `Stopping…` until the
-  power is cut. With an older firmware it is the relay itself, a hard power
-  cut that asks `Cut?` (`confirm_pi_off: false` removes the question for the
-  relay). Turning it on is immediate.
-- **The five HDMI inputs**, the active one lit. A tap sends the input: waves
-  while the IR LED emits, a check when the Wemos hears its own frame back, then
-  the input turns active; orange (`no echo`) when nothing came back after the
-  firmware's retry. An input changed with the original remote flashes too.
-  The echo proves the frame left the LED, not that the switch obeyed it (the
-  switch gives no feedback).
+One line (`layout: line`, the default):
+
+- **The fan icon**, turning faster with the speed and colored by the box
+  temperature (blue, green, amber, red at the overheat threshold).
+- **The name and the values you pick next to it** (`info`): the temperature
+  that drives the fan (the box's, or the Pi's CPU while HyperHDR is
+  connected, or the one overheating), the fan speed, the humidity by default;
+  also the box and CPU temperatures apart, pressure, rpm. Those that do not
+  fit go, from the last. Under the name: the worst alarm (offline,
+  overheating, Pi CPU overheating, fan stalled, sensor missing), else the fan
+  mode and the Pi.
+- **The input menu**: the active input (icon and name, icon only or name
+  only: `source_display`). A tap opens the inputs; picking one sends it: IR
+  waves while the LED emits (`sending IR…`), a check when the Wemos hears its
+  own frame back (`echo back ✓`), orange and a shake (`no echo`) when nothing
+  came back after the firmware's retry. An input changed with the original
+  remote flashes too. The echo proves the frame left the LED, not that the
+  switch obeyed it (the switch gives no feedback). Inputs can be hidden from
+  the menu.
+- **The Pi button**, lit while the Pi is powered. With the firmware's
+  `Pi power`, turning it off shuts the Pi down cleanly first (over SSH,
+  through HA-HyperHDR's Power off button), then the relay opens: a second tap
+  is asked, then the shutdown's steps show under the name until the power is
+  cut. With an older firmware it is the relay itself, a hard power cut
+  (`confirm_pi_off: false` removes the question for the relay). Turning it on
+  is immediate.
+
+`layout: tiles` keeps the earlier card: the head, then a row of input tiles.
+
 - **Details** (tap the header), in four tabs:
   - **Overview**: alarms, box and CPU temperatures, humidity, pressure and
     fan speed, the inputs, the Pi with its shutdown steps, Auto / Manual with
@@ -699,8 +710,10 @@ tab shows them too). It also warns when the server has no Power off button
 (SSH not set up in HA-HyperHDR), as the Pi would then be cut without shutting
 down.
 
-Then the HDMI inputs, as on the card: tap one to name it and pick its icon.
-Display: name, confirmation, halo, send counter.
+Then the HDMI inputs, as on the card: tap one to name it, pick its icon or
+hide it from the menu. Display: layout, input menu, the values next to the
+name as numbered chips (tap to add or remove, arrows to reorder), the line
+under the name, the Pi button, name, confirmation, halo, send counter.
 
 ### Recipes
 
@@ -726,17 +739,22 @@ prefix: salon_salon_ambilight_manager_
 
 ### Options
 
-| Option                | Default                          | Description                                                                                        |
-| --------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `device`              | none                             | The Ambilight Manager device: its entities are found from it.                                      |
-| `prefix`              | `salon_salon_ambilight_manager_` | Entity id prefix of the device; wins over `device`.                                                |
-| `name`                | `Ambilight`                      | Title of the card.                                                                                 |
-| `inputs`              | `HDMI 1` … `HDMI 5`              | Up to five inputs, each a name or `{ name, icon }` (default icon `mdi:video-input-hdmi`).          |
-| `hyperhdr`            | the only one                     | The HA-HyperHDR server device (CPU temperature, health, restart); found when there is only one.    |
-| `confirm_pi_off`      | `true`                           | Turning the Pi off asks for a second tap (always for the clean shutdown).                          |
-| `send_counter_entity` | none                             | A firmware sensor that changes on every confirmed send: confirms a resend of the input already on. |
-| `entities`            | none                             | Entities that do not follow the prefix, by key (`relay: switch.pi_power`); keys as in the source.  |
-| `glow`                | `100`                            | Halo strength in percent, see [Halos](#halos).                                                     |
+| Option                | Default                          | Description                                                                                                                           |
+| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `device`              | none                             | The Ambilight Manager device: its entities are found from it.                                                                         |
+| `prefix`              | `salon_salon_ambilight_manager_` | Entity id prefix of the device; wins over `device`.                                                                                   |
+| `name`                | `Ambilight`                      | Title of the card.                                                                                                                    |
+| `inputs`              | `HDMI 1` … `HDMI 5`              | Up to five inputs, each a name or `{ name, icon, hidden }` (default icon `mdi:video-input-hdmi`; `hidden` leaves it out of the menu). |
+| `layout`              | `line`                           | `line` (one line, the input as a menu) or `tiles` (head and a row of input tiles).                                                    |
+| `source_display`      | `both`                           | `line`: the input menu shows `both` (icon and name), `icon` or `name`.                                                                |
+| `info`                | `[temperature, fan, humidity]`   | Values next to the name: `temperature` (the one driving the fan), `box`, `cpu`, `fan`, `humidity`, `pressure`, `rpm`.                 |
+| `show_status`         | `true`                           | The line under the name.                                                                                                              |
+| `show_pi`             | `true`                           | The Pi button.                                                                                                                        |
+| `hyperhdr`            | the only one                     | The HA-HyperHDR server device (CPU temperature, health, restart); found when there is only one.                                       |
+| `confirm_pi_off`      | `true`                           | Turning the Pi off asks for a second tap (always for the clean shutdown).                                                             |
+| `send_counter_entity` | none                             | A firmware sensor that changes on every confirmed send: confirms a resend of the input already on.                                    |
+| `entities`            | none                             | Entities that do not follow the prefix, by key (`relay: switch.pi_power`); keys as in the source.                                     |
+| `glow`                | `100`                            | Halo strength in percent, see [Halos](#halos).                                                                                        |
 
 The firmware's `Pi status` steps are translated; any other text from it is
 shown as it is.
@@ -750,11 +768,14 @@ HyperHDR, the software that drives the Ambilight LEDs from the picture, as
 the [HA-HyperHDR](https://github.com/Florian-BARRE/HA-HyperHDR) integration
 exposes it. One card, three ways to show it:
 
-- **`strip`**: one LED strip (a HyperHDR instance), with the captured picture
-  framed by the colors of its edges, as the LEDs behind the screen show them.
-- **`hub`**: the machine HyperHDR runs on: temperature, CPU, memory, power
-  supply, grabber and signal.
-- **`all`** (default): the hub on top, then every strip of the server.
+- **`strip`**: one LED strip (a HyperHDR instance) on one line: what drives
+  it, the LED device it sends to (WLED and its address), its rate.
+- **`hub`**: the machine HyperHDR runs on, on one line: what it captures
+  (input, resolution, rate), temperature, CPU.
+- **`all`** (default): the hub, then one line per strip.
+
+The compact card informs; brightness and colors stay with the LED devices
+(WLED). Everything else is in the details.
 
 <p>
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr.png" alt="HyperHDR card, one strip" width="428" />
@@ -769,16 +790,17 @@ devices and entities by itself.
 
 ### What the card shows
 
-- **Strip**: the strip's icon and power button lit with the colors of the
-  picture (or of the effect, or of the color set); what drives the LEDs, the
-  brightness and the output rate; the captured picture with its LED frame;
-  brightness (HyperHDR's luminance gain, up to 200 %); chips for the source,
-  HDR tone mapping, smoothing and black borders.
-- **Hub**: green, orange from 70 °C, red from 80 °C or on undervoltage; the
-  Raspberry Pi icon on ARM, a server otherwise; CPU, memory, power supply,
-  then the grabber with its resolution, signal and capture rate.
+- **Strip line**: the strip's icon lit with its colors; a second line of
+  your choice (source, LED device, output rate, LED count, brightness), with
+  `LED output off` first when nothing reaches the strip; the state of the
+  components you pick (HDR by default; LED output, video capture, smoothing,
+  black borders) as small lit icons; the power button.
+- **Hub line**: green, orange from 70 °C, red from 80 °C or on undervoltage;
+  a second line of your choice (input, resolution, capture rate,
+  temperature, CPU, RAM, version, strips on), the problem first; up to three
+  values on the right (temperature, CPU, RAM, capture rate).
 - **Details** (tap a strip or the hub), in four tabs:
-  - **Overview**: the live picture, the source (capture, an effect from the
+  - **Overview**: the picture on demand, the source (capture, an effect from the
     list, a color from the swatches or Home Assistant's color picker), the
     source forced on the LEDs if there is one, the brightness.
   - **Colors**: saturation, gamma, dark threshold, color temperature and how
@@ -795,10 +817,14 @@ devices and entities by itself.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-system.png" alt="Details: system" width="300" />
 </p>
 
-The picture streams only while it is on screen, and stops when the card or
-the details leave it; the integration then stops HyperHDR's image stream. The
-picture and most settings need the admin password in the integration; without
-it the card keeps the strips, the components and the hub.
+**The picture, on demand.** HyperHDR encodes every frame as JPEG while its
+picture streams, which costs the Raspberry Pi. So the picture is never on the
+dashboard: in the details, **Show the screen** plays it for 2 minutes
+(`picture_timeout`: 1, 2 or 5), with **Extend** and **Stop**; it also stops
+when the details close or leave the screen, and the integration then stops
+HyperHDR's image stream. The picture, the LED device and most settings need
+the admin password in the integration; without it the card keeps the strips,
+the components and the hub.
 
 ### Visual editor
 
@@ -806,8 +832,11 @@ it the card keeps the strips, the components and the hub.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/hyperhdr-editor.png" alt="Visual editor of the HyperHDR card" width="300" />
 </p>
 
-Pick what to show, then the HyperHDR server and, for one strip, the strip.
-Left empty, the card takes the first server and the first strip found.
+Pick what to show, then the HyperHDR server and, for one strip, the strip
+(left empty: the first found). Then the lines: what the second line of the
+hub and of the strips says, the values and component states shown, as
+numbered chips (tap to add or remove, arrows to reorder); the strips' power
+button, one line per strip, the picture's duration and the halo.
 
 ### Recipes
 
@@ -815,10 +844,18 @@ Left empty, the card takes the first server and the first strip found.
 # The Pi and every strip
 type: custom:vivid-hyperhdr-card
 
-# One strip with its picture
+# One strip: where it sends and how fast, LED output and HDR
 type: custom:vivid-hyperhdr-card
 mode: strip
 instance: 0123456789abcdef0123456789abcdef # the strip's device
+strip_info: [device, fps]
+strip_icons: [led_output, hdr]
+
+# The hub alone: what it captures, temperature, CPU and RAM
+type: custom:vivid-hyperhdr-card
+mode: hub
+hub_info: [input, video_mode, capture_fps]
+hub_values: [temperature, cpu, memory]
 ```
 
 With the [Ambilight card](#vivid-ambilight-card) next to it, one column holds
@@ -827,14 +864,22 @@ HyperHDR and its strips.
 
 ### Options
 
-| Option     | Default       | Description                                        |
-| ---------- | ------------- | -------------------------------------------------- |
-| `mode`     | `all`         | `all` (hub and strips), `hub` or `strip`.          |
-| `server`   | first found   | The HyperHDR server device.                        |
-| `instance` | first found   | `strip`: the strip's device (a HyperHDR instance). |
-| `name`     | device's name | Title of the card.                                 |
-| `picture`  | `true`        | `strip`: the captured picture with its LED frame.  |
-| `glow`     | `100`         | Halo strength in percent, see [Halos](#halos).     |
+| Option            | Default                            | Description                                                                                                   |
+| ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `mode`            | `all`                              | `all` (hub and strips), `hub` or `strip`.                                                                     |
+| `server`          | first found                        | The HyperHDR server device.                                                                                   |
+| `instance`        | first found                        | `strip`: the strip's device (a HyperHDR instance).                                                            |
+| `name`            | device's name                      | Title of the card.                                                                                            |
+| `hub_info`        | `[input, video_mode, capture_fps]` | Hub's second line: `input`, `video_mode`, `capture_fps`, `temperature`, `cpu`, `memory`, `version`, `strips`. |
+| `hub_values`      | `[temperature, cpu]`               | Values on the right of the hub: `temperature`, `cpu`, `memory`, `capture_fps`.                                |
+| `strip_info`      | `[source, device, fps]`            | Strips' second line: `source`, `device`, `fps`, `leds`, `brightness`.                                         |
+| `strip_icons`     | `[hdr]`                            | Component states: `led_output`, `video_capture`, `hdr`, `smoothing`, `black_border`.                          |
+| `show_strips`     | `true`                             | `all`: one line per strip.                                                                                    |
+| `show_power`      | `true`                             | The strips' power button.                                                                                     |
+| `picture_timeout` | `120`                              | Seconds the picture plays in the details once asked: `60`, `120` or `300`.                                    |
+| `glow`            | `100`                              | Halo strength in percent, see [Halos](#halos).                                                                |
+
+`picture` (older versions) is ignored: the picture is in the details only.
 
 ## Light badges
 

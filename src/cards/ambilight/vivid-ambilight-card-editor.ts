@@ -6,12 +6,17 @@ import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
 import { localize } from '../../i18n';
 import '../../components/vivid-source-row';
+import '../../components/vivid-order-picker';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
 import {
+  AMB_INFO,
+  DEFAULT_AMB_INFO,
   DEFAULT_PREFIX,
   INPUT_COUNT,
+  LAYOUTS,
+  SOURCE_DISPLAYS,
   resolveAmbilightConfig,
   type AmbilightCardConfig,
   type AmbilightInputConfig,
@@ -560,8 +565,9 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
             { name: 'icon', selector: { icon: { placeholder: 'mdi:video-input-hdmi' } } },
           ],
         },
+        { name: 'hidden', selector: { boolean: {} } },
       ],
-      { name: value.name ?? '', icon: value.icon ?? '' },
+      { name: value.name ?? '', icon: value.icon ?? '', hidden: value.hidden === true },
       (changed) => {
         const text = (key: string) =>
           typeof changed[key] === 'string' ? (changed[key] as string).trim() : '';
@@ -571,7 +577,11 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
         });
         const name = text('name');
         const icon = text('icon');
-        list[index] = { ...(name ? { name } : {}), ...(icon ? { icon } : {}) };
+        list[index] = {
+          ...(name ? { name } : {}),
+          ...(icon ? { icon } : {}),
+          ...(changed.hidden === true ? { hidden: true } : {}),
+        };
         while (list.length && Object.keys(list[list.length - 1] ?? {}).length === 0) list.pop();
         const next: Record<string, unknown> = { ...config };
         if (list.length) next.inputs = list;
@@ -581,6 +591,7 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
       {
         name: this.t('amb_input_name', { n }),
         icon: this.t('amb_input_icon', { n }),
+        hidden: this.t('amb_input_hidden'),
       },
     );
     return html`<div class="hint-line">${this.t('amb_inputs_pick')}</div>
@@ -590,7 +601,79 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
   /* --------------------------------- options -------------------------------- */
 
   private renderSettings(config: AmbilightCardConfig) {
-    return this.form(
+    const resolved = resolveAmbilightConfig(config);
+    const choice = (values: readonly string[], prefix: string) => ({
+      select: {
+        mode: 'dropdown',
+        options: values.map((value) => ({
+          value,
+          label: this.t(`${prefix}${value}` as EditorStringKey),
+        })),
+      },
+    });
+    const look = this.form(
+      [
+        { name: 'layout', selector: choice(LAYOUTS, 'amb_layout_') },
+        ...(resolved.layout === 'line'
+          ? [{ name: 'source_display', selector: choice(SOURCE_DISPLAYS, 'amb_display_') }]
+          : []),
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'show_status', selector: { boolean: {} } },
+            { name: 'show_pi', selector: { boolean: {} } },
+          ],
+        },
+      ],
+      {
+        layout: resolved.layout,
+        source_display: resolved.sourceDisplay,
+        show_status: resolved.showStatus,
+        show_pi: resolved.showPi,
+      },
+      (value) => {
+        const next: Record<string, unknown> = { ...config };
+        if (value.layout === 'tiles') next.layout = 'tiles';
+        else delete next.layout;
+        if (value.source_display === 'icon' || value.source_display === 'name')
+          next.source_display = value.source_display;
+        else delete next.source_display;
+        for (const key of ['show_status', 'show_pi'] as const) {
+          if (value[key] === false) next[key] = false;
+          else delete next[key];
+        }
+        this.commit(next);
+      },
+      {
+        layout: this.t('amb_layout'),
+        source_display: this.t('amb_source_display'),
+        show_status: this.t('amb_show_status'),
+        show_pi: this.t('amb_show_pi'),
+      },
+    );
+    const info = html`<vivid-order-picker
+      .items=${AMB_INFO.map((value) => ({
+        value,
+        label: this.t(`amb_info_${value}` as EditorStringKey),
+        icon: INFO_ICONS[value],
+      }))}
+      .value=${resolved.info}
+      .label=${this.t('amb_info')}
+      .helper=${this.t('amb_info_helper')}
+      @value-changed=${(event: CustomEvent<{ value: string[] }>) => {
+        event.stopPropagation();
+        const next: Record<string, unknown> = { ...config };
+        const value = event.detail.value;
+        const same =
+          value.length === DEFAULT_AMB_INFO.length &&
+          value.every((item, index) => item === DEFAULT_AMB_INFO[index]);
+        if (same) delete next.info;
+        else next.info = value;
+        this.commit(next);
+      }}
+    ></vivid-order-picker>`;
+    return html`${look}${info}${this.form(
       [
         { name: 'name', selector: { text: {} } },
         { name: 'confirm_pi_off', selector: { boolean: {} } },
@@ -625,7 +708,7 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
         glow: this.t('amb_halo'),
       },
       { send_counter_entity: this.t('amb_counter_helper') },
-    );
+    )}`;
   }
 
   protected override render() {
@@ -644,12 +727,22 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
         'options',
         'mdi:tune-variant',
         this.t('amb_display'),
-        this.t('amb_display_hint'),
+        this.t('amb_display_hint2'),
         () => this.renderSettings(config),
       )}
     </div>`;
   }
 }
+
+const INFO_ICONS: Record<string, string> = {
+  temperature: 'mdi:thermometer-auto',
+  box: 'mdi:thermometer',
+  cpu: 'mdi:cpu-64-bit',
+  fan: 'mdi:fan',
+  humidity: 'mdi:water-percent',
+  pressure: 'mdi:gauge',
+  rpm: 'mdi:rotate-right',
+};
 
 defineElement('vivid-ambilight-card-editor', VividAmbilightCardEditor);
 
