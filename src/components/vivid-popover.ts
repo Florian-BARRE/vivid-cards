@@ -46,6 +46,24 @@ export class VividPopover extends LitElement {
         color: var(--primary-text-color);
         -webkit-font-smoothing: antialiased;
       }
+      dialog.layer {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        overflow: visible;
+        pointer-events: none;
+      }
+      dialog.layer::backdrop {
+        background: transparent;
+      }
       .panel {
         position: fixed;
         box-sizing: border-box;
@@ -86,6 +104,7 @@ export class VividPopover extends LitElement {
     this.anchor = anchor;
     if (!this.isConnected) document.body.appendChild(this);
     this.place();
+    void this.updateComplete.then(() => this.raise());
     document.addEventListener('pointerdown', this.onOutside, true);
     document.addEventListener('keydown', this.onKey, true);
     window.addEventListener('resize', this.onMove);
@@ -100,13 +119,36 @@ export class VividPopover extends LitElement {
     window.removeEventListener('resize', this.onMove);
     document.removeEventListener('scroll', this.onMove, true);
     window.setTimeout(() => {
-      if (!this.open) this.remove();
+      if (this.open) return;
+      this.layer()?.close();
+      this.remove();
     }, 180);
+  }
+
+  private layer(): HTMLDialogElement | null {
+    return this.renderRoot.querySelector('dialog.layer');
+  }
+
+  /**
+   * Into the top layer, as a modal dialog: a modal dialog already open (the
+   * card editor's preview) makes everything else inert, so only another modal
+   * one stays above it and usable. A press outside the panel closes it.
+   */
+  private raise(): void {
+    const layer = this.layer();
+    if (!layer || layer.open || typeof layer.showModal !== 'function') return;
+    try {
+      layer.showModal();
+      layer.style.pointerEvents = 'auto';
+    } catch {
+      // Not supported: the z-index still applies.
+    }
   }
 
   private readonly onOutside = (event: PointerEvent): void => {
     const path = event.composedPath();
-    if (path.includes(this) || (this.anchor && path.includes(this.anchor))) return;
+    const panel = this.renderRoot.querySelector('.panel');
+    if ((panel && path.includes(panel)) || (this.anchor && path.includes(this.anchor))) return;
     fireEvent(this, 'vivid-popover-close-request');
   };
 
@@ -161,14 +203,22 @@ export class VividPopover extends LitElement {
   protected override render() {
     const place = this._place;
     if (!place) return nothing;
-    return html`<div
-      class="panel ${place.above ? 'above' : ''}"
-      role="dialog"
-      aria-label=${this.label ?? ''}
-      style=${`top: ${place.top}px; left: ${place.left}px; width: ${place.width}px`}
+    return html`<dialog
+      class="layer"
+      @cancel=${(event: Event) => {
+        event.preventDefault();
+        fireEvent(this, 'vivid-popover-close-request');
+      }}
     >
-      ${this.content}
-    </div>`;
+      <div
+        class="panel ${place.above ? 'above' : ''}"
+        role="dialog"
+        aria-label=${this.label ?? ''}
+        style=${`top: ${place.top}px; left: ${place.left}px; width: ${place.width}px`}
+      >
+        ${this.content}
+      </div>
+    </dialog>`;
   }
 }
 

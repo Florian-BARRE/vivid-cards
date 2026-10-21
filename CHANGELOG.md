@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0-beta.2] - 2026-10-21
+
+### Fixed
+
+- The details and the menus open above Home Assistant's own dialogs: in the
+  card editor's preview they showed behind it and could not be used. They
+  open as native modal dialogs, in the browser's top layer.
+- Lines no longer cut what was asked for: the HyperHDR lines wrap, keeping
+  each item whole (`60 Hz` stays together), and the Ambilight values wrap
+  under the name.
+
+### Changed
+
+- Values as colored pills: temperatures in their temperature color, the fan
+  in blue, humidity in cyan, pressure in lavender, rpm in orange; the HyperHDR
+  hub's values likewise.
+- Ambilight line: the name and its state on top, the values under it.
+
 ## [0.13.0-beta.1] - 2026-10-21
 
 Compact cards: one line each, the details keep everything.
@@ -361,6 +379,7 @@ First beta of the HyperHDR card, to test from HACS ("Show beta versions").
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.13.0-beta.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.13.0-beta.2
 [0.13.0-beta.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.13.0-beta.1
 [0.12.0-beta.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.3
 [0.12.0-beta.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.2

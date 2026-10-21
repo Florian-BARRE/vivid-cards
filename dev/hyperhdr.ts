@@ -24,6 +24,15 @@ const SCENARIOS: { title: string; scenario: HyperHdrScenario; config: Record<str
       config: { mode: 'strip', instance: STRIPS[0].device },
     },
     { title: fr ? 'Hub' : 'Hub', scenario: {}, config: { mode: 'hub' } },
+    {
+      title: fr ? 'Hub · toutes les infos' : 'Hub · every item',
+      scenario: {},
+      config: {
+        mode: 'hub',
+        hub_info: ['input', 'video_mode', 'capture_fps', 'version', 'strips', 'memory'],
+        hub_values: ['temperature', 'cpu', 'memory'],
+      },
+    },
     { title: fr ? 'Hub + bandeaux' : 'Hub and strips', scenario: {}, config: { mode: 'all' } },
     {
       title: fr ? 'Chaud · sous-tension' : 'Hot · undervoltage',

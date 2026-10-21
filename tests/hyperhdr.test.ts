@@ -17,6 +17,9 @@ import { hubLine, hubStatus, instanceStatus, stripLine } from '../src/cards/hype
 import { edgeColors, frameGradient } from '../src/cards/hyperhdr/vivid-hyperhdr-screen';
 import type { Rgb } from '../src/core/hass-types';
 
+/** Lines keep their parts whole with no-break spaces. */
+const plain = (text: string) => text.replace(/\u00a0/g, ' ');
+
 describe('hyperhdr config', () => {
   it('defaults to the hub and every strip, as lines', () => {
     const config = resolveHyperHdrConfig({ type: 'custom:vivid-hyperhdr-card' });
@@ -176,7 +179,7 @@ describe('hyperhdr model', () => {
     const model = buildModel(hass, findDevices(hass), SERVER_DEVICE);
     const config = resolveHyperHdrConfig({ type: 'x' });
     expect(
-      model.instances.map((item) => stripLine(undefined, item, config.stripInfo).text),
+      model.instances.map((item) => plain(stripLine(undefined, item, config.stripInfo).text)),
     ).toEqual([
       'Northern lights · WLED · 192.168.1.43 · 58 fps',
       'Off · WLED · 192.168.1.44',
@@ -185,12 +188,12 @@ describe('hyperhdr model', () => {
     const hub = model.hub;
     expect(hub).toBeDefined();
     if (!hub) return;
-    expect(hubLine(undefined, hub, model.strips, config.hubInfo).text).toBe(
+    expect(plain(hubLine(undefined, hub, model.strips, config.hubInfo).text)).toBe(
       'USB Video · 1920×1080 · 60 Hz · 60 fps',
     );
-    expect(hubLine(undefined, hub, model.strips, ['temperature', 'cpu', 'strips']).text).toBe(
-      '52\u00a0°C · CPU 23\u00a0% · 2 strips on',
-    );
+    expect(
+      plain(hubLine(undefined, hub, model.strips, ['temperature', 'cpu', 'strips']).text),
+    ).toBe('52 °C · CPU 23 % · 2 strips on');
   });
 
   it('says when the LED output is off', async () => {
@@ -207,7 +210,9 @@ describe('hyperhdr model', () => {
       (item) => item.name === 'TV',
     );
     expect(after && stripLine(undefined, after, ['source']).tone).toBe('warn');
-    expect(after && stripLine(undefined, after, ['source']).text).toBe('LED output off · Capture');
+    expect(after && plain(stripLine(undefined, after, ['source']).text)).toBe(
+      'LED output off · Capture',
+    );
   });
 });
 

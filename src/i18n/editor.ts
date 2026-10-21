@@ -270,7 +270,7 @@ const en = {
   amb_show_status: 'Line under the name',
   amb_show_pi: 'Pi button',
   amb_info: 'Values next to the name',
-  amb_info_helper: 'Those that do not fit go, from the last. Tap to add or remove; the arrows move',
+  amb_info_helper: 'They wrap when they do not fit. Tap to add or remove; the arrows move',
   amb_info_temperature: 'Driving temperature',
   amb_info_box: 'Box',
   amb_info_cpu: 'Pi CPU',
@@ -598,7 +598,7 @@ const fr: EditorStrings = {
   amb_show_pi: 'Bouton du Pi',
   amb_info: 'Valeurs à droite du nom',
   amb_info_helper:
-    'Celles qui ne tiennent pas partent, en commençant par la dernière. Touche pour ajouter ou retirer ; les flèches déplacent',
+    'Elles passent à la ligne quand elles ne tiennent pas. Touche pour ajouter ou retirer ; les flèches déplacent',
   amb_info_temperature: 'Température pilote',
   amb_info_box: 'Boîtier',
   amb_info_cpu: 'CPU du Pi',
