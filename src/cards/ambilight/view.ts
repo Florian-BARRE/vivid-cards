@@ -2,7 +2,13 @@ import type { SourceLabels } from '../../components/vivid-source-row';
 import { tintTone, type ChipTone } from '../../core/glow';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
 import { localize, type StringKey } from '../../i18n';
-import { temperatureColor, type Alarm, type AmbilightModel, type PiStatus } from './model';
+import {
+  temperatureColor,
+  type Alarm,
+  type AmbilightModel,
+  type LinkState,
+  type PiStatus,
+} from './model';
 
 export const GREEN: Rgb = [102, 187, 106];
 export const AMBER: Rgb = [255, 193, 7];
@@ -213,4 +219,27 @@ export function piStatusText(hass: HomeAssistant | undefined, status: string): s
   ];
   const key = known.find(([pattern]) => pattern.test(status))?.[1];
   return key ? localize(hass, key) : status;
+}
+
+/** How the editor and the details show the box ↔ HyperHDR link. */
+export function linkView(state: LinkState): {
+  kind: 'ok' | 'warn' | 'info';
+  icon: string;
+  rgb: Rgb;
+  label: StringKey;
+} {
+  switch (state) {
+    case 'ok':
+      return { kind: 'ok', icon: 'mdi:link-variant', rgb: GREEN, label: 'amb_link_ok' };
+    case 'unseen':
+      return { kind: 'warn', icon: 'mdi:link-variant-off', rgb: AMBER, label: 'amb_link_unseen' };
+    case 'waiting':
+      return { kind: 'info', icon: 'mdi:timer-sand', rgb: GREY, label: 'amb_link_waiting' };
+    case 'away':
+      return { kind: 'info', icon: 'mdi:link-variant-off', rgb: GREY, label: 'amb_link_away' };
+    case 'legacy':
+      return { kind: 'info', icon: 'mdi:chip', rgb: GREY, label: 'amb_link_legacy' };
+    default:
+      return { kind: 'info', icon: 'mdi:help-circle-outline', rgb: GREY, label: 'amb_link_none' };
+  }
 }

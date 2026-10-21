@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0-beta.3] - 2026-10-21
+
+### Added
+
+- Ambilight editor: the box and the HyperHDR server as two tiles joined by
+  their link, which says whether the fan follows the Pi's CPU; when HyperHDR
+  is connected but the firmware does not see it, the ESPHome `substitutions`
+  to write, with the server's real entity ids; a warning when the server has
+  no Power off button (SSH not set up). The same in the details (alarm and
+  Maintenance).
+- Ambilight editor: the HDMI inputs shown as on the card, tap one to edit it.
+
+### Changed
+
+- Source buttons (HDMI inputs) without their number: a send's state takes the
+  name's place for a moment.
+
 ## [0.12.0-beta.2] - 2026-10-21
 
 The Ambilight card with HyperHDR, for the firmware that drives the fan from
@@ -313,6 +330,7 @@ First beta of the HyperHDR card, to test from HACS ("Show beta versions").
 - Preview page with a simulated Home Assistant, unit tests, CI and release
   workflows.
 
+[0.12.0-beta.3]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.3
 [0.12.0-beta.2]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.2
 [0.12.0-beta.1]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.12.0-beta.1
 [0.11.0]: https://github.com/Florian-BARRE/vivid-cards/releases/tag/v0.11.0

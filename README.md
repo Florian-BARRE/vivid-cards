@@ -688,9 +688,19 @@ are shown as the firmware writes them.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-editor.png" alt="Visual editor of the Ambilight card" width="300" />
 </p>
 
-Pick the **Ambilight Manager** device (ESPHome): the card finds its entities
-and the editor tells how many it found, and which are missing. Then a name and
-an icon for each HDMI input, and the options.
+Two tiles joined by their link: the **Ambilight box** (the ESPHome device:
+online, how many entities found and which are missing) and the **HyperHDR
+server** (connected, CPU temperature; the only one is used when none is
+picked). The link between them says whether the fan follows the Pi's CPU. When
+HyperHDR is connected but the firmware still follows the box, the firmware does
+not read the server's entities: the editor writes the `substitutions` to put in
+the ESPHome YAML, with the server's real entity ids (the details' Maintenance
+tab shows them too). It also warns when the server has no Power off button
+(SSH not set up in HA-HyperHDR), as the Pi would then be cut without shutting
+down.
+
+Then the HDMI inputs, as on the card: tap one to name it and pick its icon.
+Display: name, confirmation, halo, send counter.
 
 ### Recipes
 

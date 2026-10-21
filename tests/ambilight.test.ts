@@ -5,6 +5,7 @@ import {
   SEND_TIMEOUT_MS,
   buildAmbilightModel,
   curveAt,
+  hyperhdrLink,
   parseInputIndex,
   parseStoredCodes,
   sendOutcome,
@@ -234,6 +235,32 @@ describe('ambilight with HyperHDR', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('tells why the box and HyperHDR do not work together', () => {
+    const link = (scenario: Parameters<typeof createAmbilightMock>[0]) => {
+      const hass = createAmbilightMock(scenario).hass;
+      return hyperhdrLink(hass, buildAmbilightModel(hass, config()));
+    };
+    expect(link({}).state).toBe('ok');
+    expect(link({}).noPowerOff).toBe(false);
+    expect(link({ hyperhdr: 'away' }).state).toBe('away');
+    expect(link({ hyperhdr: 'none' }).state).toBe('none');
+    expect(link({ legacy: true }).state).toBe('legacy');
+    const blind = link({ espBlind: true });
+    expect(blind.state).toBe('unseen');
+    // The ids to write in the ESPHome substitutions.
+    expect(blind.ids).toEqual({
+      connected: HUB_IDS.connected,
+      cpuTemperature: HUB_IDS.temperature,
+      powerOff: HUB_IDS.powerOff,
+    });
+    expect(link({ noSsh: true }).noPowerOff).toBe(true);
+    // Just connected: the firmware has not switched yet.
+    const mock = createAmbilightMock({ espBlind: true });
+    mock.setState(HUB_IDS.connected, 'off');
+    mock.setState(HUB_IDS.connected, 'on');
+    expect(hyperhdrLink(mock.hass, buildAmbilightModel(mock.hass, config())).state).toBe('waiting');
   });
 
   it('works with the firmware from before HyperHDR', async () => {

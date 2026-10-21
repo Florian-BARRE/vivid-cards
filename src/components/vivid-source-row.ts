@@ -23,7 +23,7 @@ export interface SourceItem {
   name: string;
   icon: string;
   available: boolean;
-  /** Second line under the name (the input number by default). */
+  /** Second line under the name (none by default). */
   hint?: string;
 }
 
@@ -91,7 +91,7 @@ export class VividSourceRow extends LitElement {
         align-items: center;
         gap: 3px;
         min-width: 0;
-        padding: 8px 2px 6px;
+        padding: 7px 2px 7px;
         border-radius: 16px;
         background: var(--vivid-layer-1);
         user-select: none;
@@ -168,14 +168,13 @@ export class VividSourceRow extends LitElement {
         box-shadow: inset 0 0 0 1.5px rgba(var(--fail-rgb), 0.7);
         animation: shake 0.42s ease;
       }
-      .hint.phase {
-        font-weight: 600;
+      .name.phase {
         color: rgb(var(--source-rgb));
       }
-      .hint.ok {
+      .name.ok {
         color: var(--success-color, #66bb6a);
       }
-      .hint.fail {
+      .name.fail {
         color: rgb(var(--fail-rgb));
       }
       /* IR waves leaving the disc while the command is out. */
@@ -269,13 +268,15 @@ export class VividSourceRow extends LitElement {
           ? 'mdi:alert'
           : item.icon;
     const labels = this.labels;
-    const hint =
+    // The send's state takes the name's place for a moment: the tile keeps its height.
+    const name =
       phase && phase !== 'remote' && labels
         ? html`<span
-            class=${classMap({ hint: true, phase: true, ok: phase === 'ok', fail: phase === 'fail' })}
+            class=${classMap({ name: true, phase: true, ok: phase === 'ok', fail: phase === 'fail' })}
             >${labels[phase]}</span
           >`
-        : html`<span class="hint">${item.hint ?? String(index + 1)}</span>`;
+        : html`<span class="name">${item.name}</span>`;
+    const hint = item.hint ? html`<span class="hint">${item.hint}</span>` : nothing;
     return html`<button
       type="button"
       class=${classMap({
@@ -300,8 +301,7 @@ export class VividSourceRow extends LitElement {
         })}
         ><ha-icon .icon=${icon}></ha-icon
       ></span>
-      <span class="name">${item.name}</span>
-      ${hint}
+      ${name} ${hint}
     </button>`;
   }
 
