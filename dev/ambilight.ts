@@ -57,6 +57,21 @@ const SCENARIOS: {
     title: fr ? 'Ancien firmware (sans HyperHDR)' : 'Firmware before HyperHDR',
     scenario: { legacy: true },
   },
+  {
+    title: fr ? 'Icône seule · toutes les valeurs' : 'Icon only · every value',
+    scenario: {},
+    config: { source_display: 'icon', info: ['box', 'cpu', 'fan', 'humidity', 'rpm'] },
+  },
+  {
+    title: fr ? 'Nom seul' : 'Name only',
+    scenario: {},
+    config: { source_display: 'name' },
+  },
+  {
+    title: fr ? 'Disposition tuiles (avant)' : 'Tiles layout (before)',
+    scenario: {},
+    config: { layout: 'tiles' },
+  },
 ];
 
 type Card = HTMLElement & {

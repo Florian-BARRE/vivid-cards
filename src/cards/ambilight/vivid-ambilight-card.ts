@@ -9,14 +9,16 @@ import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register
 import { localize } from '../../i18n';
 import { buttonReset, tokens } from '../../components/shared-styles';
 import { VividDialog } from '../../components/vivid-dialog';
+import { VividPopover } from '../../components/vivid-popover';
 import '../../components/vivid-source-row';
-import type { SourcePhase } from '../../components/vivid-source-row';
+import { SOURCE_RGB, type SourcePhase } from '../../components/vivid-source-row';
 import { watchedChanged } from '../led-group/model';
 import {
   AMBILIGHT_CARD,
   DEFAULT_PREFIX,
   resolveAmbilightConfig,
   type AmbilightCardConfig,
+  type AmbilightInfo,
   type ResolvedAmbilightConfig,
 } from './config';
 import {
@@ -30,11 +32,13 @@ import {
 } from './model';
 import {
   FAN_RGB,
+  GREEN,
   RED,
   fixed,
   healthColor,
   healthIcon,
   overheatOf,
+  piStatusText,
   piText,
   piTone,
   sourceLabels,
@@ -86,6 +90,11 @@ export class VividAmbilightCard extends LitElement {
   /** Registry the devices were last looked up in. */
   private resolvedFor?: HomeAssistant['entities'];
   private dialog?: VividDialog;
+  /** The input menu of the line layout. */
+  private menu?: VividPopover;
+  private menuOpen = false;
+  /** Input index of each item of the menu (hidden inputs are left out). */
+  private menuIndexes: number[] = [];
   private pending?: PendingSend;
   private pendingTimer?: number;
   private phaseTimers = new Map<number, number>();
@@ -135,11 +144,13 @@ export class VividAmbilightCard extends LitElement {
   }
 
   getCardSize(): number {
-    return 3;
+    return this._config?.layout === 'tiles' ? 3 : 1;
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, min_columns: 6, rows: 3, min_rows: 3 };
+    return this._config?.layout === 'tiles'
+      ? { columns: 12, min_columns: 6, rows: 3, min_rows: 3 }
+      : { columns: 12, min_columns: 6, rows: 1, min_rows: 1 };
   }
 
   static override styles = [
@@ -372,12 +383,234 @@ export class VividAmbilightCard extends LitElement {
           font-size: 15px;
         }
       }
+      /* ------------------------------ line layout ------------------------------ */
+      .panel.compact {
+        padding: 8px;
+      }
+      .name-row {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+      }
+      .name-row .name {
+        flex: 0 1 auto;
+        min-width: 4.5em;
+      }
+      /* Values that do not fit go whole, to a second line that is hidden. */
+      .inline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 18px 7px;
+        flex: 1 1 0;
+        min-width: 0;
+        height: 18px;
+        overflow: hidden;
+      }
+      .title:has(.inline) .names {
+        flex: 1 1 auto;
+      }
+      .inline .value {
+        flex: none;
+        line-height: 18px;
+        font-size: 13.5px;
+      }
+      .inline .value ha-icon {
+        --mdc-icon-size: 14px;
+      }
+      .inline .value small {
+        font-size: 10.5px;
+      }
+      .source {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+        max-width: 42%;
+        height: 38px;
+        padding: 0 8px 0 4px;
+        box-sizing: border-box;
+        border-radius: 19px;
+        background: rgba(var(--source-rgb), 0.14);
+        box-shadow: inset 0 0 0 1.5px rgba(var(--source-rgb), 0.45);
+        color: color-mix(in srgb, rgb(var(--source-rgb)) 60%, var(--primary-text-color));
+        font-size: 13px;
+        font-weight: 600;
+        --source-rgb: ${unsafeCSS(SOURCE_RGB.join(', '))};
+        transition:
+          background 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+      .source.bare {
+        padding-left: 12px;
+      }
+      .source.iconic {
+        padding-right: 4px;
+        gap: 0;
+      }
+      .source:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .source.sending {
+        background: rgba(var(--source-rgb), 0.1);
+      }
+      .source.ok,
+      .source.remote {
+        --source-rgb: 102, 187, 106;
+      }
+      .source.fail {
+        --source-rgb: 255, 152, 0;
+        animation: shake 0.42s ease;
+      }
+      .sdisc {
+        position: relative;
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(var(--source-rgb), 0.28);
+        color: rgb(var(--source-rgb));
+      }
+      .sdisc ha-icon {
+        --mdc-icon-size: 17px;
+        display: inline-flex;
+      }
+      .stext {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .caret {
+        --mdc-icon-size: 16px;
+        display: inline-flex;
+        flex: none;
+        opacity: 0.7;
+      }
+      .source.iconic .caret {
+        display: none;
+      }
+      /* IR waves leaving the disc while the command is out. */
+      .sdisc.waves::before,
+      .sdisc.waves::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(var(--source-rgb), 0.9);
+        animation: wave 1.1s ease-out infinite;
+        pointer-events: none;
+      }
+      .sdisc.waves::after {
+        animation-delay: 0.55s;
+      }
+      .sdisc.pop {
+        animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      @keyframes wave {
+        from {
+          transform: scale(1);
+          opacity: 1;
+        }
+        to {
+          transform: scale(1.9);
+          opacity: 0;
+        }
+      }
+      @keyframes pop {
+        0% {
+          transform: scale(0.7);
+        }
+        60% {
+          transform: scale(1.14);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-3px);
+        }
+        50% {
+          transform: translateX(3px);
+        }
+        75% {
+          transform: translateX(-2px);
+        }
+      }
+      .piround {
+        display: grid;
+        place-items: center;
+        flex: none;
+        --vivid-glow-size: ${unsafeCSS(glowSize(38))};
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--disc-bg, var(--vivid-layer-2));
+        box-shadow: var(--disc-shadow, none);
+        color: var(--disc-color, var(--secondary-text-color));
+        transition:
+          background 0.25s ease,
+          box-shadow 0.25s ease;
+      }
+      .piround ha-icon {
+        --mdc-icon-size: 19px;
+        display: inline-flex;
+      }
+      .piround.armed {
+        background: color-mix(in srgb, var(--error-color, #ef5350) 30%, var(--vivid-layer-2));
+        box-shadow: 0 0 0 2px var(--error-color, #ef5350);
+        color: var(--error-color, #ef5350);
+        animation: pulse 1s ease-in-out infinite;
+      }
+      .piround.stopping {
+        color: rgb(255, 193, 7);
+        background: rgba(255, 193, 7, 0.18);
+      }
+      .piround:disabled {
+        cursor: default;
+      }
+      .piround:disabled:not(.stopping) {
+        opacity: 0.5;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 5px rgba(239, 83, 80, 0.25);
+        }
+      }
+      /* Narrow line: the values go one by one, then the input name. */
+      @container (max-width: 370px) {
+        .source:not(.bare) .stext {
+          display: none;
+        }
+        .source:not(.bare) .caret {
+          display: none;
+        }
+        .source:not(.bare) {
+          padding-right: 4px;
+        }
+      }
       .warning {
         padding: 16px;
         color: var(--error-color, #db4437);
       }
       @media (prefers-reduced-motion: reduce) {
-        .disc.spin ha-icon {
+        .disc.spin ha-icon,
+        .sdisc.waves::before,
+        .sdisc.waves::after,
+        .sdisc.pop,
+        .source.fail,
+        .piround.armed {
           animation: none;
         }
       }
@@ -392,6 +625,7 @@ export class VividAmbilightCard extends LitElement {
     for (const timer of this.phaseTimers.values()) window.clearTimeout(timer);
     this.phaseTimers.clear();
     this.dialog?.unmount();
+    this.closeMenu();
   }
 
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
@@ -415,6 +649,7 @@ export class VividAmbilightCard extends LitElement {
 
   protected override updated(): void {
     if (this.dialog?.open) this.renderDialogContent();
+    if (this.menuOpen) this.renderMenu();
   }
 
   /* ---------------------------------- sends --------------------------------- */
@@ -555,126 +790,326 @@ export class VividAmbilightCard extends LitElement {
 
   /* --------------------------------- render --------------------------------- */
 
-  private renderHead(model: AmbilightModel) {
-    const hass = this.hass;
+  /** The disc: the fan, spinning with its speed, lit by the health of the box. */
+  private renderDisc(model: AmbilightModel) {
     const color = healthColor(model);
     const alarm = model.alarms.some(
       (item) => item === 'overheat' || item === 'cpuoverheat' || item === 'stalled',
     );
     const tone = color ? tintTone(color, alarm ? 0.95 : 0.8) : undefined;
     const spin = model.online ? spinSeconds(model.fan.percentage) : undefined;
-    const status = statusLine(hass, model);
-    // Box temperature, and the Pi's CPU when HyperHDR sends it: the one that
-    // drives the fan stands out.
+    return html`<span
+      class=${classMap({ disc: true, spin: spin !== undefined })}
+      style=${styleMap({
+        '--disc-bg': tone?.background,
+        '--disc-shadow': tone?.shadow,
+        '--disc-color': tone?.iconColor,
+        '--spin': spin === undefined ? undefined : `${spin}s`,
+      })}
+      ><ha-icon .icon=${healthIcon(model)}></ha-icon
+    ></span>`;
+  }
+
+  private value(
+    icon: string,
+    color: string,
+    text: string,
+    unit: string,
+    alarm = false,
+    title = '',
+  ) {
+    return html`<span class=${classMap({ value: true, alarm })} title=${title}
+      ><ha-icon .icon=${icon} style=${styleMap({ color })}></ha-icon>${text}<small
+        >${unit}</small
+      ></span
+    >`;
+  }
+
+  /** The values chosen for the card, in their order. */
+  private renderValues(model: AmbilightModel, items: readonly AmbilightInfo[]) {
+    const hass = this.hass;
     const box = model.temperature ?? model.temperatureBmp;
-    const boxColor = box === undefined ? undefined : temperatureColor(box, overheatOf(model));
     const cpu = model.cpuTemperature;
-    const cpuColor =
-      cpu === undefined ? undefined : temperatureColor(cpu, model.cpu?.overheat.value ?? 80);
-    const byCpu = model.fan.source === 'cpu';
-    // The head has room for one temperature: the one that overheats, else
-    // the one that drives the fan.
     const boxHot = model.alarms.includes('overheat');
     const cpuHot = model.alarms.includes('cpuoverheat') && cpu !== undefined;
-    const showCpu = boxHot || cpuHot ? cpuHot : byCpu && cpu !== undefined;
-    const showBox = boxHot || !showCpu;
-    const speed = model.fan.percentage;
+    const muted = 'var(--secondary-text-color)';
+    const boxValue = () =>
+      this.value(
+        'mdi:thermometer',
+        box === undefined ? muted : rgbCss(temperatureColor(box, overheatOf(model))),
+        box === undefined ? '—' : fixed(hass, box, 1),
+        '°C',
+        boxHot,
+        localize(hass, 'amb_curve_box'),
+      );
+    const cpuValue = () =>
+      cpu === undefined
+        ? nothing
+        : this.value(
+            'mdi:cpu-64-bit',
+            rgbCss(temperatureColor(cpu, model.cpu?.overheat.value ?? 80)),
+            fixed(hass, cpu, 0),
+            '°C',
+            cpuHot,
+            localize(hass, 'amb_curve_cpu'),
+          );
+    return items.map((item) => {
+      switch (item) {
+        case 'temperature': {
+          // The temperature that overheats, else the one that drives the fan.
+          const showCpu =
+            boxHot || cpuHot ? cpuHot : model.fan.source === 'cpu' && cpu !== undefined;
+          return html`${boxHot || !showCpu ? boxValue() : nothing}${showCpu ? cpuValue() : nothing}`;
+        }
+        case 'box':
+          return boxValue();
+        case 'cpu':
+          return cpuValue();
+        case 'fan':
+          return this.value(
+            'mdi:fan',
+            rgbCss(model.fan.stalled ? RED : FAN_RGB),
+            model.fan.percentage === undefined ? '—' : String(model.fan.percentage),
+            '%',
+            model.fan.stalled,
+          );
+        case 'humidity':
+          return model.humidity === undefined
+            ? nothing
+            : this.value('mdi:water-percent', rgbCss(GREEN), fixed(hass, model.humidity, 0), '%');
+        case 'pressure':
+          return model.pressure === undefined
+            ? nothing
+            : this.value('mdi:gauge', muted, fixed(hass, model.pressure, 0), 'hPa');
+        case 'rpm':
+          return model.fan.rpm === undefined
+            ? nothing
+            : this.value('mdi:rotate-right', muted, fixed(hass, model.fan.rpm, 0), 'rpm');
+        default:
+          return nothing;
+      }
+    });
+  }
+
+  private renderPi(model: AmbilightModel, withLabel: boolean) {
+    const hass = this.hass;
     const pi = piTone(model.pi);
     const stopping = this.stopping !== undefined || model.power.stopping;
     const piLabel = stopping
       ? localize(hass, 'amb_stopping')
       : this.armed
         ? localize(hass, model.power.clean ? 'amb_shutdown_confirm' : 'amb_cut_confirm')
-        : localize(hass, 'amb_pi');
+        : withLabel
+          ? localize(hass, 'amb_pi')
+          : '';
     const piTitle = `${localize(hass, 'amb_pi_title')} · ${piText(hass, model.pi)}`;
-    return html`<div class="head">
-      <button
+    if (!withLabel) {
+      // The line: a round button, lit while the Pi is powered.
+      return html`<button
         type="button"
-        class="reset title"
-        title=${localize(hass, 'details')}
-        @click=${() => this.openDetails()}
-      >
-        <span
-          class=${classMap({ disc: true, spin: spin !== undefined })}
-          style=${styleMap({
-            '--disc-bg': tone?.background,
-            '--disc-shadow': tone?.shadow,
-            '--disc-color': tone?.iconColor,
-            '--spin': spin === undefined ? undefined : `${spin}s`,
-          })}
-          ><ha-icon .icon=${healthIcon(model)}></ha-icon
-        ></span>
-        <span class="names">
-          <span class="name">${model.name}</span>
-          <span class=${classMap({ status: true, [status.tone ?? 'plain']: true })}
-            >${status.text}</span
-          >
-        </span>
-      </button>
-      <button
-        type="button"
-        class="reset values"
-        title=${localize(hass, 'details')}
-        @click=${() => this.openDetails()}
-      >
-        ${
-          showBox
-            ? html`<span
-                class=${classMap({ value: true, alarm: model.alarms.includes('overheat') })}
-              >
-                <ha-icon
-                  icon="mdi:thermometer"
-                  style=${styleMap({ color: boxColor ? rgbCss(boxColor) : 'var(--secondary-text-color)' })}
-                ></ha-icon
-                >${box === undefined ? '—' : fixed(hass, box, 1)}<small>°C</small>
-              </span>`
-            : nothing
-        }
-        ${
-          showCpu && cpu !== undefined
-            ? html`<span
-                class=${classMap({ value: true, alarm: model.alarms.includes('cpuoverheat') })}
-                title=${localize(hass, 'amb_curve_cpu')}
-              >
-                <ha-icon
-                  icon="mdi:cpu-64-bit"
-                  style=${styleMap({ color: cpuColor ? rgbCss(cpuColor) : 'var(--secondary-text-color)' })}
-                ></ha-icon
-                >${fixed(hass, cpu, 1)}<small>°C</small>
-              </span>`
-            : nothing
-        }
-        <span class=${classMap({ value: true, alarm: model.fan.stalled })}>
-          <ha-icon
-            icon="mdi:fan"
-            style=${styleMap({ color: rgbCss(model.fan.stalled ? RED : FAN_RGB) })}
-          ></ha-icon
-          >${speed === undefined ? '—' : speed}<small>%</small>
-        </span>
-      </button>
-      <button
-        type="button"
-        class=${classMap({ reset: true, pi: true, armed: this.armed, stopping })}
+        class=${classMap({ reset: true, piround: true, on: model.relay.on, armed: this.armed, stopping })}
         role="switch"
         aria-checked=${model.relay.on ? 'true' : 'false'}
         aria-label=${piTitle}
         title=${piTitle}
         ?disabled=${!model.online || !model.relay.available || stopping}
+        style=${styleMap({
+          '--disc-bg': this.armed ? undefined : pi?.background,
+          '--disc-shadow': this.armed ? undefined : pi?.shadow,
+          '--disc-color': this.armed ? undefined : pi?.iconColor,
+        })}
         @click=${this.togglePi}
       >
-        <span
-          class="pid"
-          style=${styleMap({
-            '--disc-bg': this.armed ? undefined : pi?.background,
-            '--disc-shadow': this.armed ? undefined : pi?.shadow,
-            '--disc-color': this.armed ? 'var(--error-color, #ef5350)' : pi?.iconColor,
-          })}
-          ><ha-icon icon="mdi:raspberry-pi"></ha-icon
-        ></span>
-        <span class="label">${piLabel}</span>
-        <span class=${classMap({ switch: true, on: model.relay.on })}></span>
-      </button>
-    </div>`;
+        <ha-icon .icon=${stopping ? 'mdi:power-sleep' : 'mdi:raspberry-pi'}></ha-icon>
+      </button>`;
+    }
+    return html`<button
+      type="button"
+      class=${classMap({ reset: true, pi: true, armed: this.armed, stopping })}
+      role="switch"
+      aria-checked=${model.relay.on ? 'true' : 'false'}
+      aria-label=${piTitle}
+      title=${piTitle}
+      ?disabled=${!model.online || !model.relay.available || stopping}
+      @click=${this.togglePi}
+    >
+      <span
+        class="pid"
+        style=${styleMap({
+          '--disc-bg': this.armed ? undefined : pi?.background,
+          '--disc-shadow': this.armed ? undefined : pi?.shadow,
+          '--disc-color': this.armed ? 'var(--error-color, #ef5350)' : pi?.iconColor,
+        })}
+        ><ha-icon icon="mdi:raspberry-pi"></ha-icon
+      ></span>
+      ${piLabel ? html`<span class="label">${piLabel}</span>` : nothing}
+      <span class=${classMap({ switch: true, on: model.relay.on })}></span>
+    </button>`;
+  }
+
+  private renderNames(model: AmbilightModel, withValues: boolean) {
+    const config = this._config;
+    const hass = this.hass;
+    const stopping = this.stopping !== undefined || model.power.stopping;
+    // The line's Pi button has no label: its question and its shutdown show here.
+    const status =
+      withValues && this.armed
+        ? {
+            text: localize(hass, model.power.clean ? 'amb_shutdown_again' : 'amb_cut_again'),
+            tone: 'alarm' as const,
+          }
+        : withValues && stopping
+          ? {
+              text: model.power.status
+                ? piStatusText(hass, model.power.status)
+                : localize(hass, 'amb_stopping'),
+              tone: 'warn' as const,
+            }
+          : statusLine(hass, model);
+    return html`<span class="names">
+      <span class="name-row"
+        ><span class="name">${model.name}</span>${
+          withValues && config
+            ? html`<span class="inline">${this.renderValues(model, config.info)}</span>`
+            : nothing
+        }</span
+      >
+      ${
+        config?.showStatus === false && !this.armed && !stopping
+          ? nothing
+          : html`<span class=${classMap({ status: true, [status.tone ?? 'plain']: true })}
+              >${status.text}</span
+            >`
+      }
+    </span>`;
+  }
+
+  /* ------------------------------ input menu ------------------------------ */
+
+  /** The input the menu shows: the one being sent, else the active one. */
+  private shownInput(model: AmbilightModel): { index?: number; phase?: SourcePhase } {
+    const index =
+      this.pending?.index ??
+      (Object.keys(this.phases)
+        .map(Number)
+        .find((key) => this.phases[key] !== undefined) as number | undefined) ??
+      model.hdmi.active;
+    return { index, phase: index === undefined ? undefined : this.phases[index] };
+  }
+
+  private renderSourceChip(model: AmbilightModel) {
+    const hass = this.hass;
+    const config = this._config;
+    if (!config) return nothing;
+    const { index, phase } = this.shownInput(model);
+    const input = index === undefined ? undefined : model.hdmi.inputs[index];
+    const labels = sourceLabels(hass);
+    const icon =
+      phase === 'ok' || phase === 'remote'
+        ? 'mdi:check-bold'
+        : phase === 'fail'
+          ? 'mdi:alert'
+          : (input?.icon ?? 'mdi:video-input-hdmi');
+    const text =
+      phase && phase !== 'remote' ? labels[phase] : (input?.name ?? localize(hass, 'amb_source'));
+    const display = config.sourceDisplay;
+    // While a send is out, its state shows even when the menu shows the icon only.
+    const showText = display !== 'icon' || (phase !== undefined && phase !== 'remote');
+    return html`<button
+      type="button"
+      class=${classMap({
+        reset: true,
+        source: true,
+        [phase ?? 'idle']: true,
+        bare: display === 'name',
+        iconic: !showText,
+      })}
+      aria-haspopup="true"
+      aria-expanded=${this.menuOpen ? 'true' : 'false'}
+      title=${input?.name ?? localize(hass, 'amb_source')}
+      ?disabled=${!model.online}
+      @click=${this.toggleMenu}
+    >
+      ${
+        display === 'name' && !phase
+          ? nothing
+          : html`<span
+              class=${classMap({ sdisc: true, waves: phase === 'sending', pop: phase === 'ok' || phase === 'remote' })}
+              ><ha-icon .icon=${icon}></ha-icon
+            ></span>`
+      }
+      ${showText ? html`<span class="stext">${text}</span>` : nothing}
+      <ha-icon class="caret" icon="mdi:chevron-down"></ha-icon>
+    </button>`;
+  }
+
+  private readonly toggleMenu = (event: Event): void => {
+    event.stopPropagation();
+    if (this.menuOpen) this.closeMenu();
+    else this.openMenu();
+  };
+
+  private openMenu(): void {
+    const anchor = this.renderRoot.querySelector<HTMLElement>('.source');
+    if (!anchor || !this.model) return;
+    if (!this.menu) {
+      this.menu = new VividPopover();
+      this.menu.addEventListener('vivid-popover-close-request', () => this.closeMenu());
+      this.menu.addEventListener('vivid-source-select', ((
+        event: CustomEvent<{ index: number }>,
+      ) => {
+        const target = this.menuIndexes[event.detail.index];
+        this.closeMenu();
+        if (target !== undefined)
+          this.selectSource(new CustomEvent('x', { detail: { index: target } }));
+      }) as EventListener);
+    }
+    haptic(this, 'light');
+    this.menuOpen = true;
+    this.renderMenu();
+    this.menu.show(anchor);
+  }
+
+  private closeMenu(): void {
+    this.menuOpen = false;
+    this.menu?.hide();
+  }
+
+  private renderMenu(): void {
+    const menu = this.menu;
+    const model = this.model;
+    const config = this._config;
+    if (!menu || !model || !config) return;
+    for (const [name, value] of Object.entries(glowVars(config.glow))) {
+      menu.style.setProperty(name, value);
+    }
+    // Hidden inputs stay out of the menu, the active one too if it is hidden.
+    this.menuIndexes = model.hdmi.inputs
+      .map((_, index) => index)
+      .filter((index) => !config.inputs[index]?.hidden);
+    const items = this.menuIndexes.map((index) => {
+      const input = model.hdmi.inputs[index];
+      return {
+        name: input?.name ?? '',
+        icon: input?.icon ?? 'mdi:video-input-hdmi',
+        available: model.online && (input?.available ?? false),
+      };
+    });
+    const phases: Partial<Record<number, SourcePhase>> = {};
+    this.menuIndexes.forEach((index, at) => {
+      const phase = this.phases[index];
+      if (phase) phases[at] = phase;
+    });
+    const active =
+      model.hdmi.active === undefined ? -1 : this.menuIndexes.indexOf(model.hdmi.active);
+    menu.label = localize(this.hass, 'amb_source');
+    menu.content = html`<vivid-source-row
+      size="large"
+      .items=${items}
+      .active=${active < 0 ? undefined : active}
+      .phases=${phases}
+      .labels=${sourceLabels(this.hass)}
+    ></vivid-source-row>`;
   }
 
   protected override render() {
@@ -694,20 +1129,45 @@ export class VividAmbilightCard extends LitElement {
       icon: input.icon,
       available: model.online && input.available,
     }));
+    const title = html`<button
+      type="button"
+      class="reset title"
+      title=${localize(this.hass, 'details')}
+      @click=${() => this.openDetails()}
+    >
+      ${this.renderDisc(model)}${this.renderNames(model, config.layout === 'line')}
+    </button>`;
+    const body =
+      config.layout === 'line'
+        ? html`<div class="head line">
+            ${title}${this.renderSourceChip(model)}${config.showPi ? this.renderPi(model, false) : nothing}
+          </div>`
+        : html`<div class="head">
+              ${title}
+              <button
+                type="button"
+                class="reset values"
+                title=${localize(this.hass, 'details')}
+                @click=${() => this.openDetails()}
+              >
+                ${this.renderValues(model, config.info)}
+              </button>
+              ${config.showPi ? this.renderPi(model, true) : nothing}
+            </div>
+            <vivid-source-row
+              .items=${items}
+              .active=${model.hdmi.active}
+              .phases=${this.phases}
+              .labels=${sourceLabels(this.hass)}
+              ?disabled=${!model.online}
+              @vivid-source-select=${this.selectSource}
+            ></vivid-source-row>`;
     return html`<ha-card>
       <div
-        class=${classMap({ panel: true, offline: !model.online })}
+        class=${classMap({ panel: true, offline: !model.online, compact: config.layout === 'line' })}
         style=${styleMap(glowVars(config.glow))}
       >
-        ${this.renderHead(model)}
-        <vivid-source-row
-          .items=${items}
-          .active=${model.hdmi.active}
-          .phases=${this.phases}
-          .labels=${sourceLabels(this.hass)}
-          ?disabled=${!model.online}
-          @vivid-source-select=${this.selectSource}
-        ></vivid-source-row>
+        ${body}
       </div>
     </ha-card>`;
   }

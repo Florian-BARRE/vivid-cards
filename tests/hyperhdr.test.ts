@@ -13,20 +13,41 @@ import {
   instanceColor,
   vivid,
 } from '../src/cards/hyperhdr/model';
-import { hubStatus, instanceStatus } from '../src/cards/hyperhdr/view';
+import { hubLine, hubStatus, instanceStatus, stripLine } from '../src/cards/hyperhdr/view';
 import { edgeColors, frameGradient } from '../src/cards/hyperhdr/vivid-hyperhdr-screen';
 import type { Rgb } from '../src/core/hass-types';
 
 describe('hyperhdr config', () => {
-  it('defaults to the hub and every strip, with the picture', () => {
+  it('defaults to the hub and every strip, as lines', () => {
     const config = resolveHyperHdrConfig({ type: 'custom:vivid-hyperhdr-card' });
-    expect(config).toMatchObject({ mode: 'all', picture: true, glow: 100 });
+    expect(config).toMatchObject({
+      mode: 'all',
+      glow: 100,
+      showStrips: true,
+      showPower: true,
+      pictureTimeout: 120,
+      hubInfo: ['input', 'video_mode', 'capture_fps'],
+      hubValues: ['temperature', 'cpu'],
+      stripInfo: ['source', 'device', 'fps'],
+      stripIcons: ['hdr'],
+    });
   });
 
   it('keeps a known mode and drops an unknown one', () => {
-    expect(resolveHyperHdrConfig({ type: 'x', mode: 'strip', picture: false }).mode).toBe('strip');
+    expect(resolveHyperHdrConfig({ type: 'x', mode: 'strip' }).mode).toBe('strip');
     expect(resolveHyperHdrConfig({ type: 'x', mode: 'nope' as never }).mode).toBe('all');
-    expect(resolveHyperHdrConfig({ type: 'x', mode: 'strip', picture: false }).picture).toBe(false);
+  });
+
+  it('keeps the known items in their order, once', () => {
+    const config = resolveHyperHdrConfig({
+      type: 'x',
+      strip_info: ['fps', 'nope', 'source', 'fps'],
+      hub_values: [],
+      picture_timeout: 42,
+    });
+    expect(config.stripInfo).toEqual(['fps', 'source']);
+    expect(config.hubValues).toEqual([]);
+    expect(config.pictureTimeout).toBe(120);
   });
 });
 
@@ -144,10 +165,49 @@ describe('hyperhdr model', () => {
     const { hass } = createHyperHdrMock();
     const model = buildModel(hass, findDevices(hass), SERVER_DEVICE);
     expect(model.instances.map((item) => instanceStatus(undefined, item))).toEqual([
-      'Northern lights · 60\u00a0% · 58 fps',
+      'Northern lights · WLED · 192.168.1.43 · 60\u00a0% · 58 fps',
       'Off',
-      'Capture · 78\u00a0% · 58 fps',
+      'Capture · WLED · 192.168.1.42 · 78\u00a0% · 58 fps',
     ]);
+  });
+
+  it('writes the lines of the compact card', () => {
+    const { hass } = createHyperHdrMock();
+    const model = buildModel(hass, findDevices(hass), SERVER_DEVICE);
+    const config = resolveHyperHdrConfig({ type: 'x' });
+    expect(
+      model.instances.map((item) => stripLine(undefined, item, config.stripInfo).text),
+    ).toEqual([
+      'Northern lights · WLED · 192.168.1.43 · 58 fps',
+      'Off · WLED · 192.168.1.44',
+      'Capture · WLED · 192.168.1.42 · 58 fps',
+    ]);
+    const hub = model.hub;
+    expect(hub).toBeDefined();
+    if (!hub) return;
+    expect(hubLine(undefined, hub, model.strips, config.hubInfo).text).toBe(
+      'USB Video · 1920×1080 · 60 Hz · 60 fps',
+    );
+    expect(hubLine(undefined, hub, model.strips, ['temperature', 'cpu', 'strips']).text).toBe(
+      '52\u00a0°C · CPU 23\u00a0% · 2 strips on',
+    );
+  });
+
+  it('says when the LED output is off', async () => {
+    const mock = createHyperHdrMock();
+    const devices = findDevices(mock.hass);
+    const tv = buildModel(mock.hass, devices, SERVER_DEVICE).instances.find(
+      (item) => item.name === 'TV',
+    );
+    const led = tv?.toggles.led_output?.entity;
+    expect(led).toBeDefined();
+    if (!led) return;
+    await mock.hass.callService('switch', 'turn_off', {}, { entity_id: led });
+    const after = buildModel(mock.hass, findDevices(mock.hass), SERVER_DEVICE).instances.find(
+      (item) => item.name === 'TV',
+    );
+    expect(after && stripLine(undefined, after, ['source']).tone).toBe('warn');
+    expect(after && stripLine(undefined, after, ['source']).text).toBe('LED output off · Capture');
   });
 });
 

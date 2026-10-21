@@ -122,7 +122,30 @@ export type EntityMap = Record<EntityKey, string>;
 export interface AmbilightInputConfig {
   name?: string;
   icon?: string;
+  /** Left out of the input menu of the compact card. */
+  hidden?: boolean;
 }
+
+/** `line`: one line with the input as a menu; `tiles`: the head and a row of input tiles. */
+export type AmbilightLayout = 'line' | 'tiles';
+export const LAYOUTS: AmbilightLayout[] = ['line', 'tiles'];
+
+/** How the input menu shows the active input. */
+export type SourceDisplay = 'both' | 'icon' | 'name';
+export const SOURCE_DISPLAYS: SourceDisplay[] = ['both', 'icon', 'name'];
+
+/** Values next to the name, in this order. */
+export const AMB_INFO = [
+  'temperature',
+  'box',
+  'cpu',
+  'fan',
+  'humidity',
+  'pressure',
+  'rpm',
+] as const;
+export type AmbilightInfo = (typeof AMB_INFO)[number];
+export const DEFAULT_AMB_INFO: AmbilightInfo[] = ['temperature', 'fan', 'humidity'];
 
 export interface AmbilightCardConfig extends LovelaceCardConfig {
   /** The Ambilight manager device (ESPHome): its entities are found from it. */
@@ -140,12 +163,22 @@ export interface AmbilightCardConfig extends LovelaceCardConfig {
   confirm_pi_off?: boolean;
   /** Entities that do not follow the prefix. */
   entities?: Partial<Record<EntityKey, string>>;
+  layout?: AmbilightLayout;
+  /** The input menu: icon and name, icon only, name only. */
+  source_display?: SourceDisplay;
+  /** Values next to the name. */
+  info?: string[];
+  /** The line under the name (alarms, mode, Pi). */
+  show_status?: boolean;
+  /** The Pi's switch. */
+  show_pi?: boolean;
   glow?: GlowSetting;
 }
 
 export interface ResolvedInput {
   name: string;
   icon: string;
+  hidden: boolean;
 }
 
 export interface ResolvedAmbilightConfig {
@@ -155,6 +188,11 @@ export interface ResolvedAmbilightConfig {
   inputs: ResolvedInput[];
   sendCounterEntity?: string;
   confirmPiOff: boolean;
+  layout: AmbilightLayout;
+  sourceDisplay: SourceDisplay;
+  info: AmbilightInfo[];
+  showStatus: boolean;
+  showPi: boolean;
   glow: number;
 }
 
@@ -179,10 +217,11 @@ function resolveInput(
 ): ResolvedInput {
   const fallback = `HDMI ${index + 1}`;
   if (typeof value === 'string')
-    return { name: value.trim() || fallback, icon: DEFAULT_INPUT_ICON };
+    return { name: value.trim() || fallback, icon: DEFAULT_INPUT_ICON, hidden: false };
   return {
     name: value?.name?.trim() || fallback,
     icon: value?.icon?.trim() || DEFAULT_INPUT_ICON,
+    hidden: value?.hidden === true,
   };
 }
 
@@ -224,6 +263,20 @@ export function resolveAmbilightConfig(
     inputs,
     sendCounterEntity: optionalEntity(config.send_counter_entity),
     confirmPiOff: config.confirm_pi_off !== false,
+    layout: LAYOUTS.includes(config.layout as AmbilightLayout)
+      ? (config.layout as AmbilightLayout)
+      : 'line',
+    sourceDisplay: SOURCE_DISPLAYS.includes(config.source_display as SourceDisplay)
+      ? (config.source_display as SourceDisplay)
+      : 'both',
+    info: Array.isArray(config.info)
+      ? config.info.filter(
+          (item, index, list): item is AmbilightInfo =>
+            (AMB_INFO as readonly string[]).includes(item) && list.indexOf(item) === index,
+        )
+      : [...DEFAULT_AMB_INFO],
+    showStatus: config.show_status !== false,
+    showPi: config.show_pi !== false,
     glow: glowPercent(config.glow) ?? 100,
   };
 }

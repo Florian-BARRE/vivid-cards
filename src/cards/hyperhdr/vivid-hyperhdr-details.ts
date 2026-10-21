@@ -90,6 +90,7 @@ export class VividHyperHdrDetails extends LitElement {
     instances: { attribute: false },
     sampled: { attribute: false },
     initialTab: { attribute: false },
+    pictureTimeout: { attribute: false },
     tab: { state: true },
     picking: { state: true },
   };
@@ -99,6 +100,8 @@ export class VividHyperHdrDetails extends LitElement {
   declare instance?: InstanceModel;
   declare instances: InstanceModel[];
   declare sampled?: Rgb[];
+  /** Seconds the picture plays once asked. */
+  declare pictureTimeout: number;
   /** Set when the dialog opens: the tab to show first. */
   declare initialTab?: DetailsTab;
   declare tab: DetailsTab;
@@ -107,6 +110,7 @@ export class VividHyperHdrDetails extends LitElement {
 
   constructor() {
     super();
+    this.pictureTimeout = 120;
     this.instances = [];
     this.tab = 'overview';
   }
@@ -575,6 +579,15 @@ export class VividHyperHdrDetails extends LitElement {
       ${
         camera
           ? html`<vivid-hyperhdr-screen
+              onDemand
+              .timeout=${this.pictureTimeout}
+              .labels=${{
+                show: localize(hass, 'hh_show_screen'),
+                extend: localize(hass, 'hh_extend'),
+                stop: localize(hass, 'hh_stop'),
+                live: localize(hass, 'hh_live'),
+                ended: localize(hass, 'hh_screen_ended'),
+              }}
               .hass=${hass}
               .camera=${camera}
               .fallback=${tintFrame(instance.on ? rgb : [70, 70, 70])}

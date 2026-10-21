@@ -15,8 +15,129 @@ import {
   ORANGE,
   RED,
 } from './model';
+import type { HubInfo, StripInfo } from './config';
 
 export { fixed };
+
+const DEVICE_NAMES: Record<string, string> = {
+  wled: 'WLED',
+  adalight: 'Adalight',
+  awa_spi: 'AWA SPI',
+  philipshue: 'Hue',
+  udpraw: 'UDP',
+  udpe131: 'E1.31',
+  udpartnet: 'Art-Net',
+  udph801: 'H801',
+  ws2812spi: 'WS2812 SPI',
+  apa102: 'APA102',
+  file: 'File',
+};
+
+/** "WLED · 192.168.1.42": the LED device a strip sends to. */
+export function deviceText(model: InstanceModel): string | undefined {
+  const device = model.device;
+  if (!device) return undefined;
+  const name = DEVICE_NAMES[device.type.toLowerCase()] ?? device.type;
+  return [name, device.address].filter(Boolean).join(' · ');
+}
+
+/** The strip's second line, made of `items`: "Capture · WLED · 192.168.1.42 · 58 fps". */
+export function stripLine(
+  hass: HomeAssistant | undefined,
+  model: InstanceModel,
+  items: readonly StripInfo[],
+): { text: string; tone: Tone } {
+  if (!model.available) return { text: localize(hass, 'unavailable'), tone: 'warn' };
+  const ledOff = model.toggles.led_output?.on === false;
+  const parts = items.map((item) => {
+    switch (item) {
+      case 'source':
+        return model.on ? sourceText(hass, model) : localize(hass, 'off');
+      case 'device':
+        return deviceText(model);
+      case 'fps': {
+        const fps = model.ledFps ?? model.outputFps;
+        return model.on && fps !== undefined
+          ? localize(hass, 'hh_fps', { n: fixed(hass, fps, 0) })
+          : undefined;
+      }
+      case 'leds':
+        return model.ledCount === undefined
+          ? undefined
+          : localize(hass, 'hh_leds', { n: fixed(hass, model.ledCount, 0) });
+      case 'brightness':
+        return model.on && model.brightness !== undefined
+          ? `${fixed(hass, model.brightness, 0)}\u00a0%`
+          : undefined;
+      default:
+        return undefined;
+    }
+  });
+  if (model.on && ledOff) parts.unshift(localize(hass, 'hh_led_output_off'));
+  const text = parts.filter(Boolean).join(' · ');
+  return {
+    text: text || localize(hass, model.on ? 'on' : 'off'),
+    tone: model.on && ledOff ? 'warn' : 'plain',
+  };
+}
+
+/** The hub's second line, made of `items`, or its problem first. */
+export function hubLine(
+  hass: HomeAssistant | undefined,
+  hub: HubModel,
+  instances: InstanceModel[],
+  items: readonly HubInfo[],
+): { text: string; tone: Tone } {
+  if (hub.health === 'offline') return { text: localize(hass, 'hh_offline'), tone: 'alarm' };
+  const on = instances.filter((item) => item.on).length;
+  const parts: (string | undefined)[] = items.map((item) => {
+    switch (item) {
+      case 'input':
+        return hub.grabber;
+      case 'video_mode':
+        return hub.videoMode;
+      case 'capture_fps':
+        return hub.captureFps === undefined
+          ? undefined
+          : (hub.captureFps ?? 0) > 0
+            ? localize(hass, 'hh_fps', { n: fixed(hass, hub.captureFps, 0) })
+            : localize(hass, 'hh_no_signal');
+      case 'temperature':
+        return hub.temperature === undefined
+          ? undefined
+          : `${fixed(hass, hub.temperature, 0)}\u00a0°C`;
+      case 'cpu':
+        return hub.cpu === undefined
+          ? undefined
+          : `${localize(hass, 'hh_cpu')} ${fixed(hass, hub.cpu, 0)}\u00a0%`;
+      case 'memory':
+        return hub.memory === undefined
+          ? undefined
+          : `${localize(hass, 'hh_ram')} ${fixed(hass, hub.memory, 0)}\u00a0%`;
+      case 'version':
+        return hub.version;
+      case 'strips':
+        return instances.length === 0
+          ? undefined
+          : on === 0
+            ? localize(hass, 'hh_strips_none')
+            : on === 1
+              ? localize(hass, 'hh_strips_one')
+              : localize(hass, 'hh_strips_other', { count: on });
+      default:
+        return undefined;
+    }
+  });
+  let tone: Tone = 'plain';
+  if (hub.undervoltage) {
+    parts.unshift(localize(hass, 'hh_undervoltage_detected'));
+    tone = 'alarm';
+  } else if ((hub.temperature ?? 0) >= TEMP_WARN) {
+    parts.unshift(localize(hass, 'hh_hot'));
+    tone = hub.health === 'alarm' ? 'alarm' : 'warn';
+  }
+  return { text: parts.filter(Boolean).join(' · ') || hub.name, tone };
+}
 
 export function sourceText(hass: HomeAssistant | undefined, model: InstanceModel): string {
   switch (model.source) {
@@ -39,6 +160,7 @@ export function instanceStatus(hass: HomeAssistant | undefined, model: InstanceM
   if (!model.on) return localize(hass, 'off');
   return [
     sourceText(hass, model),
+    deviceText(model),
     model.brightness === undefined ? undefined : `${fixed(hass, model.brightness, 0)}\u00a0%`,
     model.outputFps === undefined
       ? undefined
