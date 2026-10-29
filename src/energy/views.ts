@@ -422,6 +422,12 @@ export interface CurveView {
 }
 
 /** Dates (YYYY-MM-DD) with a full hourly curve: at least 20 hours of data. */
+/**
+ * Hourly rows a day needs to be drawn hour by hour: fewer means the meter only
+ * sends one row a day (or the day is not over), and that row is not an hour.
+ */
+export const CURVE_MIN_HOURS = 20;
+
 export function curveDates(hourly: readonly Change[]): string[] {
   const counts = new Map<string, number>();
   for (const item of hourly) {
@@ -429,7 +435,7 @@ export function curveDates(hourly: readonly Change[]): string[] {
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return [...counts.entries()]
-    .filter(([, count]) => count >= 20)
+    .filter(([, count]) => count >= CURVE_MIN_HOURS)
     .map(([key]) => key)
     .sort();
 }
@@ -453,7 +459,7 @@ export function loadCurve(
     slot.kwh += Math.max(0, item.change);
     count += 1;
   }
-  if (!count) return undefined;
+  if (count < CURVE_MIN_HOURS) return undefined;
   let peakKwh = 0;
   let offPeakKwh = 0;
   for (const slot of hours) {
@@ -483,4 +489,11 @@ export function loadCurve(
 /** Energy cost of a set of days, subscription excluded. */
 export function energyOf(days: readonly DayRecord[], tariff: Tariff): number {
   return days.reduce((sum, day) => sum + energyCostOf(day, tariff), 0);
+}
+
+/** The busiest hour of a curve, or undefined when nothing was drawn. */
+export function busiestHour(curve: CurveView): { hour: number; kwh: number } | undefined {
+  let best: { hour: number; kwh: number } | undefined;
+  for (const slot of curve.hours) if (slot.kwh > 0 && (!best || slot.kwh > best.kwh)) best = slot;
+  return best ? { hour: best.hour, kwh: best.kwh } : undefined;
 }

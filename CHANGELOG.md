@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.6] - 2026-10-29
+
+### Added
+
+- `vivid-energy-calendar`: the detail of a clicked day shows its consumption
+  hour by hour, amber for peak hours and indigo for off-peak hours, over the
+  off-peak bands, with the busiest hour pointed out. Until the meter sends
+  hourly data, the detail says so.
+
+### Fixed
+
+- A day sent by the meter as a single daily row is no longer drawn as one
+  bar at midnight: a day needs at least 20 hourly rows to be drawn.
+
 ## [0.15.5] - 2026-10-29
 
 ### Fixed
