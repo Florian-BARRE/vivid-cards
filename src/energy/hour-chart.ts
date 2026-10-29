@@ -59,6 +59,13 @@ export class VividHourChart extends LitElement {
         color: var(--primary-text-color);
         overflow: visible;
       }
+      .label,
+      .peak-label {
+        paint-order: stroke;
+        stroke: var(--ha-card-background, var(--card-background-color, #1c1c1c));
+        stroke-width: 3px;
+        stroke-linejoin: round;
+      }
       .label {
         font-size: 11px;
         fill: var(--secondary-text-color);

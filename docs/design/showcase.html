@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vivid Cards dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        width: 1600px;
+        height: 1060px;
+        overflow: hidden;
+        padding: 46px 56px;
+        font-family: 'Inter', system-ui, sans-serif;
+        color: #f2f0f7;
+        background:
+          radial-gradient(700px 480px at 0% 0%, rgba(255, 140, 50, 0.16), transparent 70%),
+          radial-gradient(800px 520px at 100% 100%, rgba(138, 63, 252, 0.22), transparent 70%),
+          radial-gradient(600px 400px at 60% 40%, rgba(79, 195, 247, 0.06), transparent 70%),
+          #0e0d13;
+      }
+      .window {
+        height: 100%;
+        border-radius: 28px;
+        background: rgba(17, 17, 17, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 64px;
+        padding: 0 26px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .dots {
+        display: flex;
+        gap: 8px;
+      }
+      .dots i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: block;
+        background: #3a3842;
+      }
+      .bar img.logo {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+      }
+      .bar b {
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .bar span {
+        color: #8f8b9c;
+        font-size: 15px;
+      }
+      .bar .badges {
+        margin-left: auto;
+        height: 36px;
+      }
+      .grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+        padding: 24px 26px;
+        align-items: start;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .col h3 {
+        margin: 0 0 -4px 4px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #9b97a8;
+        letter-spacing: 0.2px;
+      }
+      .col img {
+        width: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="window">
+      <div class="bar">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <img class="logo" src="../assets/logo.svg" />
+        <b>Home</b><span>Living room · Electricity · Climate</span>
+      </div>
+      <div class="grid">
+        <div class="col">
+          <h3>Living room</h3>
+          <img src="crops/light-wled.png" />
+          <img src="crops/pi.png" />
+          <img src="crops/screen.png" />
+          <img src="crops/hdmi.png" />
+        </div>
+        <div class="col">
+          <h3>Electricity</h3>
+          <img src="crops/bill-line.png" />
+          <img src="crops/bill.png" />
+          <img src="crops/load-curve.png" />
+        </div>
+        <div class="col">
+          <h3>Climate &amp; consumption</h3>
+          <img src="crops/climate.png" />
+          <img src="crops/power.png" />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
