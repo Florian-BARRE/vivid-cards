@@ -1,6 +1,6 @@
 {
   "name": "vivid-cards",
-  "version": "0.15.6",
+  "version": "0.16.0",
   "description": "Expressive Lovelace cards for Home Assistant: LED groups, WLED, live glow badges.",
   "keywords": [
     "home-assistant",
@@ -36,7 +36,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "docs:shots": "node scripts/docs-shots.mjs",
+    "docs:design": "python3 docs/design/crop.py && node docs/design/render.mjs"
   },
   "dependencies": {
     "lit": "^3.3.3"

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Vivid Cards banner</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        position: relative;
+        font-family: 'Inter', system-ui, sans-serif;
+        color: #f2f0f7;
+        background:
+          radial-gradient(520px 380px at 8% 6%, rgba(255, 140, 50, 0.2), transparent 70%),
+          radial-gradient(620px 460px at 92% 96%, rgba(138, 63, 252, 0.3), transparent 70%),
+          radial-gradient(520px 420px at 66% 18%, rgba(255, 95, 109, 0.16), transparent 70%),
+          radial-gradient(420px 320px at 40% 110%, rgba(79, 195, 247, 0.14), transparent 70%),
+          #0e0d13;
+      }
+      .grain {
+        position: absolute;
+        inset: 0;
+        opacity: 0.08;
+        pointer-events: none;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.6) 0.6px, transparent 0.6px);
+        background-size: 4px 4px;
+      }
+      .left {
+        position: absolute;
+        left: 64px;
+        top: 70px;
+        width: 520px;
+      }
+      .logo {
+        width: 92px;
+        height: 92px;
+        border-radius: 24px;
+        box-shadow: 0 18px 50px rgba(255, 95, 109, 0.35);
+      }
+      h1 {
+        margin: 34px 0 0;
+        font-size: 84px;
+        line-height: 0.95;
+        letter-spacing: -3px;
+        font-weight: 800;
+      }
+      h1 .vivid {
+        background: linear-gradient(100deg, #ffb347 0%, #ff5f6d 45%, #b25cff 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      p {
+        margin: 22px 0 0;
+        font-size: 23px;
+        line-height: 1.4;
+        color: #b9b5c6;
+        font-weight: 400;
+      }
+      p b {
+        color: #f2f0f7;
+        font-weight: 600;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-top: 30px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 15px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 15px;
+        font-weight: 600;
+        color: #e5e2ee;
+      }
+      .chip i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .stack {
+        position: absolute;
+        inset: 0;
+      }
+      .shot {
+        position: absolute;
+        border-radius: 16px;
+        box-shadow:
+          0 30px 70px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+      .glow {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        opacity: 0.55;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grain"></div>
+    <div
+      class="glow"
+      style="left: 760px; top: 60px; width: 360px; height: 220px; background: #ff7a45"
+    ></div>
+    <div
+      class="glow"
+      style="left: 940px; top: 380px; width: 300px; height: 200px; background: #7b5cff"
+    ></div>
+    <div class="stack">
+      <img
+        class="shot"
+        src="crops/screen.png"
+        style="left: 868px; top: 44px; width: 372px; transform: rotate(3deg)"
+      />
+      <img
+        class="shot"
+        src="crops/bill.png"
+        style="left: 620px; top: 118px; width: 330px; transform: rotate(-4deg)"
+      />
+      <img
+        class="shot"
+        src="crops/light-wled.png"
+        style="left: 812px; top: 330px; width: 400px; transform: rotate(1.5deg)"
+      />
+      <img
+        class="shot"
+        src="crops/pi.png"
+        style="left: 652px; top: 478px; width: 340px; transform: rotate(-2deg)"
+      />
+    </div>
+    <div class="left">
+      <img class="logo" src="../assets/logo.svg" />
+      <h1><span class="vivid">Vivid</span> Cards</h1>
+      <p>
+        Lovelace cards and badges for Home Assistant that <b>glow with the state of your home</b>:
+        lights, Ambilight, energy, climate.
+      </p>
+      <div class="chips">
+        <span class="chip"><i style="background: #ffb300"></i>Lights &amp; WLED</span>
+        <span class="chip"><i style="background: #ff8a3d"></i>Ambilight &amp; HyperHDR</span>
+        <span class="chip"><i style="background: #ff7043"></i>Electricity bill</span>
+        <span class="chip"><i style="background: #4fc3f7"></i>Climate</span>
+        <span class="chip"><i style="background: #9575cd"></i>Badges</span>
+      </div>
+    </div>
+  </body>
+</html>

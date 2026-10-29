@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.16.0] - 2026-10-29
+
+### Added
+
+- The parts of the large cards as cards of their own, each with a visual
+  editor:
+  - `vivid-fan-card`: the fan of the Ambilight box, its mode and its curve.
+  - `vivid-hdmi-card`: the HDMI inputs of the box as tiles.
+  - `vivid-pi-card`: the Raspberry Pi on one line, with its clean shutdown.
+  - `vivid-screen-card`: the live picture HyperHDR captures from the TV.
+  - `vivid-light-card`: one light as a tile; a WLED strip with its Settings
+    and Device panels.
+  - `vivid-power-card`: the consumption of a few devices over 6 h, 24 h or
+    7 days, with its cost.
+  - `vivid-climate-card`: one climate sensor and its history.
+- Documentation: one page per card and per badge family under `docs/`, with
+  screenshots in both themes, a new banner and a dashboard picture; the
+  screenshots are captured from the preview pages (`npm run docs:shots`).
+
+### Changed
+
+- The README is a short tour of the cards; the details moved to `docs/`.
+- The labels of the hour-by-hour charts stay readable over the bars.
+
 ## [0.15.6] - 2026-10-29
 
 ### Added
