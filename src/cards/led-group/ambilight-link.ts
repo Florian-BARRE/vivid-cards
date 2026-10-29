@@ -265,6 +265,25 @@ export function railAlert(model: AmbilightModel): RailAlert | undefined {
   return { alarm };
 }
 
+/**
+ * The screen's colors as the card draws them in Ambilight mode: warm, violet
+ * and cyan, cycled by an animation so it reads as a moving picture.
+ */
+export const SCREEN_RGB: Rgb[] = [
+  [255, 120, 40],
+  [195, 60, 255],
+  [0, 180, 216],
+];
+
+/**
+ * Colors of the rail's disc and switch: the screen's while it drives the
+ * strips, else the strips' own colors (the fixed color of the card).
+ */
+export function railTint(screen: boolean, lightColors: readonly Rgb[]): Rgb[] {
+  if (screen) return SCREEN_RGB;
+  return lightColors.length ? [...lightColors] : [];
+}
+
 /** Colors of the rail's disc: the captured ones, else the warm capture default. */
 export function railColors(drive: AmbilightDrive): Rgb[] {
   if (drive.colors.length > 1) return drive.colors;

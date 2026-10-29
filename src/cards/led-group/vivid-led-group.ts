@@ -16,6 +16,7 @@ import '../../components/vivid-light-tile';
 import {
   autoFold,
   buildAmbilightSide,
+  SCREEN_RGB,
   piRunning,
   screenMode,
   type AmbilightSide,
@@ -411,7 +412,7 @@ export class VividLedGroup extends LitElement {
     return html`<vivid-chip
       .icon=${'mdi:television-ambient-light'}
       .tooltip=${tooltip}
-      .tone=${toggleTone(on && usable)}
+      .tone=${on && usable ? lightTone(SCREEN_RGB, true) : toggleTone(false)}
       .pressed=${on}
       ?disabled=${!usable}
       @click=${this.toggleAmbilight}
@@ -420,7 +421,7 @@ export class VividLedGroup extends LitElement {
 
   /** Ambilight button, power button and fold chevron of the collapsible line. */
   private renderLineActions(model: LedGroupModel, config: ResolvedLedGroupConfig) {
-    const capture = this.side?.drive.driven.length ? this.side.drive.colors : undefined;
+    const capture = this.screen ? SCREEN_RGB : undefined;
     const colors = capture ?? (model.colors.length ? model.colors : model.rgb);
     // In Ambilight mode only the brightness is left: nothing to unfold.
     const screen = this.screen;
@@ -467,7 +468,8 @@ export class VividLedGroup extends LitElement {
     const side = this.side;
     // Ambilight mode: the screen owns the colors, the card keeps the brightness.
     const screen = this.screen;
-    const capture = side?.drive.driven.length ? side.drive.colors : undefined;
+    // The screen's colors while it drives the strips; the card's own colors otherwise.
+    const capture = screen ? SCREEN_RGB : undefined;
     const header =
       config.appearance.header && !collapsible
         ? html`<vivid-light-header
@@ -526,6 +528,8 @@ export class VividLedGroup extends LitElement {
             .hass=${this.hass}
             .railConfig=${side.rail}
             .drive=${side.drive}
+            .screen=${screen}
+            .lightColors=${model.colors.length ? model.colors : model.rgb ? [model.rgb] : []}
             @vivid-rail-change=${this.onRailChange}
           ></vivid-ambilight-rail>
         </div>`

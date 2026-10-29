@@ -11,7 +11,7 @@ import { VividAmbilightCard } from '../ambilight/vivid-ambilight-card';
 import type { AmbilightCardConfig } from '../ambilight/config';
 import type { AmbilightModel } from '../ambilight/model';
 import { RED, celsius, piStatusText, piText, statusLine } from '../ambilight/view';
-import { railAlert, railColors, type AmbilightDrive } from './ambilight-link';
+import { railAlert, railTint, type AmbilightDrive } from './ambilight-link';
 
 /**
  * The Ambilight rail at the bottom of a LED group: the box's state, the HDMI
@@ -25,10 +25,16 @@ export class VividAmbilightRail extends VividAmbilightCard {
   static override properties = {
     ...VividAmbilightCard.properties,
     drive: { attribute: false },
+    screen: { type: Boolean },
+    lightColors: { attribute: false },
   };
 
   /** What the screen drives in the group, from the card. */
   declare drive?: AmbilightDrive;
+  /** Ambilight mode: the strips follow the screen. */
+  declare screen: boolean;
+  /** Colors of the strips when the card sets them (the fixed color). */
+  declare lightColors?: Rgb[];
 
   private railKey?: string;
 
@@ -147,6 +153,17 @@ export class VividAmbilightRail extends VividAmbilightCard {
         transform: translateX(18px);
         background: #fff;
       }
+      /* Ambilight mode: the screen's colors drift, like a picture. */
+      .rdisc.screen,
+      .toggle.on.screen {
+        animation: vivid-screen-drift 8s linear infinite;
+        animation-play-state: var(--vivid-glow-play, running);
+      }
+      @keyframes vivid-screen-drift {
+        to {
+          filter: hue-rotate(360deg);
+        }
+      }
       .toggle.armed {
         background: var(--error-color, #ef5350);
         animation: pulse 1s ease-in-out infinite;
@@ -167,7 +184,9 @@ export class VividAmbilightRail extends VividAmbilightCard {
         border-top: 1px solid rgba(var(--vivid-rgb-text), 0.1);
       }
       @media (prefers-reduced-motion: reduce) {
-        .toggle.armed {
+        .toggle.armed,
+        .rdisc.screen,
+        .toggle.on.screen {
           animation: none;
         }
         .toggle,
@@ -194,7 +213,11 @@ export class VividAmbilightRail extends VividAmbilightCard {
         '--disc-color': tone.iconColor,
       };
     }
-    if (!model.online || !model.relay.on) return {};
+    if (!model.online || !model.relay.on || colors.length === 0) return {};
+    if (colors.length === 1) {
+      const tone = lightTone(colors, true, 80);
+      return { '--disc-bg': tone.background, '--disc-shadow': tone.shadow, '--disc-color': '#fff' };
+    }
     const stops = [...colors, colors[0] as Rgb].map((rgb) => rgbCss(rgb)).join(', ');
     return {
       '--disc-bg': `conic-gradient(from 200deg, ${stops})`,
@@ -243,8 +266,7 @@ export class VividAmbilightRail extends VividAmbilightCard {
       return html`<div class="missing">${localize(hass, 'rail_missing')}</div>`;
     }
     const alert = railAlert(model) !== undefined;
-    const drive = this.drive;
-    const colors = railColors(drive ?? { active: false, driven: [], overrides: [], colors: [] });
+    const colors = railTint(this.screen, this.lightColors ?? []);
     const active = model.online && model.relay.on;
     const stopping = this.stopping !== undefined || model.power.stopping;
     const title = `${localize(hass, 'amb_pi_title')} · ${piText(hass, model.pi)}`;
@@ -255,7 +277,9 @@ export class VividAmbilightRail extends VividAmbilightCard {
         title=${localize(hass, 'details')}
         @click=${() => this.openDetails()}
       >
-        <span class="rdisc" style=${styleMap(this.discStyle(model, alert, colors))}
+        <span
+          class=${classMap({ rdisc: true, screen: this.screen && !alert && active })}
+          style=${styleMap(this.discStyle(model, alert, colors))}
           ><ha-icon .icon=${alert ? 'mdi:alert' : 'mdi:television-ambient-light'}></ha-icon
         ></span>
         <span class="names"
@@ -269,6 +293,7 @@ export class VividAmbilightRail extends VividAmbilightCard {
           reset: true,
           toggle: true,
           on: model.relay.on,
+          screen: this.screen && model.relay.on,
           armed: this.armed,
           stopping,
         })}
@@ -278,9 +303,11 @@ export class VividAmbilightRail extends VividAmbilightCard {
         title=${title}
         ?disabled=${!model.online || !model.relay.available || stopping}
         style=${styleMap({
-          '--toggle-bg': `linear-gradient(90deg, ${rgbCss(colors[0] as Rgb)}, ${rgbCss(
-            colors[colors.length - 1] as Rgb,
-          )})`,
+          '--toggle-bg': colors.length
+            ? `linear-gradient(90deg, ${rgbCss(colors[0] as Rgb)}, ${rgbCss(
+                colors[colors.length - 1] as Rgb,
+              )})`
+            : 'var(--primary-color)',
         })}
         @click=${this.togglePi}
       ></button>

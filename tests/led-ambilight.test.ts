@@ -16,6 +16,8 @@ import {
   screenMode,
   piRunning,
   autoFold,
+  railTint,
+  SCREEN_RGB,
 } from '../src/cards/led-group/ambilight-link';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { forgetExpanded, readExpanded, writeExpanded } from '../src/cards/led-group/fold';
@@ -324,6 +326,15 @@ describe('capture fill', () => {
         [0, 0, 255],
       ]),
     ).toBe('linear-gradient(90deg, rgba(255, 0, 0, 0.42) 0%, rgba(0, 0, 255, 0.42) 100%)');
+  });
+});
+
+describe('rail tint', () => {
+  it('shows the screen in Ambilight mode, the fixed color otherwise', () => {
+    const warm: Rgb = [255, 224, 186];
+    expect(railTint(true, [warm])).toEqual(SCREEN_RGB);
+    expect(railTint(false, [warm])).toEqual([warm]);
+    expect(railTint(false, [])).toEqual([]);
   });
 });
 

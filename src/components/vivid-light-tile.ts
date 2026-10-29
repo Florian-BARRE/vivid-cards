@@ -340,6 +340,25 @@ export class VividLightTile extends LitElement {
       .tile.captured .fill {
         background: var(--capture-fill);
       }
+      /* The screen's colors drift, like a picture. */
+      .tile.captured .fill,
+      .tile.collapsed.captured .fill,
+      .tile.captured.on .icon {
+        animation: vivid-capture-drift 8s linear infinite;
+        animation-play-state: var(--vivid-glow-play, running);
+      }
+      @keyframes vivid-capture-drift {
+        to {
+          filter: hue-rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tile.captured .fill,
+        .tile.collapsed.captured .fill,
+        .tile.captured.on .icon {
+          animation: none;
+        }
+      }
       .bar-wrap {
         position: relative;
         display: flex;
@@ -795,7 +814,8 @@ export class VividLightTile extends LitElement {
     const capture = this.capture?.length ? this.capture : undefined;
     const tileStyle = styleMap({
       '--fill': lit || capture ? `${capture && !lit ? 100 : brightness}%` : '0%',
-      '--tile-rgb': rgb ? rgb.join(', ') : undefined,
+      // Driven by the screen, the light's own color is stale: the screen's first color leads.
+      '--tile-rgb': capture ? (capture[0] as Rgb).join(', ') : rgb ? rgb.join(', ') : undefined,
       '--capture-fill': capture ? captureGradient(capture) : undefined,
     });
     const collapsed = this.collapsible && this.collapsed;
