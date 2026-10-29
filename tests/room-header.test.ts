@@ -1,41 +1,76 @@
 import { describe, expect, it } from 'vitest';
 import { createRoomMock } from '../dev/room-header-mock';
 import { resolveRoomHeaderConfig } from '../src/cards/room-header/config';
-import { applyRoomHeaderForm, roomHeaderFormData } from '../src/cards/room-header/editor-model';
+import {
+  applyRoomHeaderForm,
+  isRoleExcluded,
+  roomHeaderFormData,
+  setRoleIncluded,
+} from '../src/cards/room-header/editor-model';
 import {
   AMBER,
-  autoBadges,
   buildRoomHeaderModel,
   discoverRoom,
   haloSources,
   lightBadgeType,
+  mergeBadges,
   powerAction,
   powerWatts,
+  roomEntities,
   roomTitle,
 } from '../src/cards/room-header/model';
+import { nameKey, roleOf } from '../src/cards/room-header/roles';
 
 const config = (extra: Record<string, unknown> = {}) =>
   resolveRoomHeaderConfig({ type: 'custom:vivid-room-header', room: 'salon', ...extra });
+
+const types = (badges: { type: string }[]) => badges.map((badge) => badge.type);
 
 describe('room header config', () => {
   it('fills the defaults', () => {
     expect(config()).toMatchObject({
       room: 'salon',
+      roomLabel: 'salon',
+      discover: true,
+      excludeRoles: [],
+      excludeEntities: [],
       showSubtitle: true,
       showBadges: true,
       glow: 100,
     });
   });
 
-  it('accepts lights without a room', () => {
+  it('accepts a room written with accents and spaces', () => {
+    expect(config({ room: 'Salle de bain' })).toMatchObject({
+      room: 'salle_de_bain',
+      roomLabel: 'Salle de bain',
+    });
+    expect(config({ room: 'Séjour' }).room).toBe('sejour');
+  });
+
+  it('is manual without a room', () => {
     expect(
-      resolveRoomHeaderConfig({ type: 'x', name: 'Garage', lights: ['light.garage'] }).lights,
-    ).toEqual(['light.garage']);
+      resolveRoomHeaderConfig({ type: 'x', name: 'Garage', lights: ['light.garage'] }),
+    ).toMatchObject({ discover: false, lights: ['light.garage'] });
+  });
+
+  it('reads exclusions by role (French or English) and by entity', () => {
+    expect(
+      config({ exclude: ['présence', 'windows', 'Portes', 'sensor.salon_co2'] }),
+    ).toMatchObject({
+      excludeRoles: ['presence', 'fenetres', 'portes'],
+      excludeEntities: ['sensor.salon_co2'],
+    });
   });
 
   it('rejects what it cannot use', () => {
     expect(() => resolveRoomHeaderConfig({ type: 'x' })).toThrow(/room/);
-    expect(() => config({ room: 'Salle de bain' })).toThrow(/room id/);
+    expect(() => config({ room: '---' })).toThrow(/room/);
+    expect(() => resolveRoomHeaderConfig({ type: 'x', name: 'A', discover: true })).toThrow(
+      /discover/,
+    );
+    expect(() => config({ exclude: ['garage'] })).toThrow(/unknown role "garage"/);
+    expect(() => config({ exclude: 'presence' })).toThrow(/exclude/);
     expect(() => config({ lights: ['sensor.x'] })).toThrow(/light/);
     expect(() => config({ power: 'switch.x' })).toThrow(/sensor/);
     expect(() => config({ badges: [{ entity: 'light.x' }] })).toThrow(/type/);
@@ -44,71 +79,204 @@ describe('room header config', () => {
   });
 });
 
+describe('room roles', () => {
+  it('normalizes names', () => {
+    expect(nameKey('Salon-Présence')).toBe('salon_presence');
+    expect(nameKey('  Salle de bain - Humidité ')).toBe('salle_de_bain_humidite');
+  });
+
+  it('knows French and English aliases', () => {
+    expect(roleOf('lamps')).toBe('lampes');
+    expect(roleOf('Éclairement')).toBe('eclairement');
+    expect(roleOf('occupancy')).toBe('presence');
+    expect(roleOf('air')).toBe('co2');
+    expect(roleOf('batterie')).toBeUndefined();
+  });
+});
+
 describe('room discovery', () => {
-  it('follows the naming convention', () => {
+  it('finds every role by entity id, in the order of the table', () => {
     const found = discoverRoom(createRoomMock('all', { climate: true }), 'salon');
-    expect(found.lights).toEqual(['switch.salon_lampes', 'light.salon_leds']);
-    expect(found).toMatchObject({
-      power: 'sensor.salon_puissance',
-      illuminance: 'sensor.salon_eclairement',
-      presence: 'binary_sensor.salon_presence',
-      windows: 'binary_sensor.salon_fenetres',
-      doors: 'binary_sensor.salon_portes',
+    expect(found.map((item) => [item.role, item.entity])).toEqual([
+      ['lampes', 'switch.salon_lampes'],
+      ['leds', 'light.salon_leds'],
+      ['puissance', 'sensor.salon_puissance'],
+      ['eclairement', 'sensor.salon_eclairement'],
+      ['presence', 'binary_sensor.salon_presence'],
+      ['fenetres', 'binary_sensor.salon_fenetres'],
+      ['portes', 'binary_sensor.salon_portes'],
+      ['temperature', 'sensor.salon_temperature'],
+      ['humidite', 'sensor.salon_humidite'],
+      ['pression', 'sensor.salon_pression'],
+      ['co2', 'sensor.salon_co2'],
+    ]);
+    expect(found.every((item) => item.via === 'id')).toBe(true);
+  });
+
+  it('finds a helper by its name, accents and case ignored', () => {
+    const hass = createRoomMock('all', { presenceId: 'binary_sensor.capteur_mouvement_1' });
+    hass.states['binary_sensor.capteur_mouvement_1']!.attributes.friendly_name = 'Salon-PRÉSENCE';
+    const presence = discoverRoom(hass, 'salon').find((item) => item.role === 'presence');
+    expect(presence).toEqual({
+      role: 'presence',
+      entity: 'binary_sensor.capteur_mouvement_1',
+      via: 'name',
     });
-    expect(found.climate).toEqual({
-      temperature: 'sensor.salon_temperature',
-      humidity: 'sensor.salon_humidite',
-      pressure: 'sensor.salon_pression',
-      co2: 'sensor.salon_co2',
-    });
+  });
+
+  it('finds a helper by its registry name', () => {
+    const hass = createRoomMock('all', { presenceId: 'binary_sensor.capteur_mouvement_1' });
+    delete hass.states['binary_sensor.capteur_mouvement_1']!.attributes.friendly_name;
+    hass.entities['binary_sensor.capteur_mouvement_1'] = {
+      entity_id: 'binary_sensor.capteur_mouvement_1',
+      name: 'salon-présence',
+      labels: [],
+    };
+    expect(discoverRoom(hass, 'salon').some((item) => item.role === 'presence')).toBe(true);
+  });
+
+  it('prefers a match by id, and only takes the domains of the role', () => {
+    const hass = createRoomMock('all');
+    hass.states['sensor.autre'] = {
+      ...hass.states['sensor.salon_eclairement']!,
+      entity_id: 'sensor.autre',
+    };
+    hass.states['sensor.salon_presence'] = {
+      ...hass.states['sensor.salon_eclairement']!,
+      entity_id: 'sensor.salon_presence',
+    };
+    const found = discoverRoom(hass, 'salon');
+    expect(found.find((item) => item.role === 'eclairement')?.entity).toBe(
+      'sensor.salon_eclairement',
+    );
+    expect(found.find((item) => item.role === 'presence')?.entity).toBe(
+      'binary_sensor.salon_presence',
+    );
+  });
+
+  it('finds a room written with accents', () => {
+    const hass = createRoomMock('all');
+    hass.states['sensor.sejour_puissance'] = {
+      ...hass.states['sensor.salon_puissance']!,
+      entity_id: 'sensor.sejour_puissance',
+      attributes: { friendly_name: 'séjour-puissance' },
+    };
+    expect(discoverRoom(hass, 'Séjour')).toEqual([
+      { role: 'puissance', entity: 'sensor.sejour_puissance', via: 'id' },
+    ]);
   });
 
   it('finds nothing in an unknown room', () => {
-    const found = discoverRoom(createRoomMock(), 'grenier');
-    expect(found.lights).toEqual([]);
-    expect(found.power).toBeUndefined();
-    expect(found.climate).toEqual({});
+    expect(discoverRoom(createRoomMock(), 'grenier')).toEqual([]);
   });
 
-  it('titles a room id', () => {
+  it('titles a room', () => {
     expect(roomTitle('salon')).toBe('Salon');
     expect(roomTitle('salle_de_bain')).toBe('Salle de bain');
+    expect(roomTitle('séjour')).toBe('Séjour');
   });
 });
 
 describe('room badges', () => {
-  it('picks the badge of each light group', () => {
+  const climate = () => createRoomMock('all', { climate: true });
+
+  it('picks the badge of a light no role names', () => {
     expect(lightBadgeType('switch.salon_lampes')).toBe('custom:vivid-lamp-badge');
     expect(lightBadgeType('switch.salon_interrupteurs')).toBe('custom:vivid-light-badge');
     expect(lightBadgeType('light.salon_leds')).toBe('custom:vivid-led-badge');
+    expect(lightBadgeType('switch.prise_lampadaire')).toBe('custom:vivid-lamp-badge');
     expect(lightBadgeType('light.plafonnier')).toBe('custom:vivid-light-badge');
   });
 
-  it('builds the badges of what was found', () => {
-    const found = discoverRoom(createRoomMock('all', { climate: true }), 'salon');
-    expect(autoBadges(found).map((badge) => badge.type)).toEqual([
+  it('builds the badges of every role found, pressure included', () => {
+    expect(types(buildRoomHeaderModel(climate(), config()).badges)).toEqual([
       'custom:vivid-lamp-badge',
       'custom:vivid-led-badge',
       'custom:vivid-illuminance-badge',
       'custom:vivid-presence-badge',
       'custom:vivid-window-badge',
       'custom:vivid-door-badge',
+      'custom:vivid-temperature-badge',
+      'custom:vivid-humidity-badge',
+      'custom:vivid-pressure-badge',
+      'custom:vivid-air-quality-badge',
     ]);
   });
 
-  it('adds the climate badges only when they are defined', () => {
-    const found = discoverRoom(createRoomMock('all', { climate: true }), 'salon');
-    const badges = autoBadges(found, (tag) => tag !== 'vivid-humidity-badge');
-    expect(badges.slice(-2)).toEqual([
-      { type: 'custom:vivid-temperature-badge', entity: 'sensor.salon_temperature' },
-      { type: 'custom:vivid-air-quality-badge', entity: 'sensor.salon_co2' },
+  it('leaves out the badges whose element is not defined', () => {
+    const model = buildRoomHeaderModel(climate(), config(), (tag) => !tag.includes('humidity'));
+    expect(types(model.badges)).not.toContain('custom:vivid-humidity-badge');
+  });
+
+  it('excludes by role and by entity', () => {
+    const entities = roomEntities(
+      climate(),
+      config({ exclude: ['windows', 'présence', 'leds', 'sensor.salon_co2', 'puissance'] }),
+    );
+    expect(types(entities.roleBadges)).toEqual([
+      'custom:vivid-lamp-badge',
+      'custom:vivid-illuminance-badge',
+      'custom:vivid-door-badge',
+      'custom:vivid-temperature-badge',
+      'custom:vivid-humidity-badge',
+      'custom:vivid-pressure-badge',
+    ]);
+    expect(entities.lights).toEqual(['switch.salon_lampes']);
+    expect(entities.power).toBeUndefined();
+    expect(entities.found.filter((item) => item.excluded).map((item) => item.role)).toEqual([
+      'leds',
+      'puissance',
+      'presence',
+      'fenetres',
+      'co2',
     ]);
   });
 
-  it('keeps the listed badges', () => {
+  it('adds manual badges after the discovered ones', () => {
+    const extra = { type: 'custom:vivid-battery-badge', entity: 'sensor.salon_batterie' };
+    const model = buildRoomHeaderModel(createRoomMock(), config({ badges: [extra] }));
+    expect(model.badges).toHaveLength(7);
+    expect(model.badges[6]).toEqual(extra);
+  });
+
+  it('lets a manual badge replace the discovered one of its entity, in place', () => {
+    const door = {
+      type: 'custom:vivid-door-badge',
+      entity: 'binary_sensor.salon_portes',
+      warn_after: 5,
+    };
+    const model = buildRoomHeaderModel(createRoomMock(), config({ badges: [door] }));
+    expect(model.badges).toHaveLength(6);
+    expect(model.badges[5]).toEqual(door);
+    expect(mergeBadges([{ type: 'a', entity: 'x' }], [{ type: 'b' }])).toEqual([
+      { type: 'a', entity: 'x' },
+      { type: 'b' },
+    ]);
+  });
+
+  it('gives the badges of the lights set instead of the light roles', () => {
+    const model = buildRoomHeaderModel(
+      createRoomMock(),
+      config({ lights: ['light.salon_leds', 'switch.salon_lampadaire'] }),
+    );
+    expect(types(model.badges).slice(0, 3)).toEqual([
+      'custom:vivid-led-badge',
+      'custom:vivid-lamp-badge',
+      'custom:vivid-illuminance-badge',
+    ]);
+  });
+
+  it('is fully manual with discover: false', () => {
     const badges = [{ type: 'custom:vivid-door-badge', entity: 'binary_sensor.salon_portes' }];
-    const model = buildRoomHeaderModel(createRoomMock(), config({ badges }));
+    const model = buildRoomHeaderModel(
+      createRoomMock('all'),
+      config({ discover: false, lights: ['light.salon_leds'], badges }),
+    );
+    expect(model).toMatchObject({ lights: ['light.salon_leds'], on: 2, found: [] });
+    expect(model.power).toBeUndefined();
     expect(model.badges).toEqual(badges);
+    const bare = buildRoomHeaderModel(createRoomMock('all'), config({ discover: false }));
+    expect(bare).toMatchObject({ lights: [], badges: [], name: 'Salon' });
   });
 });
 
@@ -219,20 +387,52 @@ describe('room header editor', () => {
   it('fills the defaults and writes only what changed', () => {
     const base = { type: 'custom:vivid-room-header', room: 'salon' };
     const data = roomHeaderFormData(base);
-    expect(data).toMatchObject({ room: 'salon', show_badges: true, glow: 100, lights: [] });
+    expect(data).toMatchObject({
+      room: 'salon',
+      discover: true,
+      show_badges: true,
+      glow: 100,
+      lights: [],
+    });
     expect(applyRoomHeaderForm(base, data)).toEqual(base);
     expect(
       applyRoomHeaderForm(
-        { ...base, badges: [{ type: 'custom:vivid-door-badge' }] },
-        { ...data, room: ' Bureau ', show_badges: false, glow: 150, power: 'sensor.p' },
+        { ...base, badges: [{ type: 'custom:vivid-door-badge' }], exclude: ['presence'] },
+        {
+          ...data,
+          room: ' Salle de bain ',
+          discover: false,
+          show_badges: false,
+          glow: 150,
+          power: 'sensor.p',
+        },
       ),
     ).toEqual({
       type: 'custom:vivid-room-header',
-      room: 'bureau',
+      room: 'Salle de bain',
+      discover: false,
       show_badges: false,
       glow: 150,
       power: 'sensor.p',
+      exclude: ['presence'],
       badges: [{ type: 'custom:vivid-door-badge' }],
     });
+  });
+
+  it('turns a found role off and on', () => {
+    const base = { type: 'custom:vivid-room-header', room: 'salon' };
+    const presence = {
+      role: 'presence' as const,
+      entity: 'binary_sensor.salon_presence',
+      via: 'id' as const,
+    };
+    const off = setRoleIncluded(base, presence, false);
+    expect(off.exclude).toEqual(['presence']);
+    expect(isRoleExcluded(off, presence)).toBe(true);
+    expect(setRoleIncluded(off, presence, true)).toEqual(base);
+    // Excluded by an English alias or by its id: turning it on removes either.
+    const byAlias = { ...base, exclude: ['occupancy', 'binary_sensor.salon_presence', 'doors'] };
+    expect(isRoleExcluded(byAlias, presence)).toBe(true);
+    expect(setRoleIncluded(byAlias, presence, true).exclude).toEqual(['doors']);
   });
 });

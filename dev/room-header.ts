@@ -19,25 +19,63 @@ let language = params.get('lang') ?? 'en';
 document.documentElement.dataset.theme = params.get('theme') ?? 'dark';
 const stage = document.getElementById('stage')!;
 
-const SCENARIOS: { title: string; scenario: RoomScenario; config: Record<string, unknown> }[] = [
-  { title: 'Salon · all on (2 lamps, 2 strips)', scenario: 'all', config: { room: 'salon' } },
-  { title: 'Salon · lamps only', scenario: 'lamps', config: { room: 'salon' } },
-  { title: 'Salon · off', scenario: 'off', config: { room: 'salon' } },
-  { title: 'Grenier · nothing discovered', scenario: 'off', config: { room: 'grenier' } },
+const SCENARIOS: {
+  title: string;
+  scenario: RoomScenario;
+  config: Record<string, unknown>;
+  mock?: Parameters<typeof createRoomMock>[1];
+}[] = [
   {
-    title: 'Overrides · name, lights, listed badges',
+    title: 'Auto · salon all on (2 lamps, 2 strips, climate)',
+    scenario: 'all',
+    config: { room: 'salon' },
+    mock: { climate: true },
+  },
+  { title: 'Auto · lamps only', scenario: 'lamps', config: { room: 'salon' } },
+  { title: 'Auto · off', scenario: 'off', config: { room: 'salon' } },
+  {
+    title: 'Auto · presence found by its name "salon-présence"',
+    scenario: 'all',
+    config: { room: 'Salon' },
+    mock: { presenceId: 'binary_sensor.capteur_mouvement_1' },
+  },
+  {
+    title: 'Exclude · leds, windows, co2 (by role) and the doors (by id)',
     scenario: 'all',
     config: {
       room: 'salon',
-      name: 'Coin TV',
-      lights: ['light.salon_leds'],
+      exclude: ['leds', 'fenêtres', 'air', 'binary_sensor.salon_portes'],
+    },
+    mock: { climate: true },
+  },
+  {
+    title: 'Manual added + override (door badge with icon_off, power badge)',
+    scenario: 'all',
+    config: {
+      room: 'salon',
       badges: [
-        { type: 'custom:vivid-led-badge', entity: 'light.salon_leds' },
-        { type: 'custom:vivid-door-badge', entity: 'binary_sensor.salon_portes' },
-        { type: 'custom:vivid-unknown-badge', entity: 'light.salon_leds' },
+        {
+          type: 'custom:vivid-door-badge',
+          entity: 'binary_sensor.salon_portes',
+          icon_off: 'mdi:door-sliding',
+        },
+        { type: 'custom:vivid-power-badge', entity: 'sensor.salon_puissance' },
       ],
     },
   },
+  {
+    title: 'discover: false · fully manual',
+    scenario: 'all',
+    config: {
+      room: 'salon',
+      discover: false,
+      name: 'Coin TV',
+      lights: ['light.salon_leds'],
+      power: 'sensor.salon_puissance',
+      badges: [{ type: 'custom:vivid-led-badge', entity: 'light.salon_leds' }],
+    },
+  },
+  { title: 'Grenier · nothing discovered', scenario: 'off', config: { room: 'grenier' } },
 ];
 
 function mount(): void {
@@ -47,7 +85,7 @@ function mount(): void {
     if (only !== null && Number(only) !== index) return;
     const heading = document.createElement('h2');
     heading.textContent = item.title;
-    const mock: RoomMock = createRoomMock(item.scenario, { language });
+    const mock: RoomMock = createRoomMock(item.scenario, { language, ...item.mock });
     const card = document.createElement('vivid-room-header') as CardElement;
     card.setConfig({ type: 'custom:vivid-room-header', ...item.config });
     card.hass = mock;
@@ -65,8 +103,11 @@ function mount(): void {
     const wrap = document.createElement('div');
     wrap.className = 'editor';
     const editor = document.createElement('vivid-room-header-editor') as CardElement;
-    editor.hass = createRoomMock('all', { language });
-    editor.setConfig({ type: 'custom:vivid-room-header', room: 'salon' });
+    editor.hass = createRoomMock('all', { language, climate: true });
+    editor.setConfig({ type: 'custom:vivid-room-header', room: 'salon', exclude: ['presence'] });
+    editor.addEventListener('config-changed', (event) =>
+      console.info('config', JSON.stringify((event as CustomEvent).detail.config)),
+    );
     wrap.append(editor);
     stage.append(heading, wrap);
   }

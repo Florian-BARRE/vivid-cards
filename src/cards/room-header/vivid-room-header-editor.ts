@@ -7,13 +7,23 @@ import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
 import { ROOM_LIGHT_DOMAINS, type RoomHeaderCardConfig } from './config';
-import { applyRoomHeaderForm, roomHeaderFormData } from './editor-model';
+import {
+  applyRoomHeaderForm,
+  isRoleExcluded,
+  roomHeaderFormData,
+  setRoleIncluded,
+} from './editor-model';
 import { discoverRoom } from './model';
+import type { FoundRole } from './roles';
 
 type FormData = Record<string, unknown>;
 
-const SCHEMA = [
+const ROOM_SCHEMA = [
   { name: 'room', selector: { text: {} } },
+  { name: 'discover', selector: { boolean: {} } },
+];
+
+const SCHEMA = [
   { name: 'name', selector: { text: {} } },
   { name: 'lights', selector: { entity: { domain: ROOM_LIGHT_DOMAINS, multiple: true } } },
   { name: 'power', selector: { entity: { domain: ['sensor'] } } },
@@ -31,6 +41,7 @@ const SCHEMA = [
 
 const LABELS: Record<string, EditorStringKey> = {
   room: 'rh_room',
+  discover: 'rh_discover',
   name: 'rh_name',
   lights: 'rh_lights',
   power: 'rh_power',
@@ -85,6 +96,70 @@ export class VividRoomHeaderEditor extends LitElement {
         margin-top: 1px;
         flex: none;
       }
+      .roles {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .roles-title {
+        font-size: 12.5px;
+        color: var(--secondary-text-color);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .role {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        padding: 5px 10px 5px 6px;
+        border-radius: 12px;
+        border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
+        background: none;
+        color: var(--secondary-text-color);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .role.on {
+        border-color: transparent;
+        background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.14);
+        color: var(--primary-text-color);
+      }
+      .role ha-icon {
+        --mdc-icon-size: 18px;
+        flex: none;
+      }
+      .role.on ha-icon {
+        color: var(--primary-color, #03a9f4);
+      }
+      .role:not(.on) .role-name {
+        text-decoration: line-through;
+      }
+      .role:focus-visible {
+        outline: 2px solid var(--vivid-focus);
+        outline-offset: 2px;
+      }
+      .role-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .role-name {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .role-id {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .status.ok ha-icon {
         color: var(--success-color, #43a047);
       }
@@ -114,25 +189,63 @@ export class VividRoomHeaderEditor extends LitElement {
     fireEvent(this, 'config-changed', { config });
   }
 
-  private status() {
+  private toggleRole(found: FoundRole, included: boolean): void {
+    if (!this._config) return;
+    const config = setRoleIncluded(this._config, found, included);
+    this._config = config;
+    fireEvent(this, 'config-changed', { config });
+  }
+
+  /** One chip per role found: on while kept, off when excluded. */
+  private roles() {
     const hass = this.hass;
-    const room = typeof this._config?.room === 'string' ? this._config.room.trim() : '';
-    if (!hass || !room) return nothing;
-    const found = discoverRoom(hass, room.toLowerCase());
-    const items = [
-      ...found.lights,
-      found.power,
-      found.illuminance,
-      found.presence,
-      found.windows,
-      found.doors,
-      ...Object.values(found.climate),
-    ].filter((id): id is string => typeof id === 'string');
-    const ok = items.length > 0;
-    return html`<div class="status ${ok ? 'ok' : 'warn'}">
-      <ha-icon .icon=${ok ? 'mdi:check-circle-outline' : 'mdi:alert-outline'}></ha-icon>
-      <span>${ok ? this.t('rh_found', { items: items.join(', ') }) : this.t('rh_none_found')}</span>
+    const config = this._config;
+    const room = typeof config?.room === 'string' ? config.room.trim() : '';
+    if (!hass || !config || !room || config.discover === false) return nothing;
+    const found = discoverRoom(hass, room);
+    if (!found.length) {
+      return html`<div class="status warn">
+        <ha-icon .icon=${'mdi:alert-outline'}></ha-icon>
+        <span>${this.t('rh_none_found')}</span>
+      </div>`;
+    }
+    return html`<div class="roles">
+      <div class="roles-title">${this.t('rh_roles_title')}</div>
+      <div class="chips">
+        ${found.map((item) => {
+          const on = !isRoleExcluded(config, item);
+          return html`<button
+            class="role ${on ? 'on' : ''}"
+            role="switch"
+            aria-checked=${on ? 'true' : 'false'}
+            title=${item.entity}
+            @click=${() => this.toggleRole(item, !on)}
+          >
+            <ha-icon .icon=${on ? 'mdi:check-circle' : 'mdi:minus-circle-outline'}></ha-icon>
+            <span class="role-text">
+              <span class="role-name">${this.t(`rh_role_${item.role}` as EditorStringKey)}</span>
+              <span class="role-id">${item.entity}</span>
+            </span>
+          </button>`;
+        })}
+      </div>
     </div>`;
+  }
+
+  private form(schema: Record<string, unknown>[], config: RoomHeaderCardConfig) {
+    return html`<ha-form
+      .hass=${this.hass}
+      .data=${roomHeaderFormData(config)}
+      .schema=${schema}
+      .computeLabel=${(field: { name: string }) =>
+        LABELS[field.name] ? this.t(LABELS[field.name]!) : undefined}
+      .computeHelper=${(field: { name: string }) =>
+        HELPERS[field.name] ? this.t(HELPERS[field.name]!) : undefined}
+      @value-changed=${(event: CustomEvent<{ value: FormData }>) => {
+        event.stopPropagation();
+        this.onChange({ ...roomHeaderFormData(this._config ?? config), ...event.detail.value });
+      }}
+    ></ha-form>`;
   }
 
   protected override render() {
@@ -140,24 +253,12 @@ export class VividRoomHeaderEditor extends LitElement {
     if (!config) return nothing;
     const badges = Array.isArray(config.badges) ? config.badges.length : 0;
     return html`<div class="editor">
-      ${this.status()}
-      <ha-form
-        .hass=${this.hass}
-        .data=${roomHeaderFormData(config)}
-        .schema=${SCHEMA}
-        .computeLabel=${(field: { name: string }) =>
-          LABELS[field.name] ? this.t(LABELS[field.name]!) : undefined}
-        .computeHelper=${(field: { name: string }) =>
-          HELPERS[field.name] ? this.t(HELPERS[field.name]!) : undefined}
-        @value-changed=${(event: CustomEvent<{ value: FormData }>) => {
-          event.stopPropagation();
-          this.onChange(event.detail.value);
-        }}
-      ></ha-form>
+      ${this.form(ROOM_SCHEMA, config)} ${this.roles()} ${this.form(SCHEMA, config)}
       <div class="status">
         <ha-icon .icon=${'mdi:information-outline'}></ha-icon>
         <span
-          >${badges ? this.t('rh_badges_yaml', { count: badges }) : this.t('rh_badges_auto')}</span
+          >${badges ? this.t('rh_badges_yaml', { count: badges }) : ''}
+          ${this.t('rh_badges_auto')}</span
         >
       </div>
     </div>`;
