@@ -66,6 +66,16 @@ empties and turns red.
 | [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperatures and fan |
 | [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: the Pi and what it captures, the strips and their devices    |
 | [`vivid-room-header`](#vivid-room-header) (card)       | A room's title, power button, lights on and watts, real-color halo     |
+| [`vivid-bill-card`](#electricity) (card)               | The bill in progress: estimated amount, what is spent, the pace        |
+| [`vivid-bills-card`](#electricity) (card)              | Past bills, the one in progress with its projection, the next one      |
+| [`vivid-bill-ring`](#electricity) (card)               | A bill as rings: where each euro goes, or the off-peak share           |
+| [`vivid-energy-calendar`](#electricity) (card)         | A month, one cell per day colored by its price, with its off-peak bar  |
+| [`vivid-energy-flow`](#electricity) (card)             | From the meter to the devices, the measured part zoomed in             |
+| [`vivid-energy-ranking`](#electricity) (card)          | Devices ranked by energy and cost, with what is not measured           |
+| [`vivid-load-curve`](#electricity) (card)              | The hourly curve of a day over the off-peak hours, with the standby    |
+| [`vivid-bill-badge`](#electricity)                     | The estimated bill, its ring going round with the billing cycle        |
+| [`vivid-tariff-badge`](#electricity)                   | Off-peak or peak hours right now, and the time left                    |
+| [`vivid-energy-badge`](#electricity)                   | The last day of the meter in kWh, colored against the week             |
 | [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
@@ -1396,6 +1406,76 @@ to leave it out (it is added to `exclude`). Extra badges are set in YAML.
 | `glow`          | `100`                  | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`.     |
 
 Set `room`, or a `name` with its `lights` or `badges`.
+
+## Electricity
+
+Cards and badges that turn the meter into money: the bill in progress and its
+projection, past bills, off-peak hours, a calendar of prices, the devices. They
+read Home Assistant's long-term statistics, so any meter imported there works
+(a Linky through the Linky add-on, a utility integration, a sensor in kWh).
+
+```yaml
+type: custom:vivid-bill-card
+tariff:
+  peak: 0.1787 # € per kWh in peak hours, taxes included
+  off_peak: 0.1344 # in off-peak hours (leave out for a single price)
+  off_peak_hours: ['00:36-05:36', '14:06-17:06']
+  subscription: 16.58 # per month, taxes included
+  billing_day: 12 # the day a billing cycle starts
+  invoices: # bills already received (optional)
+    - {
+        from: 2026-09-12,
+        to: 2026-10-11,
+        total: 79.52,
+        peak_kwh: 285,
+        off_peak_kwh: 91,
+        subscription: 16.36,
+      }
+```
+
+Every card and badge of this section takes the same options:
+
+| Option   | Default                          | Description                                                                |
+| -------- | -------------------------------- | -------------------------------------------------------------------------- |
+| `tariff` | required                         | Prices, off-peak hours, subscription, billing day and invoices, see above. |
+| `energy` | the Energy dashboard's grid      | Statistic of the energy drawn (`linky:…`, `sensor.…`).                     |
+| `cost`   | the Energy dashboard's grid cost | Statistic of its cost; when unset with `energy` set, the tariff prices it. |
+| `name`   |                                  | Title.                                                                     |
+| `glow`   | `100`                            | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`.    |
+
+An invoice takes `from`, `to` (both included), `total`, and either `peak_kwh`
+and `off_peak_kwh` or `kwh`, plus `subscription` when it is known. Without
+invoices, past cycles are computed from the statistics.
+
+**How the projection works.** The bill in progress is what the days read cost
+(the cost statistic, else the tariff), plus the subscription of the whole
+cycle, plus the remaining days at the pace of the last 7 days. The range goes
+from that to the pace of the last 30 days. Meters that report the next day
+(Linky) leave today out.
+
+**Peak and off-peak.** Daily data cannot be split: the split shows on the days
+the meter gives hour by hour (Linky: once the hourly collection is on), and on
+invoices that list their peak and off-peak kWh.
+
+| Card                    | Own options                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `vivid-bill-card`       | `layout`: `card` or `line` (one line that unfolds).                                       |
+| `vivid-bills-card`      | `count`: bars shown, the next bill included (default 4).                                  |
+| `vivid-bill-ring`       | `ring`: `money` or `off_peak`; `cycle`: `last` or `current`.                              |
+| `vivid-energy-calendar` | Arrows go back month by month; a tap on a day shows its details.                          |
+| `vivid-energy-flow`     | `period`: `day`, `week`, `month` (default), `year`; `max_devices` (6).                    |
+| `vivid-energy-ranking`  | Same as the flow. Devices come from the Energy dashboard, nested ones under their parent. |
+| `vivid-load-curve`      | Needs hourly data; arrows step through the last week.                                     |
+
+Badges: `vivid-bill-badge` (ring = cycle elapsed, color = gap with the
+previous bill), `vivid-tariff-badge` (needs only `off_peak_hours`; `icon` for
+peak hours, `icon_off` for off-peak hours) and `vivid-energy-badge` (the last
+day against the mean of the week). They also take `look`, `tap_action` and
+`hold_action` like the other badges.
+
+`vivid-power-badge` takes `cost: month` or `cost: hour` with a `tariff` to add
+what the power costs at this pace: over 30 days at the day's mean price, or per
+hour at the price of the moment.
 
 ## Troubleshooting
 

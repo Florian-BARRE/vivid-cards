@@ -7,6 +7,13 @@ import './cards/lamp-group/vivid-lamp-group';
 import './cards/ambilight/vivid-ambilight-card';
 import './cards/hyperhdr/vivid-hyperhdr-card';
 import './cards/room-header/vivid-room-header';
+import './cards/bill/vivid-bill-card';
+import './cards/bills/vivid-bills-card';
+import './cards/bill-ring/vivid-bill-ring';
+import './cards/energy-calendar/vivid-energy-calendar';
+import './cards/energy-flow/vivid-energy-flow';
+import './cards/energy-ranking/vivid-energy-ranking';
+import './cards/load-curve/vivid-load-curve';
 import './badges/light/vivid-light-badge';
 import './badges/opening/vivid-opening-badge';
 import './badges/presence/vivid-presence-badge';
@@ -14,6 +21,9 @@ import './badges/illuminance/vivid-illuminance-badge';
 import './badges/power/vivid-power-badge';
 import './badges/battery/vivid-battery-badge';
 import './badges/climate/vivid-climate-badge';
+import './badges/energy/vivid-bill-badge';
+import './badges/energy/vivid-tariff-badge';
+import './badges/energy/vivid-energy-badge';
 
 export const VERSION = __VIVID_VERSION__;
 
