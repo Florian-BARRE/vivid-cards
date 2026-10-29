@@ -15,6 +15,7 @@ import type { SourcePhase } from '../../components/vivid-source-row';
 import type { AmbilightModel } from '../ambilight/model';
 import '../ambilight/vivid-ambilight-details';
 import '../hyperhdr/vivid-hyperhdr-details';
+import '../hyperhdr/vivid-hyperhdr-screen';
 import type { AmbilightSide } from './ambilight-link';
 import type { ResolvedLedGroupConfig } from './config';
 import type { LedGroupModel, StripModel } from './model';
@@ -318,6 +319,25 @@ export class VividLedGroupDetails extends LitElement {
             : nothing
         }
       </h3>
+      ${
+        !instance && link.hub.camera
+          ? html`<vivid-hyperhdr-screen
+              class="screen"
+              onDemand
+              .labels=${{
+                show: localize(this.hass, 'hh_show_screen'),
+                extend: localize(this.hass, 'hh_extend'),
+                stop: localize(this.hass, 'hh_stop'),
+                live: localize(this.hass, 'hh_live'),
+                ended: localize(this.hass, 'hh_screen_ended'),
+              }}
+              .hass=${this.hass}
+              .camera=${link.hub.camera}
+              .fallback=${this.side?.drive.colors.length ? this.side.drive.colors : [[70, 70, 70]]}
+              .tags=${[localize(this.hass, 'hh_live')]}
+            ></vivid-hyperhdr-screen>`
+          : nothing
+      }
       <vivid-hyperhdr-details
         .hass=${this.hass}
         .hub=${link.hub}

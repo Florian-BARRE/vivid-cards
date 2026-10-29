@@ -16,6 +16,9 @@ import {
   screenMode,
   piRunning,
   autoFold,
+  railTint,
+  sampleCamera,
+  SCREEN_RGB,
 } from '../src/cards/led-group/ambilight-link';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { forgetExpanded, readExpanded, writeExpanded } from '../src/cards/led-group/fold';
@@ -324,6 +327,63 @@ describe('capture fill', () => {
         [0, 0, 255],
       ]),
     ).toBe('linear-gradient(90deg, rgba(255, 0, 0, 0.42) 0%, rgba(0, 0, 255, 0.42) 100%)');
+  });
+});
+
+describe('rail tint', () => {
+  it('shows the screen in Ambilight mode, the fixed color otherwise', () => {
+    const warm: Rgb = [255, 224, 186];
+    expect(railTint(true, [warm])).toEqual(SCREEN_RGB);
+    expect(railTint(false, [warm])).toEqual([warm]);
+    expect(railTint(false, [])).toEqual([]);
+  });
+});
+
+describe('sample camera', () => {
+  it('prefers the LED colors of an ambilight strip, then the captured picture', () => {
+    const hass = home({ overrides: ['0', '0', '0'] });
+    const result = side(hass)!;
+    const model = buildLedGroupModel(hass, config());
+    const byStrip = new Map(result.hyperhdr.byStrip);
+    const first = model.detected[0]!.entityId;
+    byStrip.set(first, { ...byStrip.get(first)!, ledCamera: 'camera.leds' });
+    const hub = { ...result.hyperhdr.hub!, camera: 'camera.capture' };
+    expect(
+      sampleCamera({ ...result, hyperhdr: { ...result.hyperhdr, byStrip, hub } }, model.detected),
+    ).toBe('camera.leds');
+    expect(
+      sampleCamera(
+        { ...result, hyperhdr: { ...result.hyperhdr, byStrip: new Map(), hub } },
+        model.detected,
+      ),
+    ).toBe('camera.capture');
+    expect(sampleCamera(undefined, model.detected)).toBeUndefined();
+  });
+});
+
+describe('screen palette', () => {
+  it('keeps two or three distinct colors of the picture, at full strength', async () => {
+    const { screenPalette } = await import('../src/cards/led-group/screen-sampler');
+    const edges: Rgb[] = [
+      [120, 40, 10],
+      [118, 42, 12],
+      [10, 20, 100],
+      [5, 5, 5],
+      [60, 60, 60],
+      [119, 41, 11],
+    ];
+    const palette = screenPalette(edges);
+    expect(palette[0]).toEqual([255, 85, 21]);
+    expect(palette).toHaveLength(3);
+    expect(palette).toContainEqual([26, 51, 255]);
+    // A black picture: a dim grey, not a flash of color.
+    expect(
+      screenPalette([
+        [3, 3, 3],
+        [5, 4, 6],
+      ]),
+    ).toEqual([[60, 60, 72]]);
+    expect(screenPalette([])).toEqual([]);
   });
 });
 

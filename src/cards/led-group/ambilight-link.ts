@@ -265,6 +265,29 @@ export function railAlert(model: AmbilightModel): RailAlert | undefined {
   return { alarm };
 }
 
+/**
+ * The screen's colors as the card draws them in Ambilight mode: warm, violet
+ * and cyan, cycled by an animation so it reads as a moving picture.
+ */
+export const SCREEN_RGB: Rgb[] = [
+  [255, 120, 40],
+  [195, 60, 255],
+  [0, 180, 216],
+];
+
+/**
+ * Colors of the rail's disc and switch: the screen's while it drives the
+ * strips, else the strips' own colors (the fixed color of the card).
+ */
+export function railTint(
+  screen: boolean,
+  lightColors: readonly Rgb[],
+  screenColors: readonly Rgb[] = SCREEN_RGB,
+): Rgb[] {
+  if (screen) return screenColors.length ? [...screenColors] : SCREEN_RGB;
+  return lightColors.length ? [...lightColors] : [];
+}
+
 /** Colors of the rail's disc: the captured ones, else the warm capture default. */
 export function railColors(drive: AmbilightDrive): Rgb[] {
   if (drive.colors.length > 1) return drive.colors;
@@ -355,4 +378,22 @@ export function autoFold(previous: FoldStep | undefined, next: FoldStep): boolea
   if (!previous.piOn && next.piOn) return false;
   if (previous.screen && !next.screen && next.piOn) return true;
   return undefined;
+}
+
+/**
+ * The picture Ambilight mode reads its colors from: the LED colors of an
+ * ambilight strip's HyperHDR instance (a tiny drawing of the LEDs, cheap for
+ * the Pi), else the captured picture of the server.
+ */
+export function sampleCamera(
+  side: AmbilightSide | undefined,
+  strips: readonly StripModel[],
+): string | undefined {
+  if (!side) return undefined;
+  for (const strip of strips) {
+    if (!strip.ambilight) continue;
+    const camera = side.hyperhdr.byStrip.get(strip.entityId)?.ledCamera;
+    if (camera) return camera;
+  }
+  return side.hyperhdr.hub?.camera;
 }
