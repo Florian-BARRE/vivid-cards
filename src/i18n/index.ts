@@ -312,6 +312,12 @@ const en = {
   hh_crop: 'Crop',
   hh_image: 'Picture settings',
   hh_open_more: 'More',
+  // Room header
+  room_on_one: '1 on',
+  room_on_other: '{count} on',
+  room_all_off: 'everything is off',
+  room_turn_off: 'Turn off everything in {room}',
+  room_turn_on: 'Turn on {room}',
 };
 
 type Strings = typeof en;
@@ -629,6 +635,12 @@ const fr: Strings = {
   hh_crop: 'Recadrage',
   hh_image: 'Réglages de l’image',
   hh_open_more: 'Plus',
+  // Room header
+  room_on_one: '1 allumée',
+  room_on_other: '{count} allumées',
+  room_all_off: 'tout est éteint',
+  room_turn_off: 'Tout éteindre : {room}',
+  room_turn_on: 'Allumer : {room}',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };

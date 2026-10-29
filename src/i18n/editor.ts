@@ -321,6 +321,22 @@ const en = {
   hh_first: 'Left empty: the first one found',
   hh_options: 'Options',
   hh_options_hint: 'name, picture, halo',
+  // Room header
+  rh_room: 'Room',
+  rh_room_helper: 'Room id of your entities: salon finds light.salon_leds, switch.salon_lampes…',
+  rh_name: 'Title',
+  rh_lights: 'Lights',
+  rh_lights_helper: 'Left empty: the discovered groups',
+  rh_power: 'Power sensor',
+  rh_entity: 'Held power button opens',
+  rh_entity_helper: 'Left empty: the first light',
+  rh_show_subtitle: 'Lights on and consumption under the title',
+  rh_show_badges: 'Badges under the title',
+  rh_found: 'Found: {items}',
+  rh_none_found: 'Nothing found for this room: set the lights and the power sensor below.',
+  rh_badges_yaml: '{count} badges listed in YAML (code editor).',
+  rh_badges_auto:
+    'Badges are built from what was found; list them under badges: in YAML to choose.',
 };
 
 type EditorStrings = typeof en;
@@ -649,6 +665,24 @@ const fr: EditorStrings = {
   hh_first: 'Vide : le premier trouvé',
   hh_options: 'Options',
   hh_options_hint: 'nom, image, halo',
+  // Room header
+  rh_room: 'Pièce',
+  rh_room_helper:
+    'Identifiant de la pièce dans vos entités : salon trouve light.salon_leds, switch.salon_lampes…',
+  rh_name: 'Titre',
+  rh_lights: 'Lumières',
+  rh_lights_helper: 'Vide : les groupes trouvés',
+  rh_power: 'Capteur de puissance',
+  rh_entity: 'Appui long sur le bouton : ouvre',
+  rh_entity_helper: 'Vide : la première lumière',
+  rh_show_subtitle: 'Lumières allumées et conso sous le titre',
+  rh_show_badges: 'Badges sous le titre',
+  rh_found: 'Trouvé : {items}',
+  rh_none_found:
+    'Rien trouvé pour cette pièce : choisissez les lumières et le capteur de puissance ci-dessous.',
+  rh_badges_yaml: '{count} badges listés en YAML (éditeur de code).',
+  rh_badges_auto:
+    'Les badges viennent de ce qui a été trouvé ; listez-les sous badges: en YAML pour choisir.',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
