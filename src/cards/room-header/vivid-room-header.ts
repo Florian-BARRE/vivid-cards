@@ -125,6 +125,11 @@ export class VividRoomHeader extends LitElement {
         overflow: hidden;
         border-radius: inherit;
         pointer-events: none;
+        /* Fade the whole layer towards its edges, so a glow that reaches the
+           border of the header dissolves into the dashboard instead of being
+           cut along a straight line. */
+        -webkit-mask-image: radial-gradient(farthest-side, #000 45%, transparent 100%);
+        mask-image: radial-gradient(farthest-side, #000 45%, transparent 100%);
       }
       .glow {
         position: absolute;
