@@ -18,7 +18,9 @@ import {
   powerScale,
   type PowerModel,
   buildPowerModel,
+  powerCost,
 } from './model';
+import { formatMoney } from '../../energy/format';
 
 /**
  * Power: the sum (or mean, max…) of a group, glowing like the consumption
@@ -66,6 +68,18 @@ export class VividPowerBadge extends VividBadge<ResolvedPowerBadge> {
       active,
       icon: active ? (config.icon ?? 'mdi:flash') : (config.iconOff ?? 'mdi:flash-outline'),
       text: formatPower(hass, watts),
+      suffix:
+        config.cost && config.tariff
+          ? `· ${localize(hass, config.cost === 'hour' ? 'energy_per_hour' : 'energy_per_month', {
+              v: formatMoney(
+                hass,
+                powerCost(watts, config.tariff, config.cost, Date.now()),
+                config.cost === 'hour' ? 2 : 1,
+              ),
+            })}`
+          : undefined,
+      ticking:
+        config.cost === 'hour' && (config.tariff?.offPeakRanges.length ?? 0) > 0 ? true : undefined,
       textMuted: !active,
       tone: tintTone(powerColor(watts, scale), 0.2 + 0.75 * ratio),
       soft: true,

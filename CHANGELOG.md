@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.0] - 2026-10-29
+
+### Added
+
+- Electricity: `vivid-bill-card` (the bill in progress and its projection, as a
+  card or one line), `vivid-bills-card` (past bills, the current one with its
+  range, the next one), `vivid-bill-ring` (where each euro goes, or the
+  off-peak share), `vivid-energy-calendar` (a day = a price and a color),
+  `vivid-energy-flow` and `vivid-energy-ranking` (the devices of the Energy
+  dashboard against the meter), `vivid-load-curve` (hourly curve over the
+  off-peak hours), and the `vivid-bill-badge`, `vivid-tariff-badge` and
+  `vivid-energy-badge` badges. They read the long-term statistics and a
+  `tariff` block (prices, off-peak hours, subscription, billing day, invoices).
+- `vivid-power-badge`: `cost: month | hour` with a `tariff` adds the cost of
+  the power at this pace.
+
+### Changed
+
+- `vivid-room-header`: the halo fades out towards its edges instead of
+  stopping at the card's corners.
+
 ## [0.14.1] - 2026-10-29
 
 ### Added
