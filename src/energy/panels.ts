@@ -262,10 +262,9 @@ export class VividBillSummary extends LitElement {
             view.delta !== undefined && view.previous
               ? html`<div class="row">
                   <span class="grow"
-                    >${localize(hass, 'energy_vs_previous', {
-                      d: '',
+                    >${localize(hass, 'energy_previous_bill', {
                       v: formatMoney(hass, view.previous.projected),
-                    }).trim()}</span
+                    })}</span
                   ><span
                     class="num"
                     style=${styleMap({ color: rgb(deltaColor(view.delta)), fontWeight: '700' })}

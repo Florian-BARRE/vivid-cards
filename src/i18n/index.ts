@@ -456,6 +456,7 @@ const en = {
   energy_split_waiting:
     'The off-peak / peak split needs hourly data, or an invoice with its peak and off-peak kWh.',
   energy_tariff: 'Tariff',
+  energy_previous_bill: 'Previous bill {v}',
 };
 
 type Strings = typeof en;
@@ -918,6 +919,7 @@ const fr: Strings = {
   energy_split_waiting:
     'La répartition HP / HC demande les données horaires, ou une facture avec ses kWh HP et HC.',
   energy_tariff: 'Tarif',
+  energy_previous_bill: 'Facture précédente {v}',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
