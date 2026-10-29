@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.3] - 2026-10-29
+
+### Fixed
+
+- `vivid-led-group` in Ambilight mode no longer keeps the strips' last fixed
+  color, and out of it the rail no longer shows the screen's colors: the
+  rail takes the strips' own color.
+
+### Added
+
+- Ambilight mode takes the colors the LEDs show: every 4 s while the card is
+  visible, a small still of the LED colors of an ambilight strip's HyperHDR
+  instance (or, without it, of the captured picture) gives two or three
+  colors for the line, the buttons and the rail. Without a picture, the
+  screen palette drifts through the hues.
+- The HyperHDR section of the group's details can show the live picture.
+
 ## [0.15.2] - 2026-10-29
 
 ### Changed
