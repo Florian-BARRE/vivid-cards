@@ -118,7 +118,7 @@ export function formatWhen(
     }).format(new Date(time));
   }
   return new Intl.DateTimeFormat(locale(hass), {
-    weekday: 'short',
+    weekday: range === '30d' ? undefined : 'short',
     day: range === '30d' ? 'numeric' : undefined,
     month: range === '30d' ? 'short' : undefined,
     hour: '2-digit',

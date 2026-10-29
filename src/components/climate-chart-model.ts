@@ -527,18 +527,37 @@ export function fitLabels(
   return kept;
 }
 
+/** An axis-aligned box (px). */
+export interface Box {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+function overlaps(a: Box, b: Box): boolean {
+  return a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+}
+
 /**
- * First text baseline among `candidates` whose line (`height` px tall) does
- * not cross the curve, given the curve's y under the label; the first
- * candidate when every one is crossed.
+ * Index of the spot that overlaps the least obstacle weight (the first one
+ * on a tie): a free spot when there is one.
  */
-export function freeBaseline(
-  candidates: readonly number[],
-  curve: readonly number[],
-  height: number,
+export function freeSpot(
+  spots: readonly Box[],
+  obstacles: readonly (Box & { weight?: number })[],
 ): number {
-  const free = candidates.find((baseline) =>
-    curve.every((y) => y < baseline - height - 2 || y > baseline + 4),
-  );
-  return free ?? candidates[0] ?? 0;
+  let best = 0;
+  let bestScore = Infinity;
+  spots.forEach((spot, index) => {
+    const score = obstacles.reduce(
+      (sum, obstacle) => sum + (overlaps(spot, obstacle) ? (obstacle.weight ?? 1) : 0),
+      0,
+    );
+    if (score < bestScore) {
+      best = index;
+      bestScore = score;
+    }
+  });
+  return best;
 }

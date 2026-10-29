@@ -40,7 +40,8 @@ import {
   timeOutsideComfort,
   timeTicks,
   fitLabels,
-  freeBaseline,
+  freeSpot,
+  type Box,
   timeWeightedMean,
   trendPerHour,
   valueColor,
@@ -214,7 +215,7 @@ export class VividClimateChart extends LitElement {
         flex-direction: column;
         gap: 1px;
         min-width: 0;
-        padding: 7px 10px;
+        padding: 7px 9px;
         border-radius: 12px;
         background: var(--vivid-layer-2);
       }
@@ -435,29 +436,6 @@ export class VividClimateChart extends LitElement {
     const comfortText = localize(hass, 'cc_comfort', {
       range: `${formatBound(hass, kind, comfort.low, unit).replace(/[^\d]+$/, '')}–${formatBound(hass, kind, comfort.high, unit)}`,
     });
-    // Inside the band, at its top or its bottom, wherever the curve leaves room.
-    const comfortWidth = textWidth(comfortText, 11) + 12;
-    const under = Array.from({ length: 12 }, (_, index) => {
-      const value = sampleAt(
-        visible,
-        start + ((now - start) * comfortWidth * index) / 11 / (right - left),
-      );
-      return value === undefined ? -1e6 : y(value);
-    });
-    // The min and max labels are obstacles too.
-    for (const [point, below] of [
-      [min, true],
-      [max, false],
-    ] as const) {
-      if (!point || x(point.t) - 90 > left + comfortWidth) continue;
-      const baseline = below ? y(point.v) + 18 : y(point.v) - 10;
-      under.push(baseline, baseline - 10, y(point.v));
-    }
-    const bandLabelY =
-      bandBottom - bandTop > 34
-        ? freeBaseline([bandTop + 14, bandBottom - 5, bandTop - 4], under, 11)
-        : bandTop - 4;
-
     // Midnights.
     const nights = showsMidnights(range);
     const days = nights === 'none' ? [] : midnights(start, now);
@@ -467,17 +445,26 @@ export class VividClimateChart extends LitElement {
     const nowPoint = last?.v !== undefined ? { t: last.t, v: last.v } : undefined;
     const near = (a: Point, b: Point) =>
       Math.abs(x(a.t) - x(b.t)) < 70 && Math.abs(y(a.v) - y(b.v)) < 26;
+    // Boxes of the labels drawn on the chart, for the comfort label to avoid.
+    const boxes: Box[] = [];
     const label = (point: Point, text: string, below: boolean) => {
       const px = x(point.t);
       const py = y(point.v);
       const size = 11.5;
       const w = textWidth(text, size);
-      // Close to the end, the label goes to the left of the dot.
-      if (px + w / 2 > right) {
+      // Close to the end, the label goes to the left of the dot when it fits.
+      if (px + w / 2 > right && px - 9 - w > 0) {
+        boxes.push({ x0: px - 9 - w, x1: px + 6, y0: py - 8, y1: py + 6 });
         return svg`<text class="t-primary halo" x=${px - 9} y=${py + 4} font-size=${size} text-anchor="end">${text}</text>`;
       }
-      const cx = Math.max(px, left + w / 2);
+      const cx = Math.min(Math.max(px, left + w / 2), right + 6 - w / 2);
       const ty = below ? Math.min(py + 18, bottom + 6) : Math.max(py - 10, 12);
+      boxes.push({
+        x0: cx - w / 2,
+        x1: cx + w / 2,
+        y0: Math.min(ty - 10, py - 6),
+        y1: Math.max(ty + 2, py + 6),
+      });
       return svg`<text class="t-primary halo" x=${cx} y=${ty} font-size=${size} text-anchor="middle">${text}</text>`;
     };
     for (const [point, key, below] of [
@@ -499,11 +486,46 @@ export class VividClimateChart extends LitElement {
       const crowded = (min && near(min, nowPoint)) || (max && near(max, nowPoint));
       if (!crowded) {
         const above = y(nowPoint.v) - 12 > top - 6;
+        const ty = above ? y(nowPoint.v) - 11 : y(nowPoint.v) + 20;
+        const w = textWidth(fmt(nowPoint.v), 11.5);
+        boxes.push({ x0: x(nowPoint.t) - 9 - w, x1: x(nowPoint.t) + 6, y0: ty - 10, y1: ty + 2 });
         marks.push(
           svg`<text class="t-primary t-strong halo" x=${x(nowPoint.t) - 9} y=${above ? y(nowPoint.v) - 11 : y(nowPoint.v) + 20} font-size="11.5" text-anchor="end">${fmt(nowPoint.v)}</text>`,
         );
       }
     }
+
+    // Comfort label: inside the band, at its top or bottom, left or right,
+    // wherever neither the curve nor another label is in the way.
+    const comfortWidth = textWidth(comfortText, 11);
+    const curve: Box[] = [];
+    for (let px = left; px <= right; px += 4) {
+      const value = sampleAt(visible, timeAtX(px, left, right, start, now));
+      if (value !== undefined) curve.push({ x0: px, x1: px, y0: y(value) - 2, y1: y(value) + 2 });
+    }
+    const roomy = bandBottom - bandTop > 34;
+    const xs = [left + 6, right - 6 - comfortWidth];
+    // Inside the band first, then just below or above it.
+    const baselines = [
+      ...(roomy ? [bandTop + 14, bandBottom - 5] : []),
+      ...(bandBottom + 16 < bottom ? [bandBottom + 14] : []),
+      ...(bandTop - 16 > top ? [bandTop - 4] : []),
+    ];
+    if (!baselines.length) baselines.push(bandTop - 4);
+    const spots: Box[] = baselines
+      .flatMap((baseline) => xs.map((x0) => [x0, baseline]))
+      .map(([x0, baseline]) => ({
+        x0: x0 as number,
+        x1: (x0 as number) + comfortWidth,
+        y0: (baseline as number) - 11,
+        y1: (baseline as number) + 3,
+      }));
+    const comfortSpot = spots[
+      freeSpot(spots, [
+        ...curve.map((box) => ({ ...box, weight: 1 })),
+        ...boxes.map((box) => ({ ...box, weight: 100 })),
+      ])
+    ] as Box;
 
     // Hover.
     const hover = this._hover;
@@ -584,7 +606,7 @@ export class VividClimateChart extends LitElement {
         </g>
         ${
           bandBottom > bandTop
-            ? svg`<text class="t-secondary halo" x=${left + 6} y=${bandLabelY} font-size="11">${comfortText}</text>`
+            ? svg`<text class="t-secondary halo" x=${comfortSpot.x0} y=${comfortSpot.y1 - 3} font-size="11">${comfortText}</text>`
             : nothing
         }
         ${ticks.map(

@@ -9,7 +9,7 @@ import {
   decimate,
   extremes,
   fitLabels,
-  freeBaseline,
+  freeSpot,
   fromCelsius,
   knownRuns,
   knownValues,
@@ -223,10 +223,21 @@ describe('time axis', () => {
     expect(fitLabels(labels, 0, 120)).toEqual([1, 3]);
   });
 
-  it('places a label where the curve leaves room', () => {
-    expect(freeBaseline([20, 80], [15, 18, 21], 11)).toBe(80);
-    expect(freeBaseline([20, 80], [50], 11)).toBe(20);
-    expect(freeBaseline([20, 80], [19, 79], 11)).toBe(20);
+  it('places a label where nothing is in the way', () => {
+    const spots = [
+      { x0: 0, x1: 50, y0: 0, y1: 10 },
+      { x0: 0, x1: 50, y0: 40, y1: 50 },
+    ];
+    expect(freeSpot(spots, [{ x0: 10, x1: 20, y0: 5, y1: 6 }])).toBe(1);
+    expect(freeSpot(spots, [{ x0: 60, x1: 70, y0: 5, y1: 6 }])).toBe(0);
+    expect(freeSpot(spots, [{ x0: 0, x1: 100, y0: 0, y1: 100 }])).toBe(0);
+    // When none is free, the least crowded one.
+    expect(
+      freeSpot(spots, [
+        { x0: 0, x1: 10, y0: 0, y1: 10, weight: 100 },
+        { x0: 0, x1: 10, y0: 45, y1: 46 },
+      ]),
+    ).toBe(1);
   });
 
   it('defines one day', () => {
