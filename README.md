@@ -1246,6 +1246,75 @@ Each level sits on the same gauge and colors as the lux, with a sun, a dimmed
 sun or a moon. The badge shows the icon alone; `show_label: true` also writes
 the level (Bright, Dim, Dark).
 
+## vivid-room-header
+
+The header of a room, in one card: its title with the room power button next
+to it, the lights on and the consumption under it ("4 on · 138 W", or
+"everything is off"), and the room badges centered below. Behind the title,
+one soft glow per light source, in its real color: amber for the lamps and
+switches, each LED strip in its current color, each as bright as the light.
+No glow when everything is off; colors fade smoothly (instantly with reduced
+motion).
+
+It replaces the usual stack of a spacer, a title card, a badge row and a
+separate power badge.
+
+```yaml
+type: custom:vivid-room-header
+room: salon
+```
+
+With `room: salon`, the card finds the entities named after the room:
+
+| Entity                                                                  | Used for                                        |
+| ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `switch.salon_lampes`, `switch.salon_interrupteurs`, `light.salon_leds` | Lights: count, power button, halo, badges       |
+| `sensor.salon_puissance`                                                | Consumption under the title                     |
+| `sensor.salon_eclairement`                                              | Illuminance badge                               |
+| `binary_sensor.salon_presence`                                          | Presence badge                                  |
+| `binary_sensor.salon_fenetres`, `binary_sensor.salon_portes`            | Window and door badges                          |
+| `sensor.salon_temperature`, `_humidite`, `_co2`                         | Climate badges, when those badges are installed |
+
+Lights on are counted per member of the groups (two lamps and two strips on
+make "4 on"). A tap on the power button turns everything in the room off when
+something is on, otherwise turns the room's lights on; a hold opens the
+more-info of the main group (the first light, or `entity`).
+
+Everything can be set instead of discovered:
+
+```yaml
+type: custom:vivid-room-header
+room: salon
+name: Living room
+lights:
+  - switch.salon_lampes
+  - light.salon_leds
+power: sensor.salon_puissance
+badges:
+  - type: custom:vivid-lamp-badge
+    entity: switch.salon_lampes
+  - type: custom:vivid-led-badge
+    entity: light.salon_leds
+  - type: custom:vivid-door-badge
+    entity: binary_sensor.salon_portes
+```
+
+### Options
+
+| Option          | Default                   | Description                                                             |
+| --------------- | ------------------------- | ----------------------------------------------------------------------- |
+| `room`          |                           | Room id of the naming convention (`salon`).                             |
+| `name`          | the room id, capitalized  | Title.                                                                  |
+| `lights`        | discovered groups         | Lights and switches (or groups) of the room.                            |
+| `power`         | `sensor.<room>_puissance` | Power sensor (W or kW).                                                 |
+| `entity`        | first light               | More-info opened by a hold on the power button.                         |
+| `badges`        | discovered                | Vivid badges (`type: custom:vivid-…` plus their own options).           |
+| `show_subtitle` | `true`                    | Lights on and consumption under the title.                              |
+| `show_badges`   | `true`                    | Badge row.                                                              |
+| `glow`          | `100`                     | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`. |
+
+Set `room`, or a `name` with its `lights`.
+
 ## Troubleshooting
 
 **"Custom element doesn't exist: vivid-led-group".** The resource is not

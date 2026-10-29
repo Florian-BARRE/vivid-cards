@@ -359,6 +359,12 @@ const en = {
   cc_history_of: '{kind} of {name} over {range}',
   cc_rooms_label: '{kind} of every room over {range}',
   cc_show_room: 'Show {name}',
+  // Room header
+  room_on_one: '1 on',
+  room_on_other: '{count} on',
+  room_all_off: 'everything is off',
+  room_turn_off: 'Turn off everything in {room}',
+  room_turn_on: 'Turn on {room}',
 };
 
 type Strings = typeof en;
@@ -723,6 +729,12 @@ const fr: Strings = {
   cc_history_of: '{kind} de {name} sur {range}',
   cc_rooms_label: '{kind} de chaque pièce sur {range}',
   cc_show_room: 'Afficher {name}',
+  // Room header
+  room_on_one: '1 allumée',
+  room_on_other: '{count} allumées',
+  room_all_off: 'tout est éteint',
+  room_turn_off: 'Tout éteindre : {room}',
+  room_turn_on: 'Allumer : {room}',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
