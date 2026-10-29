@@ -39,6 +39,8 @@ import {
   updateMember,
 } from './editor-model';
 import { buildLedGroupModel, type LedGroupModel, type StripModel } from './model';
+import { buildAmbilightSide, findBoxes } from './ambilight-link';
+import { findDevices, deviceName } from '../hyperhdr/model';
 
 type FormSchema = Record<string, unknown>;
 type FormData = Record<string, unknown>;
@@ -89,6 +91,11 @@ const LABELS: Record<string, EditorStringKey> = {
   health: 'details_health',
   member_icon: 'member_icon',
   member_transition: 'transition',
+  layout: 'layout',
+  expanded: 'expanded',
+  box: 'box',
+  box_hyperhdr: 'box_hyperhdr',
+  confirm_off: 'box_confirm_off',
 };
 
 const MODE_LABELS: Record<PowerMode, EditorStringKey> = {
@@ -756,9 +763,109 @@ export class VividLedGroupEditor extends LitElement {
       })}`;
   }
 
+  /** Layout: header and tile, or a collapsible line. */
+  private renderLayout(resolved: ResolvedLedGroupConfig) {
+    const config = this._config ?? ({} as LedGroupCardConfig);
+    const collapsible = resolved.layout === 'collapsible';
+    return this.form(
+      [
+        {
+          name: 'layout',
+          selector: this.select([
+            { value: 'default', label: this.t('layout_default') },
+            { value: 'collapsible', label: this.t('layout_collapsible') },
+          ]),
+        },
+        ...(collapsible ? [{ name: 'expanded', selector: { boolean: {} } }] : []),
+      ],
+      { layout: resolved.layout, expanded: resolved.expanded },
+      (value) => {
+        let next = setRoot(config, 'layout', value.layout === 'default' ? undefined : value.layout);
+        next = setRoot(
+          next,
+          'expanded',
+          value.layout === 'collapsible' && value.expanded ? true : undefined,
+        );
+        this.commit(next);
+      },
+      (schema) => (schema.name === 'expanded' ? this.t('expanded_helper') : undefined),
+    );
+  }
+
+  /* --------------------------------- ambilight box -------------------------------- */
+
+  private renderBoxSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
+    const hass = this.hass;
+    if (!hass) return nothing;
+    const config = this._config ?? ({} as LedGroupCardConfig);
+    const boxes = findBoxes(hass);
+    const servers = findDevices(hass).servers;
+    if (boxes.length === 0 && typeof resolved.ambilight.box !== 'string') return nothing;
+    const side = buildAmbilightSide(hass, resolved, model);
+    const boxName = (id: string) =>
+      hass.devices?.[id]?.name_by_user || hass.devices?.[id]?.name || id;
+    const found = side
+      ? 'device' in side.target
+        ? boxName(side.target.device)
+        : side.target.prefix
+      : undefined;
+    const driven = side?.drive.driven.length ?? 0;
+    const summary = this.join([
+      found ? this.t('box_found', { name: found }) : this.t('box_none'),
+      driven > 0 && this.t('box_driven', { count: driven }),
+    ]);
+    const option = resolved.ambilight.box;
+    const value = option === false ? 'off' : (option ?? 'auto');
+    const choices = [
+      { value: 'auto', label: this.t('box_auto') },
+      { value: 'off', label: this.t('box_off') },
+      ...boxes.map((id) => ({ value: id, label: boxName(id) })),
+      ...(typeof option === 'string' && !boxes.includes(option)
+        ? [{ value: option, label: option }]
+        : []),
+    ];
+    return this.section('box', 'mdi:television-ambient-light', this.t('section_box'), summary, () =>
+      this.form(
+        [
+          { name: 'box', selector: this.select(choices) },
+          ...(servers.length > 1
+            ? [
+                {
+                  name: 'box_hyperhdr',
+                  selector: this.select([
+                    { value: 'auto', label: this.t('box_auto') },
+                    ...servers.map((id) => ({ value: id, label: deviceName(hass, id) })),
+                  ]),
+                },
+              ]
+            : []),
+          { name: 'confirm_off', selector: { boolean: {} } },
+        ],
+        {
+          box: value,
+          box_hyperhdr: resolved.ambilight.hyperhdr ?? 'auto',
+          confirm_off: resolved.ambilight.confirmOff,
+        },
+        (data) => {
+          const box = data.box === 'auto' ? undefined : data.box === 'off' ? false : data.box;
+          let next = setOption(config, 'ambilight', 'box', box);
+          next = setOption(
+            next,
+            'ambilight',
+            'hyperhdr',
+            data.box_hyperhdr === 'auto' ? undefined : data.box_hyperhdr,
+          );
+          next = setOption(next, 'ambilight', 'confirm_off', data.confirm_off, true);
+          this.commit(next);
+        },
+        (schema) => (schema.name === 'box' ? this.t('box_helper') : undefined),
+      ),
+    );
+  }
+
   private renderAppearance(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const config = this._config ?? ({} as LedGroupCardConfig);
-    return html`${this.form(
+    return html`${this.renderLayout(resolved)}${this.form(
       [
         { name: 'glow', selector: GLOW_SLIDER },
         { name: 'glow_boost', selector: GLOW_SLIDER },
@@ -1166,6 +1273,7 @@ export class VividLedGroupEditor extends LitElement {
   private renderAppearanceSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const appearance = resolved.appearance;
     const summary = this.join([
+      resolved.layout === 'collapsible' && this.t('layout_collapsible'),
       `${this.t('glow')} : ${appearance.glow} %`,
       appearance.glowBoost !== 100 && `${this.t('glow_boost')} : ${appearance.glowBoost} %`,
       appearance.compact && this.t('compact').toLowerCase(),
@@ -1372,7 +1480,7 @@ export class VividLedGroupEditor extends LitElement {
       <div class="sections">
         ${this.renderLightsSection(resolved, model)} ${this.renderTileSection(resolved, model)}
         ${this.renderGesturesSection(model)} ${this.renderPowerSection(resolved, model)}
-        ${this.renderDetailsSection(resolved, model)}
+        ${this.renderDetailsSection(resolved, model)} ${this.renderBoxSection(resolved, model)}
         ${this.renderAppearanceSection(resolved, model)}
       </div>
     </div>`;

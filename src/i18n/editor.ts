@@ -321,6 +321,23 @@ const en = {
   hh_first: 'Left empty: the first one found',
   hh_options: 'Options',
   hh_options_hint: 'name, picture, halo',
+  // LED group: collapsible layout and Ambilight rail.
+  layout: 'Layout',
+  layout_default: 'Header and tile',
+  layout_collapsible: 'Collapsible line',
+  expanded: 'Unfolded at first',
+  expanded_helper: 'Afterwards the card remembers what you chose on this device',
+  section_layout: 'Layout',
+  section_box: 'Ambilight box',
+  box: 'Ambilight box',
+  box_auto: 'Automatic',
+  box_off: 'No rail',
+  box_helper: 'A rail at the bottom of the card: HDMI input, temperature, fan, on/off',
+  box_found: 'Found: {name}',
+  box_none: 'No Ambilight box found nearby',
+  box_hyperhdr: 'HyperHDR server',
+  box_confirm_off: 'Ask before switching Ambilight off',
+  box_driven: '{count} strips follow the screen',
 };
 
 type EditorStrings = typeof en;
@@ -649,6 +666,23 @@ const fr: EditorStrings = {
   hh_first: 'Vide : le premier trouvé',
   hh_options: 'Options',
   hh_options_hint: 'nom, image, halo',
+  // LED group: collapsible layout and Ambilight rail.
+  layout: 'Disposition',
+  layout_default: 'En-tête et tuile',
+  layout_collapsible: 'Ligne repliable',
+  expanded: 'Dépliée au départ',
+  expanded_helper: 'Ensuite, la carte retient ton choix sur cet appareil',
+  section_layout: 'Disposition',
+  section_box: 'Boîtier Ambilight',
+  box: 'Boîtier Ambilight',
+  box_auto: 'Automatique',
+  box_off: 'Pas de rail',
+  box_helper: 'Un rail en bas de la carte : entrée HDMI, température, ventilateur, marche/arrêt',
+  box_found: 'Trouvé : {name}',
+  box_none: 'Aucun boîtier Ambilight trouvé à proximité',
+  box_hyperhdr: 'Serveur HyperHDR',
+  box_confirm_off: 'Demander avant d’éteindre l’Ambilight',
+  box_driven: '{count} bandeaux suivent l’écran',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };
