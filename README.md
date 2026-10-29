@@ -65,6 +65,7 @@ empties and turns red.
 | [`vivid-lamp-group`](#vivid-lamp-group) (card)         | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
 | [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperatures and fan |
 | [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: the Pi and what it captures, the strips and their devices    |
+| [`vivid-room-header`](#vivid-room-header) (card)       | A room's title, power button, lights on and watts, real-color halo     |
 | [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
@@ -74,8 +75,10 @@ empties and turns red.
 | [`vivid-illuminance-badge`](#vivid-illuminance-badge)  | Illuminance of a group, from the moon to the sun, with a gauge         |
 | [`vivid-power-badge`](#vivid-power-badge)              | Power of a group of devices, glowing brighter as it rises              |
 | [`vivid-battery-badge`](#vivid-battery-badge)          | The lowest battery of a group or of the whole home                     |
-
-Temperature, humidity and pressure badges are on the [roadmap](#roadmap).
+| [`vivid-temperature-badge`](#climate-badges)           | Temperature from blue to red, or the range of every room               |
+| [`vivid-humidity-badge`](#climate-badges)              | Humidity from light cyan to deep blue, pulsing after a shower          |
+| [`vivid-pressure-badge`](#climate-badges)              | Pressure in violet, with the weather it suggests and its trend         |
+| [`vivid-air-quality-badge`](#climate-badges)           | CO₂ from healthy to toxic green, telling when to air the room          |
 
 ## Installation
 
@@ -447,6 +450,41 @@ are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
 
+### Collapsible layout and Ambilight rail
+
+`vivid-led-group` keeps its header and tile by default. Two opt-in additions:
+
+**Collapsible layout.** `layout: collapsible` turns the card into one 64 px line
+tinted with the LEDs' color (icon, name, `57 % · Solid · 2/3 · 42 W`, power
+button, chevron). The chevron unfolds the color bar and the favorites in the same
+card; dragging the line still dims. The card remembers the choice per light on
+this device; `expanded: true` sets the first state.
+
+**Ambilight rail.** With the [Ambilight box](#vivid-ambilight-card), a rail at the
+bottom of the card shows its state (controlling temperature and fan, or the
+alarm in red), the HDMI input menu and a switch that starts and stops the Pi
+(clean shutdown and confirmation, as in the Ambilight card). While the screen
+drives the strips (WLED listens to realtime data, HyperHDR sends to them), the
+tile fills with their captured colors and the color bar steps back: touching it
+takes the strips back (WLED live override). The details dialog adds the box and
+the HyperHDR server.
+
+The only box of the home is found by itself when it sits in the strips' area or
+when HyperHDR sends to one of the strips; `vivid-ambilight-card` and
+`vivid-hyperhdr-card` keep working on their own.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+layout: collapsible # default: header and tile
+expanded: false # first state of the collapsible layout
+ambilight:
+  box: device_ambilight # a device or one of its entities; false hides the rail
+  hyperhdr: device_hub # optional, the only server when left out
+  inputs: [TV box, Console, PC, HDMI 4, HDMI 5]
+  confirm_off: true # second tap before switching Ambilight off
+```
+
 ## vivid-lamp-group
 
 Lamps on smart plugs, wall switches or plain on/off lights, where all you know
@@ -484,6 +522,33 @@ glows with its consumption; quick presets switch several lamps at once.
 <p>
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="592" />
 </p>
+
+### Expandable line
+
+On `layout: line`, the line stays 64 px high: the group's disc (amber halo
+while a lamp is on), its name, `2/4 · 94 W`, a mini disc per lamp (tap to
+switch it), the group's power button and a chevron. A tap on the chevron, the
+title or the free part of the line unfolds the lamp grid of the ambiance
+layout inside the card (disc, name, `48 W · 25 min` or `off · 2 d`); the mini
+discs hide while it is open. Holding the title still opens the details.
+
+The card remembers whether it is unfolded, per card and per device
+(`localStorage`, keyed by its entity). Changing `expanded` in the config
+starts over from the new value. `show_names`, `show_status`, `size` and
+`columns` apply to the unfolded grid. In a sections dashboard, the card's
+height follows its content.
+
+| Option       | Default | Description                                                           |
+| ------------ | ------- | --------------------------------------------------------------------- |
+| `expandable` | `true`  | Line layout: a chevron unfolds the lamp grid inside the card.         |
+| `expanded`   | `false` | Line layout: unfolded when first shown, until it is folded on a card. |
+
+```yaml
+type: custom:vivid-lamp-group
+entity: switch.salon_lampes
+layout: line
+expanded: false # set true to start unfolded; expandable: false for the plain line
+```
 
 ### Gestures
 
@@ -1130,6 +1195,164 @@ pulsing below `low`. The details sort batteries from the lowest.
 | `low`       | `15`    | Percent below which a battery is low (red).                       |
 | `warn`      | `30`    | Percent below which a battery is amber.                           |
 
+## Climate badges
+
+Four badges for the climate of a room or of the whole home:
+`vivid-temperature-badge`, `vivid-humidity-badge`, `vivid-pressure-badge` and
+`vivid-air-quality-badge` (CO₂ in ppm). Each measure has its own color scale,
+the same one the climate charts use:
+
+- **Temperature**: blue when cold, pale yellow then orange inside the comfort
+  range (19–23 °C by default), red when hot.
+- **Humidity**: light cyan when dry to deep blue when very humid.
+- **Pressure**: violet, dark for a low (stormy) pressure, light for a high one.
+  The icon follows the weather it suggests.
+- **Air quality**: healthy green to toxic green, with its level in words
+  (Excellent, Good, Moderate, Poor, Toxic) in the tooltip and the details. From
+  1 000 ppm the icon becomes an open window: time to air the room.
+
+The icon disc is filled with the exact color of the value, with a white icon.
+Inside the comfort range there is no halo; outside, a halo in the same color
+grows the further the value goes. Temperatures from °F sensors are colored like
+their °C equivalent and written in °F.
+
+Small arrows show the trend: a temperature that moved more than 0.5 °C or a
+humidity more than 5 points in the last hour, a pressure on its three-hour
+trend. A pressure falling more than 3 hPa in three hours turns the halo to an
+alert (storm or strong wind likely), a humidity jumping more than 10 points in
+15 minutes pulses (a shower), and so does toxic air. The badge fetches this
+short history when it appears, then every ten minutes.
+
+With several sensors (a sensor group or `entities`), the badge shows what asks
+for action:
+
+- temperature: the range of the rooms (`17,9–22,7°`), the disc split between
+  the color of the coldest room and the warmest, the halo in the color of the
+  room furthest from comfort;
+- humidity: the most humid room (`max 58 %`);
+- air quality: the worst room;
+- pressure: the mean.
+
+`aggregate` overrides this. Tap a badge for the history of its sensor, or one
+curve per room; tap a room for its own chart.
+
+```yaml
+- type: custom:vivid-temperature-badge
+  entity: sensor.all_temperatures
+  comfort: [19, 22]
+- type: custom:vivid-humidity-badge
+  entity: sensor.sdb_humidite
+- type: custom:vivid-pressure-badge
+  entity: sensor.sdb_pression
+- type: custom:vivid-air-quality-badge
+  entities:
+    - sensor.salon_co2
+    - sensor.bureau_co2
+```
+
+| Option      | Default     | Description                                                                                    |
+| ----------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `comfort`   | per measure | `[low, high]` in the sensor unit. Defaults: 19–23 °C, 40–60 %, 1 005–1 025 hPa, 400–1 000 ppm. |
+| `aggregate` | per measure | `mean`, `median`, `min`, `max` or `sum` instead of the default above.                          |
+| `range`     | `24h`       | Span of the details chart: `6h`, `24h`, `7d` or `30d`.                                         |
+| `trend`     | `true`      | Trend arrows, shower and pressure drop alerts (not for air quality).                           |
+
+Plus the options of every badge (`name`, `icon`, `look`, `icon_color`, `glow`,
+`tap_action`, `hold_action`).
+
+### White icons on colored discs
+
+Every Vivid badge now draws a white icon on its colored disc, with a soft
+shadow that keeps it readable on light colors (pale yellow, cyan, lavender, a
+white light). `icon_color: auto` brings back the dark icon on very light colors.
+
+| Option       | Default | Description                                          |
+| ------------ | ------- | ---------------------------------------------------- |
+| `icon_color` | `white` | `white`, or `auto` (dark icon on very light colors). |
+
+### Doors and windows: count and duration
+
+While something is open, a group badge shows how many are open and how long
+the oldest has been open: `3/6 · 19 min`. That duration is what turns the
+halo amber, then red. `show_count: false` hides both.
+
+### Illuminance from a text sensor
+
+`vivid-illuminance-badge` also reads sensors that report a word instead of lux:
+`bright`, `dim`, `dark` (and `light`, `twilight`, `night`… whatever the case).
+Each level sits on the same gauge and colors as the lux, with a sun, a dimmed
+sun or a moon. The badge shows the icon alone; `show_label: true` also writes
+the level (Bright, Dim, Dark).
+
+## vivid-room-header
+
+The header of a room, in one card: its title with the room power button next
+to it, the lights on and the consumption under it ("4 on · 138 W", or
+"everything is off"), and the room badges centered below. Behind the title,
+one soft glow per light source, in its real color: amber for the lamps and
+switches, each LED strip in its current color, each as bright as the light.
+No glow when everything is off; colors fade smoothly (instantly with reduced
+motion).
+
+It replaces the usual stack of a spacer, a title card, a badge row and a
+separate power badge.
+
+```yaml
+type: custom:vivid-room-header
+room: salon
+```
+
+With `room: salon`, the card finds the entities named after the room:
+
+| Entity                                                                  | Used for                                        |
+| ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `switch.salon_lampes`, `switch.salon_interrupteurs`, `light.salon_leds` | Lights: count, power button, halo, badges       |
+| `sensor.salon_puissance`                                                | Consumption under the title                     |
+| `sensor.salon_eclairement`                                              | Illuminance badge                               |
+| `binary_sensor.salon_presence`                                          | Presence badge                                  |
+| `binary_sensor.salon_fenetres`, `binary_sensor.salon_portes`            | Window and door badges                          |
+| `sensor.salon_temperature`, `_humidite`, `_co2`                         | Climate badges, when those badges are installed |
+
+Lights on are counted per member of the groups (two lamps and two strips on
+make "4 on"). A tap on the power button turns everything in the room off when
+something is on, otherwise turns the room's lights on; a hold opens the
+more-info of the main group (the first light, or `entity`).
+
+Everything can be set instead of discovered:
+
+```yaml
+type: custom:vivid-room-header
+room: salon
+name: Living room
+lights:
+  - switch.salon_lampes
+  - light.salon_leds
+power: sensor.salon_puissance
+badges:
+  - type: custom:vivid-lamp-badge
+    entity: switch.salon_lampes
+  - type: custom:vivid-led-badge
+    entity: light.salon_leds
+  - type: custom:vivid-door-badge
+    entity: binary_sensor.salon_portes
+```
+
+### Options
+
+| Option          | Default                   | Description                                                             |
+| --------------- | ------------------------- | ----------------------------------------------------------------------- |
+| `room`          |                           | Room id of the naming convention (`salon`).                             |
+| `name`          | the room id, capitalized  | Title.                                                                  |
+| `lights`        | discovered groups         | Lights and switches (or groups) of the room.                            |
+| `power`         | `sensor.<room>_puissance` | Power sensor (W or kW).                                                 |
+| `entity`        | first light               | More-info opened by a hold on the power button.                         |
+| `badges`        | discovered                | Vivid badges (`type: custom:vivid-…` plus their own options).           |
+| `show_subtitle` | `true`                    | Lights on and consumption under the title.                              |
+| `show_badges`   | `true`                    | Badge row.                                                              |
+| `glow`          | `100`                     | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`. |
+
+Set `room`, or a `name` with its `lights`.
+
 ## Troubleshooting
 
 **"Custom element doesn't exist: vivid-led-group".** The resource is not
@@ -1201,7 +1424,6 @@ can be set in a theme:
 
 ## Roadmap
 
-- Temperature, humidity and pressure badges.
 - Label driven badges: show any entity of a strip's device on its header.
 - WLED palette previews.
 

@@ -12,6 +12,18 @@ import {
   createMockHass,
 } from './mock-hass';
 import type { HomeAssistant } from '../src/core/hass-types';
+import {
+  CO2_GROUP,
+  FAHRENHEIT,
+  HUMIDITY_GROUP,
+  SDB_CO2,
+  SDB_HUMIDITY,
+  SDB_ILLUMINANCE,
+  SDB_PRESSURE,
+  SDB_TEMPERATURE,
+  TEMPERATURES_GROUP,
+  withClimate,
+} from './climate-mock';
 type BadgeElement = HTMLElement & {
   hass?: HomeAssistant;
   setConfig(config: Record<string, unknown>): void;
@@ -96,12 +108,55 @@ for (const look of looks) {
       badge({ entity: PRESENCE_GROUP_ID, look, ...halo }, 'vivid-presence-badge'),
       badge({ look, ...halo }, 'vivid-battery-badge'),
     ]),
+    // Climate badges: a bathroom (BME280 and CO₂), the whole home, and every scale.
+    row('Salle de bain', [
+      badge({ entity: SDB_TEMPERATURE, look, ...halo }, 'vivid-temperature-badge'),
+      badge({ entity: SDB_HUMIDITY, look, ...halo }, 'vivid-humidity-badge'),
+      badge({ entity: SDB_PRESSURE, look, ...halo }, 'vivid-pressure-badge'),
+      badge({ entity: SDB_CO2, look, ...halo }, 'vivid-air-quality-badge'),
+      badge({ entity: SDB_ILLUMINANCE, look, ...halo }, 'vivid-illuminance-badge'),
+      badge(
+        { entity: SDB_ILLUMINANCE, look, show_label: true, ...halo },
+        'vivid-illuminance-badge',
+      ),
+    ]),
+    row('Général', [
+      badge({ entity: TEMPERATURES_GROUP, look, ...halo }, 'vivid-temperature-badge'),
+      badge({ entity: HUMIDITY_GROUP, look, ...halo }, 'vivid-humidity-badge'),
+      badge({ entity: CO2_GROUP, look, ...halo }, 'vivid-air-quality-badge'),
+      badge({ entity: SDB_PRESSURE, look, ...halo }, 'vivid-pressure-badge'),
+      badge({ entity: FAHRENHEIT, look, ...halo }, 'vivid-temperature-badge'),
+    ]),
+    row(
+      'Échelles',
+      [
+        ...[0, 1, 2, 3, 4].map((i) => `sensor.demo_temperature_${i}`),
+        ...[0, 1, 2, 3].map((i) => `sensor.demo_humidity_${i}`),
+        ...[0, 1, 2, 3].map((i) => `sensor.demo_pressure_${i}`),
+        ...[0, 1, 2, 3].map((i) => `sensor.demo_co2_${i}`),
+        'sensor.demo_light_dim',
+        'sensor.demo_light_dark',
+      ].map((entity) =>
+        badge(
+          { entity, look, ...halo },
+          entity.includes('temperature')
+            ? 'vivid-temperature-badge'
+            : entity.includes('humidity')
+              ? 'vivid-humidity-badge'
+              : entity.includes('pressure')
+                ? 'vivid-pressure-badge'
+                : entity.includes('co2')
+                  ? 'vivid-air-quality-badge'
+                  : 'vivid-illuminance-badge',
+        ),
+      ),
+    ),
   );
   stage.append(block);
 }
 
 let unsubscribe = mock.subscribe((hass: HomeAssistant) => {
-  for (const element of badges) element.hass = hass;
+  for (const element of badges) element.hass = withClimate(hass);
 });
 
 document.getElementById('theme')!.addEventListener('click', () => {
@@ -114,7 +169,7 @@ document.getElementById('language')!.addEventListener('click', () => {
   unsubscribe();
   mock = createMockHass(language, mockOptions);
   unsubscribe = mock.subscribe((hass) => {
-    for (const element of badges) element.hass = hass;
+    for (const element of badges) element.hass = withClimate(hass);
   });
 });
 

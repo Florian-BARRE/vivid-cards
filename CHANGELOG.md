@@ -4,6 +4,68 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] - 2026-10-29
+
+A denser dashboard: climate badges and charts, a room header card, lamps and
+LEDs on one line that unfold in place, and one LED card for strips driven by
+hand or by the screen.
+
+### Added
+
+- `vivid-temperature-badge`, `vivid-humidity-badge`, `vivid-pressure-badge` and
+  `vivid-air-quality-badge` (CO₂). The icon disc is filled with the exact color
+  of the value on shared scales: temperature from blue to red through yellow and
+  orange, humidity from light cyan to deep blue, pressure in violet, CO₂ from
+  healthy to toxic green. A halo grows outside the comfort range
+  (`comfort: [low, high]`); trend arrows (0.5 °C or 5 points over an hour,
+  pressure over three hours); a pulse during a shower and on toxic air; an alert
+  when the pressure drops more than 3 hPa in 3 h; the air quality level in words
+  and an open-window icon when it is time to air. °F sensors are colored through
+  °C and written in °F.
+- Several sensors in one climate badge: the temperature range of the rooms with
+  a split disc, the most humid room, the worst air, the mean pressure
+  (`aggregate` overrides it).
+- Climate details: a 24 h curve colored by its value with the comfort band,
+  dated min and max, midnight separators, a hover cursor and a summary row (min,
+  max, average, time outside comfort, the day before), with 6 h / 24 h / 7 d /
+  30 d tabs (7 and 30 days from the long-term statistics). For several sensors,
+  one small curve per room on a shared scale and time axis, sorted from the
+  furthest to the closest to comfort; tap a room for its own chart.
+- `vivid-room-header` card: the room title with its power button, "4 on ·
+  138 W" under it, the room badges below, and behind the title one soft glow per
+  light source in its real color. Discovers the room's groups from `room:` and
+  builds its badges; `name`, `lights`, `power`, `entity`, `badges`,
+  `show_subtitle`, `show_badges`, `glow`; visual editor.
+- `vivid-lamp-group`, `layout: line`: the line unfolds the lamp grid (watts and
+  durations) inside the card. Options `expandable` (default `true`) and
+  `expanded`; the choice is remembered per card.
+- `vivid-led-group`, `layout: collapsible`: a 64 px line tinted with the LEDs'
+  color that unfolds into the tile inside the same card (`expanded`, remembered
+  per light).
+- `vivid-led-group` Ambilight rail, when the card has an Ambilight box
+  (`ambilight.box`, found by itself when the home has one box next to the
+  strips): temperature and fan, the red alarm line, the HDMI input menu and a
+  switch that starts and stops the Pi cleanly. While the screen drives the
+  strips, the tile fills with the captured colors and the color bar steps back
+  behind "Colors follow the screen · tap to take over". The details gain the
+  Ambilight box and HyperHDR server sections. `ambilight.box: false` removes the
+  rail.
+- `icon_color` option on every Vivid badge, and `show_label` on
+  `vivid-illuminance-badge`.
+
+### Changed
+
+- Vivid badges draw a white icon with a soft shadow on every colored disc;
+  `icon_color: auto` restores the dark icon on very light colors.
+- Window and door badges show the longest open duration after the count:
+  `3/6 · 19 min`.
+- `vivid-illuminance-badge` reads `bright` / `dim` / `dark` text sensors (and
+  `light`, `twilight`, `night`…), on the lux gauge with a sun, dimmed sun or
+  moon icon; icon only unless `show_label: true`.
+- `vivid-lamp-group`, `layout: line`: the group icon sits in a disc with an
+  amber halo, the line is 64 px high, and a tap on the title unfolds the line
+  (hold opens the details; `expandable: false` keeps the previous behaviour).
+
 ## [0.13.0] - 2026-10-21
 
 The HyperHDR card, the Ambilight card working with HyperHDR, and compact cards

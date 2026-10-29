@@ -173,3 +173,22 @@ export function buildOpeningModel(
     watched: watchedIds(config, ids),
   };
 }
+
+/**
+ * What the badge writes: a group its count ("3/6") and, while something is
+ * open, the longest open duration; one entity its open duration alone.
+ * Nothing when `show_count` is off.
+ */
+export function openingLabel(
+  model: Pick<OpeningModel, 'isGroup' | 'open' | 'total' | 'longest'>,
+  config: Pick<ResolvedOpeningBadge, 'showCount' | 'showZero'>,
+): { count?: string; since?: number } {
+  const isOpen = model.open > 0;
+  if (!config.showCount) return {};
+  if (model.isGroup) {
+    if (!isOpen && !config.showZero) return {};
+    const count = `${model.open}/${model.total}`;
+    return isOpen ? { count, since: model.longest } : { count };
+  }
+  return isOpen ? { since: model.longest } : {};
+}

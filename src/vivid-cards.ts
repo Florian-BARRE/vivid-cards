@@ -6,12 +6,14 @@ import './cards/led-group/vivid-led-group';
 import './cards/lamp-group/vivid-lamp-group';
 import './cards/ambilight/vivid-ambilight-card';
 import './cards/hyperhdr/vivid-hyperhdr-card';
+import './cards/room-header/vivid-room-header';
 import './badges/light/vivid-light-badge';
 import './badges/opening/vivid-opening-badge';
 import './badges/presence/vivid-presence-badge';
 import './badges/illuminance/vivid-illuminance-badge';
 import './badges/power/vivid-power-badge';
 import './badges/battery/vivid-battery-badge';
+import './badges/climate/vivid-climate-badge';
 
 export const VERSION = __VIVID_VERSION__;
 

@@ -19,6 +19,9 @@ import {
   luxIcon,
   type IlluminanceModel,
   buildIlluminanceModel,
+  LEVEL_ICON,
+  LEVEL_RATIO,
+  type LightLevel,
 } from './model';
 
 /**
@@ -49,10 +52,32 @@ export class VividIlluminanceBadge extends VividBadge<ResolvedIlluminanceBadge> 
     return `${formatNumber(this.hass, value)} ${this.model?.unit ?? 'lx'}`;
   }
 
+  private levelLabel(level: LightLevel): string {
+    return localize(this.hass, `light_level_${level}` as StringKey);
+  }
+
   protected buildView(hass: HomeAssistant, config: ResolvedIlluminanceBadge): BadgeView {
     const model = buildIlluminanceModel(hass, config);
     this.model = model;
     const value = model.value;
+    if (value === undefined && model.level) {
+      // A text sensor: placed on the same gauge and colors as the lux, icon alone by default.
+      const ratio = LEVEL_RATIO[model.level];
+      const color = luxColor(ratio);
+      const label = this.levelLabel(model.level);
+      return {
+        name: model.name,
+        active: true,
+        icon: config.icon ?? LEVEL_ICON[model.level],
+        text: config.showLabel ? label : undefined,
+        tone: tintTone(color, 0.2 + 0.65 * ratio),
+        soft: true,
+        ring: config.gauge ? ratio : undefined,
+        ringColor: rgbCss(color),
+        state: label,
+        watched: model.watched,
+      };
+    }
     if (value === undefined) {
       return {
         name: model.name,
@@ -84,8 +109,25 @@ export class VividIlluminanceBadge extends VividBadge<ResolvedIlluminanceBadge> 
     const config = this._config;
     if (!model || !config) return [];
     return [...model.items]
-      .sort((a, b) => (b.value ?? -1) - (a.value ?? -1))
+      .sort(
+        (a, b) =>
+          (b.value ?? (b.level ? LEVEL_RATIO[b.level] - 2 : -3)) -
+          (a.value ?? (a.level ? LEVEL_RATIO[a.level] - 2 : -3)),
+      )
       .map((item) => {
+        if (item.value === undefined && item.level) {
+          const ratio = LEVEL_RATIO[item.level];
+          const color = luxColor(ratio);
+          return {
+            entityId: item.entityId,
+            icon: LEVEL_ICON[item.level],
+            name: item.name,
+            value: this.levelLabel(item.level),
+            tone: tintTone(color, 0.2 + 0.65 * ratio),
+            bar: ratio,
+            barColor: color,
+          };
+        }
         if (item.value === undefined) {
           return {
             entityId: item.entityId,
@@ -156,6 +198,13 @@ export const ILLUMINANCE_EDITOR: BadgeEditorSpec = {
       row: 2,
     },
     { name: 'gauge', label: 'gauge', selector: { boolean: {} }, default: true },
+    {
+      name: 'show_label',
+      label: 'show_light_label',
+      selector: { boolean: {} },
+      default: false,
+      helper: 'show_light_label_helper',
+    },
   ],
   validate: (config) => void resolveIlluminanceBadge(config),
 };

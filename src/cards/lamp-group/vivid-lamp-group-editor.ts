@@ -31,6 +31,8 @@ const DEFAULTS: Record<string, unknown> = {
   show_names: true,
   show_status: true,
   size: 'medium',
+  expandable: true,
+  expanded: false,
   tap_action: 'toggle',
   hold_action: 'details',
   show_power: true,
@@ -508,6 +510,8 @@ export class VividLampGroupEditor extends LitElement {
   private renderAppearance(config: LampGroupCardConfig) {
     const glow = glowPercent(config.glow ?? 100) ?? 100;
     const line = (config.layout ?? 'ambiance') === 'line';
+    // An expandable line unfolds the ambiance grid: its names, status and columns apply.
+    const grid = !line || (config.expandable ?? true);
     const sizes = LAMP_SIZES.map((value) => ({
       value,
       label: this.t(`lamp_size_${value}` as EditorStringKey),
@@ -523,12 +527,15 @@ export class VividLampGroupEditor extends LitElement {
       line
         ? pair(toggle('show_count'), toggle('show_toggle_all'))
         : pair(toggle('show_toggle_all')),
-      ...(line ? [] : [pair(toggle('show_names'), toggle('show_status'))]),
+      ...(line
+        ? [pair(toggle('expandable'), ...((config.expandable ?? true) ? [toggle('expanded')] : []))]
+        : []),
+      ...(grid ? [pair(toggle('show_names'), toggle('show_status'))] : []),
       pair(
         { name: 'size', selector: { select: { mode: 'dropdown', options: sizes } } },
-        ...(line
-          ? []
-          : [{ name: 'columns', selector: { number: { min: 1, max: 12, step: 1, mode: 'box' } } }]),
+        ...(grid
+          ? [{ name: 'columns', selector: { number: { min: 1, max: 12, step: 1, mode: 'box' } } }]
+          : []),
       ),
       { name: 'glow', selector: GLOW_SLIDER },
     ];
@@ -540,6 +547,8 @@ export class VividLampGroupEditor extends LitElement {
         show_toggle_all: config.show_toggle_all ?? true,
         show_names: config.show_names ?? true,
         show_status: config.show_status ?? true,
+        expandable: config.expandable ?? true,
+        expanded: config.expanded ?? false,
         size: config.size ?? 'medium',
         columns: config.columns,
         glow,
@@ -556,11 +565,17 @@ export class VividLampGroupEditor extends LitElement {
         show_toggle_all: this.t('lamp_show_toggle_all'),
         show_names: this.t('lamp_show_names'),
         show_status: this.t('lamp_show_status'),
+        expandable: this.t('lamp_expandable'),
+        expanded: this.t('lamp_expanded'),
         size: this.t('lamp_size'),
         columns: this.t('lamp_columns'),
         glow: this.t('glow'),
       },
-      { columns: this.t('lamp_columns_helper'), glow: this.t('glow_helper') },
+      {
+        columns: this.t('lamp_columns_helper'),
+        expanded: this.t('lamp_expanded_helper'),
+        glow: this.t('glow_helper'),
+      },
     );
   }
 

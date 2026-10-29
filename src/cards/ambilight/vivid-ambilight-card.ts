@@ -87,7 +87,7 @@ export class VividAmbilightCard extends LitElement {
   /** When the clean shutdown of the Pi was asked, until the relay opens. */
   declare stopping?: number;
 
-  private model?: AmbilightModel;
+  protected model?: AmbilightModel;
   private rawConfig?: AmbilightCardConfig;
   /** Registry the devices were last looked up in. */
   private resolvedFor?: HomeAssistant['entities'];
@@ -723,7 +723,7 @@ export class VividAmbilightCard extends LitElement {
     this.lastActive = { index: snapshot.active, changed: snapshot.activeChanged };
   }
 
-  private readonly selectSource = (event: CustomEvent<{ index: number }>): void => {
+  protected readonly selectSource = (event: CustomEvent<{ index: number }>): void => {
     const hass = this.hass;
     const config = this._config;
     const input = this.model?.hdmi.inputs[event.detail.index];
@@ -749,7 +749,7 @@ export class VividAmbilightCard extends LitElement {
     this.armed = false;
   }
 
-  private readonly togglePi = (): void => {
+  protected readonly togglePi = (): void => {
     const hass = this.hass;
     const config = this._config;
     const model = this.model;
@@ -859,7 +859,7 @@ export class VividAmbilightCard extends LitElement {
   }
 
   /** The values chosen for the card, in their order. */
-  private renderValues(model: AmbilightModel, items: readonly AmbilightInfo[]) {
+  protected renderValues(model: AmbilightModel, items: readonly AmbilightInfo[]) {
     const hass = this.hass;
     const box = model.temperature ?? model.temperatureBmp;
     const cpu = model.cpuTemperature;
@@ -1028,7 +1028,7 @@ export class VividAmbilightCard extends LitElement {
     return { index, phase: index === undefined ? undefined : this.phases[index] };
   }
 
-  private renderSourceChip(model: AmbilightModel) {
+  protected renderSourceChip(model: AmbilightModel) {
     const hass = this.hass;
     const config = this._config;
     if (!config) return nothing;
