@@ -312,6 +312,14 @@ const en = {
   hh_crop: 'Crop',
   hh_image: 'Picture settings',
   hh_open_more: 'More',
+  // LED group: collapsible layout and Ambilight rail.
+  led_expand: 'Unfold',
+  led_collapse: 'Fold',
+  led_screen_colors: 'Colors follow the screen · tap to take over',
+  led_box: 'Ambilight box',
+  led_hyperhdr: 'HyperHDR server',
+  led_back_server: 'Back to the server',
+  rail_missing: 'Ambilight box not found',
 };
 
 type Strings = typeof en;
@@ -629,6 +637,14 @@ const fr: Strings = {
   hh_crop: 'Recadrage',
   hh_image: 'Réglages de l’image',
   hh_open_more: 'Plus',
+  // LED group: collapsible layout and Ambilight rail.
+  led_expand: 'Déplier',
+  led_collapse: 'Replier',
+  led_screen_colors: 'Couleurs suivies de l’écran · toucher pour reprendre la main',
+  led_box: 'Boîtier Ambilight',
+  led_hyperhdr: 'Serveur HyperHDR',
+  led_back_server: 'Retour au serveur',
+  rail_missing: 'Boîtier Ambilight introuvable',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
