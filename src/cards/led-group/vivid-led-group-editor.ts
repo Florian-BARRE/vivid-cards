@@ -11,7 +11,7 @@ import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
 import { supportsHue, supportsTemperature } from '../../core/light';
 import { defineElement } from '../../core/register';
-import { formatNumber } from '../../i18n';
+import { formatNumber, localeOf } from '../../i18n';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import type { PowerMode } from '../../integrations/power';
 import { tokens } from '../../components/shared-styles';
@@ -407,7 +407,7 @@ export class VividLedGroupEditor extends LitElement {
     const code = this._config?.power?.currency ?? this.hass?.config?.currency ?? 'EUR';
     try {
       return (
-        new Intl.NumberFormat(this.hass?.language ?? 'en', { style: 'currency', currency: code })
+        new Intl.NumberFormat(localeOf(this.hass), { style: 'currency', currency: code })
           .formatToParts(0)
           .find((part) => part.type === 'currency')?.value ?? code
       );

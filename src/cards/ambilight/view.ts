@@ -1,7 +1,7 @@
 import type { SourceLabels } from '../../components/vivid-source-row';
 import { tintTone, type ChipTone } from '../../core/glow';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
-import { localize, type StringKey } from '../../i18n';
+import { localize, type StringKey, localeOf } from '../../i18n';
 import {
   temperatureColor,
   type Alarm,
@@ -20,7 +20,7 @@ export const FAN_RGB: Rgb = [77, 182, 245];
 /** A number with exactly `digits` decimals, in the user's locale. */
 export function fixed(hass: HomeAssistant | undefined, value: number, digits = 0): string {
   try {
-    return new Intl.NumberFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+    return new Intl.NumberFormat(localeOf(hass), {
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
     }).format(value);

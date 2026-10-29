@@ -371,7 +371,6 @@ const en = {
   led_screen_colors: 'Colors follow the screen · tap to take over',
   led_ambilight_mode: 'Ambilight',
   led_ambilight_start: 'Turn Ambilight on: the strips follow the screen',
-  led_ambilight_start_pi: 'Turn Ambilight on: starts the Pi, then the strips follow the screen',
   led_ambilight_stop: 'Turn Ambilight off: the strips come back to the card',
   led_box: 'Ambilight box',
   led_hyperhdr: 'HyperHDR server',
@@ -461,6 +460,7 @@ const en = {
     'The off-peak / peak split needs hourly data, or an invoice with its peak and off-peak kWh.',
   energy_tariff: 'Tariff',
   energy_previous_bill: 'Previous bill {v}',
+  energy_day_of: 'D{day}/{total}',
 };
 
 type Strings = typeof en;
@@ -837,7 +837,6 @@ const fr: Strings = {
   led_screen_colors: 'Couleurs suivies de l’écran · toucher pour reprendre la main',
   led_ambilight_mode: 'Ambilight',
   led_ambilight_start: 'Activer l’Ambilight : les bandeaux suivent l’écran',
-  led_ambilight_start_pi: 'Activer l’Ambilight : démarre le Pi, puis les bandeaux suivent l’écran',
   led_ambilight_stop: 'Couper l’Ambilight : les bandeaux reviennent à la carte',
   led_box: 'Boîtier Ambilight',
   led_hyperhdr: 'Serveur HyperHDR',
@@ -928,14 +927,31 @@ const fr: Strings = {
     'La répartition HP / HC demande les données horaires, ou une facture avec ses kWh HP et HC.',
   energy_tariff: 'Tarif',
   energy_previous_bill: 'Facture précédente {v}',
+  energy_day_of: 'J{day}/{total}',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
 
 export type StringKey = keyof Strings;
 
+/**
+ * The language the cards speak and format numbers in: the one picked in the
+ * user's profile, else the server's (the household's), else the device's. A
+ * phone set to English still shows French cards in a French home, unless the
+ * user picked English in Home Assistant.
+ */
+export function localeOf(hass: HomeAssistant | undefined): string {
+  return (
+    hass?.selectedLanguage ||
+    hass?.config?.language ||
+    hass?.locale?.language ||
+    hass?.language ||
+    'en'
+  );
+}
+
 export function languageOf(hass: HomeAssistant | undefined): string {
-  return (hass?.locale?.language ?? hass?.language ?? 'en').split('-')[0] ?? 'en';
+  return localeOf(hass).split('-')[0] ?? 'en';
 }
 
 export function localize(
@@ -971,7 +987,7 @@ export function shortDuration(hass: HomeAssistant | undefined, seconds: number):
 
 export function formatNumber(hass: HomeAssistant | undefined, value: number, digits = 0): string {
   try {
-    return new Intl.NumberFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+    return new Intl.NumberFormat(localeOf(hass), {
       maximumFractionDigits: digits,
     }).format(value);
   } catch {

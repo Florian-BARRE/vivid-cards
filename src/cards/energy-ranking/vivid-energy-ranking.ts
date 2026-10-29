@@ -1,7 +1,7 @@
 import { css, html, nothing, type CSSResultGroup } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
-import { localize } from '../../i18n';
+import { localize, localeOf } from '../../i18n';
 import { SAMPLE_TARIFF } from '../../energy/config';
 import type { EnergyData } from '../../energy/data';
 import { formatKwh, formatMoney } from '../../energy/format';
@@ -216,7 +216,7 @@ export class VividEnergyRanking extends VividEnergyFlow {
         view.kwh > 0
           ? html`<div class="sub">
               ${localize(hass, 'energy_tracked_share', {
-                p: `${new Intl.NumberFormat(hass?.locale?.language ?? hass?.language ?? 'en', { maximumFractionDigits: 1 }).format(view.trackedShare * 100)} %`,
+                p: `${new Intl.NumberFormat(localeOf(hass), { maximumFractionDigits: 1 }).format(view.trackedShare * 100)} %`,
               })}
             </div>`
           : nothing

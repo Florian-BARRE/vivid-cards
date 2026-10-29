@@ -12,7 +12,7 @@ import {
 import type { HistorySeries, Reading } from '../core/history';
 import type { HomeAssistant } from '../core/hass-types';
 import { defineElement } from '../core/register';
-import { formatNumber, localize, type StringKey } from '../i18n';
+import { formatNumber, localize, type StringKey, localeOf } from '../i18n';
 import { buttonReset, tokens } from './shared-styles';
 
 const HOUR = 3_600_000;
@@ -57,7 +57,7 @@ export function formatCost(
   currency: string,
 ): string {
   try {
-    return new Intl.NumberFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+    return new Intl.NumberFormat(localeOf(hass), {
       style: 'currency',
       currency,
       maximumFractionDigits: 2,
@@ -72,7 +72,7 @@ function formatWattsShort(hass: HomeAssistant | undefined, watts: number): strin
 }
 
 function languageOf(hass: HomeAssistant | undefined): string {
-  return hass?.locale?.language ?? hass?.language ?? 'en';
+  return localeOf(hass);
 }
 
 /** A tidy upper bound for the axis: 1, 2, 2.5 or 5 × 10ⁿ at or above the peak. */
