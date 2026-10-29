@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.4] - 2026-10-29
+
+### Changed
+
+- `vivid-led-group` with an Ambilight box: the details open on three tabs,
+  LEDs (the strips), Ambilight Manager (the box's details and their four
+  sub-tabs) and HyperHDR (the live picture while the tab is open, then the
+  server and the Pi). HyperHDR's strips take the names of the strips they
+  drive. Without a box or HyperHDR, the details stay a single page.
+
 ## [0.15.3] - 2026-10-29
 
 ### Fixed
