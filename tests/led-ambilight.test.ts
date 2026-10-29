@@ -338,6 +338,32 @@ describe('rail tint', () => {
   });
 });
 
+describe('screen palette', () => {
+  it('keeps two or three distinct colors of the picture, at full strength', async () => {
+    const { screenPalette } = await import('../src/cards/led-group/screen-sampler');
+    const edges: Rgb[] = [
+      [120, 40, 10],
+      [118, 42, 12],
+      [10, 20, 100],
+      [5, 5, 5],
+      [60, 60, 60],
+      [119, 41, 11],
+    ];
+    const palette = screenPalette(edges);
+    expect(palette[0]).toEqual([255, 85, 21]);
+    expect(palette).toHaveLength(3);
+    expect(palette).toContainEqual([26, 51, 255]);
+    // A black picture: a dim grey, not a flash of color.
+    expect(
+      screenPalette([
+        [3, 3, 3],
+        [5, 4, 6],
+      ]),
+    ).toEqual([[60, 60, 72]]);
+    expect(screenPalette([])).toEqual([]);
+  });
+});
+
 describe('card language', () => {
   it('follows the profile, else the home, else the device', async () => {
     const { languageOf, localeOf } = await import('../src/i18n');

@@ -4,7 +4,7 @@ import { runAction, type ActionConfig } from '../../core/action-handler';
 import { haptic, openMoreInfo, selectOption, toggleEntity } from '../../core/actions';
 import { domainOf } from '../../core/entities';
 import { glowVars, lightTone, toggleTone } from '../../core/glow';
-import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
+import type { HomeAssistant, LovelaceGridOptions, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
 import { buttonReset, tokens } from '../../components/shared-styles';
@@ -23,6 +23,7 @@ import {
   type FoldStep,
 } from './ambilight-link';
 import { readExpanded, writeExpanded } from './fold';
+import { ScreenSampler } from './screen-sampler';
 import type { VividAmbilightRail } from './vivid-ambilight-rail';
 import './vivid-ambilight-rail';
 import {
@@ -55,6 +56,8 @@ export class VividLedGroup extends LitElement {
   declare _expanded: boolean;
 
   private model?: LedGroupModel;
+  /** What the TV shows, read lightly while in Ambilight mode. */
+  private readonly sampler = new ScreenSampler(this, () => this.hass);
   /** Pi and Ambilight state at the last render, to fold or unfold on their changes. */
   private foldStep?: FoldStep;
   /** The Ambilight box and what the screen drives, when the card has a box. */
@@ -211,11 +214,22 @@ export class VividLedGroup extends LitElement {
       }
       this.foldStep = step;
     }
+    this.sampler.sync(this.side?.hyperhdr.hub?.camera, this.screen);
   }
 
   /** Ambilight mode: the Pi runs and the strips follow the screen. */
   private get screen(): boolean {
     return screenMode(this.side, this.model?.liveOverride);
+  }
+
+  /** Colors of Ambilight mode: what the TV shows when it can be read, else the drifting palette. */
+  private get screenColors(): Rgb[] {
+    return this.sampler.colors ?? SCREEN_RGB;
+  }
+
+  /** The palette drifts only when the picture cannot be read. */
+  private get drift(): boolean {
+    return this.sampler.colors === undefined;
   }
 
   private get rail(): VividAmbilightRail | null {
@@ -412,7 +426,7 @@ export class VividLedGroup extends LitElement {
     return html`<vivid-chip
       .icon=${'mdi:television-ambient-light'}
       .tooltip=${tooltip}
-      .tone=${on && usable ? lightTone(SCREEN_RGB, true) : toggleTone(false)}
+      .tone=${on && usable ? lightTone(this.screen ? this.screenColors : SCREEN_RGB, true) : toggleTone(false)}
       .pressed=${on}
       ?disabled=${!usable}
       @click=${this.toggleAmbilight}
@@ -421,7 +435,7 @@ export class VividLedGroup extends LitElement {
 
   /** Ambilight button, power button and fold chevron of the collapsible line. */
   private renderLineActions(model: LedGroupModel, config: ResolvedLedGroupConfig) {
-    const capture = this.screen ? SCREEN_RGB : undefined;
+    const capture = this.screen ? this.screenColors : undefined;
     const colors = capture ?? (model.colors.length ? model.colors : model.rgb);
     // In Ambilight mode only the brightness is left: nothing to unfold.
     const screen = this.screen;
@@ -469,7 +483,7 @@ export class VividLedGroup extends LitElement {
     // Ambilight mode: the screen owns the colors, the card keeps the brightness.
     const screen = this.screen;
     // The screen's colors while it drives the strips; the card's own colors otherwise.
-    const capture = screen ? SCREEN_RGB : undefined;
+    const capture = screen ? this.screenColors : undefined;
     const header =
       config.appearance.header && !collapsible
         ? html`<vivid-light-header
@@ -516,6 +530,7 @@ export class VividLedGroup extends LitElement {
       .collapsed=${collapsible && (screen || !this._expanded)}
       .subtitle=${collapsible ? this.subtitle(model, config) : undefined}
       .capture=${capture}
+      .captureDrift=${this.drift}
       .captureLabel=${localize(this.hass, 'led_screen_colors')}
       @vivid-take-control=${this.takeControl}
       @vivid-gesture=${this.onTileGesture}
@@ -529,6 +544,8 @@ export class VividLedGroup extends LitElement {
             .railConfig=${side.rail}
             .drive=${side.drive}
             .screen=${screen}
+            .screenColors=${this.screenColors}
+            .drift=${this.drift}
             .lightColors=${model.colors.length ? model.colors : model.rgb ? [model.rgb] : []}
             @vivid-rail-change=${this.onRailChange}
           ></vivid-ambilight-rail>

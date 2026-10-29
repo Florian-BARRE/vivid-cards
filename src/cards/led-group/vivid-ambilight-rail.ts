@@ -26,6 +26,8 @@ export class VividAmbilightRail extends VividAmbilightCard {
     ...VividAmbilightCard.properties,
     drive: { attribute: false },
     screen: { type: Boolean },
+    screenColors: { attribute: false },
+    drift: { type: Boolean },
     lightColors: { attribute: false },
   };
 
@@ -33,6 +35,10 @@ export class VividAmbilightRail extends VividAmbilightCard {
   declare drive?: AmbilightDrive;
   /** Ambilight mode: the strips follow the screen. */
   declare screen: boolean;
+  /** Colors of the screen in Ambilight mode. */
+  declare screenColors?: Rgb[];
+  /** The screen's colors drift (the picture cannot be read). */
+  declare drift: boolean;
   /** Colors of the strips when the card sets them (the fixed color). */
   declare lightColors?: Rgb[];
 
@@ -266,7 +272,7 @@ export class VividAmbilightRail extends VividAmbilightCard {
       return html`<div class="missing">${localize(hass, 'rail_missing')}</div>`;
     }
     const alert = railAlert(model) !== undefined;
-    const colors = railTint(this.screen, this.lightColors ?? []);
+    const colors = railTint(this.screen, this.lightColors ?? [], this.screenColors);
     const active = model.online && model.relay.on;
     const stopping = this.stopping !== undefined || model.power.stopping;
     const title = `${localize(hass, 'amb_pi_title')} · ${piText(hass, model.pi)}`;
@@ -278,7 +284,7 @@ export class VividAmbilightRail extends VividAmbilightCard {
         @click=${() => this.openDetails()}
       >
         <span
-          class=${classMap({ rdisc: true, screen: this.screen && !alert && active })}
+          class=${classMap({ rdisc: true, screen: this.screen && this.drift && !alert && active })}
           style=${styleMap(this.discStyle(model, alert, colors))}
           ><ha-icon .icon=${alert ? 'mdi:alert' : 'mdi:television-ambient-light'}></ha-icon
         ></span>
@@ -293,7 +299,7 @@ export class VividAmbilightRail extends VividAmbilightCard {
           reset: true,
           toggle: true,
           on: model.relay.on,
-          screen: this.screen && model.relay.on,
+          screen: this.screen && this.drift && model.relay.on,
           armed: this.armed,
           stopping,
         })}

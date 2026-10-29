@@ -279,8 +279,12 @@ export const SCREEN_RGB: Rgb[] = [
  * Colors of the rail's disc and switch: the screen's while it drives the
  * strips, else the strips' own colors (the fixed color of the card).
  */
-export function railTint(screen: boolean, lightColors: readonly Rgb[]): Rgb[] {
-  if (screen) return SCREEN_RGB;
+export function railTint(
+  screen: boolean,
+  lightColors: readonly Rgb[],
+  screenColors: readonly Rgb[] = SCREEN_RGB,
+): Rgb[] {
+  if (screen) return screenColors.length ? [...screenColors] : SCREEN_RGB;
   return lightColors.length ? [...lightColors] : [];
 }
 
