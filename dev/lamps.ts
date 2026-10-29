@@ -1,7 +1,7 @@
 /**
  * Lamp card preview. Query parameters: `lang` (en, fr), `theme` (dark, light),
  * `only` (index of one scenario), `details` (opens the details of the first card),
- * `allOff` (every lamp off).
+ * `allOff` (every lamp off), `unavailable` (one lamp unreachable).
  */
 import { defineHaStubs } from './ha-stubs';
 import { LAMP_PLUGS_GROUP_ID, LAMP_SCENE_ID, createMockHass } from './mock-hass';
@@ -54,6 +54,14 @@ const SCENARIOS: { title: string; config: Record<string, unknown> }[] = [
     config: { entity: LAMP_PLUGS_GROUP_ID, show_duration: false },
   },
   { title: 'One line', config: { entity: LAMP_PLUGS_GROUP_ID, layout: 'line', price: 0.2516 } },
+  {
+    title: 'One line · unfolded',
+    config: { entity: LAMP_PLUGS_GROUP_ID, layout: 'line', expanded: true },
+  },
+  {
+    title: 'One line · not expandable',
+    config: { entity: LAMP_PLUGS_GROUP_ID, layout: 'line', expandable: false },
+  },
   {
     title: 'One line · no watts',
     config: {
@@ -120,6 +128,7 @@ SCENARIOS.forEach((scenario, index) => {
 if (params.has('allOff')) {
   await mock.hass.callService('switch', 'turn_off', {}, { entity_id: LAMP_PLUGS_GROUP_ID });
 }
+if (params.has('unavailable')) mock.setState('switch.salon_suspension', 'unavailable');
 
 mock.subscribe((hass) => {
   for (const card of cards) card.hass = hass;

@@ -485,6 +485,33 @@ glows with its consumption; quick presets switch several lamps at once.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-details.png" alt="Details of the lamp group card" width="592" />
 </p>
 
+### Expandable line
+
+On `layout: line`, the line stays 64 px high: the group's disc (amber halo
+while a lamp is on), its name, `2/4 · 94 W`, a mini disc per lamp (tap to
+switch it), the group's power button and a chevron. A tap on the chevron, the
+title or the free part of the line unfolds the lamp grid of the ambiance
+layout inside the card (disc, name, `48 W · 25 min` or `off · 2 d`); the mini
+discs hide while it is open. Holding the title still opens the details.
+
+The card remembers whether it is unfolded, per card and per device
+(`localStorage`, keyed by its entity). Changing `expanded` in the config
+starts over from the new value. `show_names`, `show_status`, `size` and
+`columns` apply to the unfolded grid. In a sections dashboard, the card's
+height follows its content.
+
+| Option       | Default | Description                                                           |
+| ------------ | ------- | --------------------------------------------------------------------- |
+| `expandable` | `true`  | Line layout: a chevron unfolds the lamp grid inside the card.         |
+| `expanded`   | `false` | Line layout: unfolded when first shown, until it is folded on a card. |
+
+```yaml
+type: custom:vivid-lamp-group
+entity: switch.salon_lampes
+layout: line
+expanded: false # set true to start unfolded; expandable: false for the plain line
+```
+
 ### Gestures
 
 | Where        | Tap                                                          | Hold                             |
