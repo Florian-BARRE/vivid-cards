@@ -146,8 +146,13 @@ export class VividClimateBadge extends VividBadge<ResolvedClimateBadge> {
   private short(scaled: number): string {
     const model = this.model;
     if (!model) return '';
-    if (model.kind === 'temperature') return `${this.number(scaled)}°`;
+    if (model.kind === 'temperature') return `${this.number(scaled)}${this.degree()}`;
     return `${this.number(scaled)} ${model.unit}`;
+  }
+
+  /** The short degree sign: "°" for Celsius, "°F" spelled out so Fahrenheit is never mistaken. */
+  private degree(): string {
+    return this.model?.unit === '°F' ? ' °F' : '°';
   }
 
   /** With the full unit, for tooltips and details. */
@@ -208,7 +213,8 @@ export class VividClimateBadge extends VividBadge<ResolvedClimateBadge> {
       const low = model.low.scaled;
       const high = model.high.scaled;
       scaled = high;
-      text = low === high ? this.short(low) : `${this.number(low)}–${this.number(high)}°`;
+      text =
+        low === high ? this.short(low) : `${this.number(low)}–${this.number(high)}${this.degree()}`;
       state =
         low === high
           ? this.long(low)
