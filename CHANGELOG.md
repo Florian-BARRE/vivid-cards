@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.2] - 2026-10-29
+
+### Changed
+
+- `vivid-led-group` with an Ambilight box: the Ambilight button shows once
+  the Pi runs. The collapsible line folds when the Pi starts and unfolds when
+  the strips are taken back from the screen while the Pi keeps running.
+  Ambilight mode follows the button (Pi running, every ambilight strip on
+  the stream).
+- Cards speak the language picked in the user's profile, else the server's
+  language, else the device's; numbers and dates follow it.
+
+### Fixed
+
+- The day counter of `vivid-bill-card` in `layout: line` is translated.
+
 ## [0.15.1] - 2026-10-29
 
 ### Fixed
