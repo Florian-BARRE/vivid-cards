@@ -204,12 +204,7 @@ describe('busiest hour', () => {
 
 describe('load curve of a day sent as one row', () => {
   it('is not drawn hour by hour', () => {
-    const tariff = resolveTariff({
-      peak: 0.2,
-      off_peak: 0.15,
-      off_peak_hours: ['22:00-06:00'],
-    }) as Tariff;
     const daily = [{ start: new Date(2026, 9, 27).getTime(), change: 12.9 }];
-    expect(loadCurve(daily, tariff, '2026-10-27')).toBeUndefined();
+    expect(loadCurve(daily, TARIFF, '2026-10-27')).toBeUndefined();
   });
 });
