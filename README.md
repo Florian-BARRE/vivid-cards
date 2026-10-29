@@ -65,6 +65,7 @@ empties and turns red.
 | [`vivid-lamp-group`](#vivid-lamp-group) (card)         | Lamps on smart plugs or switches: on/off, watts, presets, daily cost   |
 | [`vivid-ambilight-card`](#vivid-ambilight-card) (card) | A DIY Ambilight box: HDMI source by IR, Pi power, temperatures and fan |
 | [`vivid-hyperhdr-card`](#vivid-hyperhdr-card) (card)   | HyperHDR: the Pi and what it captures, the strips and their devices    |
+| [`vivid-room-header`](#vivid-room-header) (card)       | A room's title, power button, lights on and watts, real-color halo     |
 | [`vivid-led-badge`](#vivid-led-badge)                  | LED strips on out of the total, in their colors; tap switches them all |
 | [`vivid-lamp-badge`](#vivid-lamp-badge)                | Lamps (bulbs or smart plugs) on out of the total, in amber             |
 | [`vivid-light-badge`](#vivid-light-badge)              | Any other lights (ceiling lights, spots…)                              |
@@ -74,8 +75,10 @@ empties and turns red.
 | [`vivid-illuminance-badge`](#vivid-illuminance-badge)  | Illuminance of a group, from the moon to the sun, with a gauge         |
 | [`vivid-power-badge`](#vivid-power-badge)              | Power of a group of devices, glowing brighter as it rises              |
 | [`vivid-battery-badge`](#vivid-battery-badge)          | The lowest battery of a group or of the whole home                     |
-
-Temperature, humidity and pressure badges are on the [roadmap](#roadmap).
+| [`vivid-temperature-badge`](#climate-badges)           | Temperature from blue to red, or the range of every room               |
+| [`vivid-humidity-badge`](#climate-badges)              | Humidity from light cyan to deep blue, pulsing after a shower          |
+| [`vivid-pressure-badge`](#climate-badges)              | Pressure in violet, with the weather it suggests and its trend         |
+| [`vivid-air-quality-badge`](#climate-badges)           | CO₂ from healthy to toxic green, telling when to air the room          |
 
 ## Installation
 
@@ -446,6 +449,41 @@ are read as 0, 50, 100 and 170, and the halo's opacity follows it too, so
 | `show_effects`       | `tile.effects`         |
 | `show_hue: false`    | `tile.color_bar: none` |
 | `details_hash`       | `details.hash`         |
+
+### Collapsible layout and Ambilight rail
+
+`vivid-led-group` keeps its header and tile by default. Two opt-in additions:
+
+**Collapsible layout.** `layout: collapsible` turns the card into one 64 px line
+tinted with the LEDs' color (icon, name, `57 % · Solid · 2/3 · 42 W`, power
+button, chevron). The chevron unfolds the color bar and the favorites in the same
+card; dragging the line still dims. The card remembers the choice per light on
+this device; `expanded: true` sets the first state.
+
+**Ambilight rail.** With the [Ambilight box](#vivid-ambilight-card), a rail at the
+bottom of the card shows its state (controlling temperature and fan, or the
+alarm in red), the HDMI input menu and a switch that starts and stops the Pi
+(clean shutdown and confirmation, as in the Ambilight card). While the screen
+drives the strips (WLED listens to realtime data, HyperHDR sends to them), the
+tile fills with their captured colors and the color bar steps back: touching it
+takes the strips back (WLED live override). The details dialog adds the box and
+the HyperHDR server.
+
+The only box of the home is found by itself when it sits in the strips' area or
+when HyperHDR sends to one of the strips; `vivid-ambilight-card` and
+`vivid-hyperhdr-card` keep working on their own.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+layout: collapsible # default: header and tile
+expanded: false # first state of the collapsible layout
+ambilight:
+  box: device_ambilight # a device or one of its entities; false hides the rail
+  hyperhdr: device_hub # optional, the only server when left out
+  inputs: [TV box, Console, PC, HDMI 4, HDMI 5]
+  confirm_off: true # second tap before switching Ambilight off
+```
 
 ## vivid-lamp-group
 
@@ -1386,7 +1424,6 @@ can be set in a theme:
 
 ## Roadmap
 
-- Temperature, humidity and pressure badges.
 - Label driven badges: show any entity of a strip's device on its header.
 - WLED palette previews.
 
@@ -1433,38 +1470,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and conventions.
 ## License
 
 [MIT](LICENSE) © Florian Barre
-
-## LED group: collapsible layout and Ambilight rail
-
-`vivid-led-group` keeps its header and tile by default. Two opt-in additions:
-
-**Collapsible layout.** `layout: collapsible` turns the card into one 64 px line
-tinted with the LEDs' color (icon, name, `57 % · Solid · 2/3 · 42 W`, power
-button, chevron). The chevron unfolds the color bar and the favorites in the same
-card; dragging the line still dims. The card remembers the choice per light on
-this device; `expanded: true` sets the first state.
-
-**Ambilight rail.** With the [Ambilight box](#vivid-ambilight-card), a rail at the
-bottom of the card shows its state (controlling temperature and fan, or the
-alarm in red), the HDMI input menu and a switch that starts and stops the Pi
-(clean shutdown and confirmation, as in the Ambilight card). While the screen
-drives the strips (WLED listens to realtime data, HyperHDR sends to them), the
-tile fills with their captured colors and the color bar steps back: touching it
-takes the strips back (WLED live override). The details dialog adds the box and
-the HyperHDR server.
-
-The only box of the home is found by itself when it sits in the strips' area or
-when HyperHDR sends to one of the strips; `vivid-ambilight-card` and
-`vivid-hyperhdr-card` keep working on their own.
-
-```yaml
-type: custom:vivid-led-group
-entity: light.salon_leds
-layout: collapsible # default: header and tile
-expanded: false # first state of the collapsible layout
-ambilight:
-  box: device_ambilight # a device or one of its entities; false hides the rail
-  hyperhdr: device_hub # optional, the only server when left out
-  inputs: [TV box, Console, PC, HDMI 4, HDMI 5]
-  confirm_off: true # second tap before switching Ambilight off
-```
