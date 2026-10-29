@@ -72,6 +72,12 @@ export class VividLedGroupDetails extends LitElement {
       .summary {
         padding: 4px 0 2px;
       }
+      /* The live picture stays a picture, not a wall. */
+      .screen {
+        width: 100%;
+        max-width: 560px;
+        align-self: center;
+      }
       .tabs {
         display: flex;
         gap: 4px;
