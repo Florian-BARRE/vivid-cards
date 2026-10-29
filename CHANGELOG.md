@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.14.1] - 2026-10-29
+
+### Added
+
+- `vivid-room-header` finds a room by role, the way group helpers are named:
+  `<room>-<role>` (`salon-lampes`, `salon-leds`, `salon-présence`…) matched by
+  entity id `<domain>.<room>_<role>` or by name, accents and case ignored. Roles
+  in French or English: lampes/lamps, leds, interrupteurs/switches,
+  puissance/power, eclairement/illuminance, presence/occupancy,
+  fenetres/windows, portes/doors, temperature, humidite/humidity,
+  pression/pressure, co2/air. Pressure gets its badge.
+- `discover` (on by default with a `room`; `false` for a fully manual header)
+  and `exclude` (roles or entity ids to leave out).
+- Editor: one chip per role found, tap to exclude it.
+- `room` accepts accents and spaces (`Salle de bain`).
+
+### Changed
+
+- `vivid-room-header` `badges` are added to the discovered badges instead of
+  replacing them; a listed badge on a discovered entity takes its place (to
+  change its options). `discover: false` keeps only the listed ones.
+
 ## [0.14.0] - 2026-10-29
 
 A denser dashboard: climate badges and charts, a room header card, lamps and
