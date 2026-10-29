@@ -13,6 +13,7 @@ import {
   railColors,
   railConfig,
   resolveBoxTarget,
+  screenMode,
 } from '../src/cards/led-group/ambilight-link';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { forgetExpanded, readExpanded, writeExpanded } from '../src/cards/led-group/fold';
@@ -237,6 +238,19 @@ describe('what the screen drives', () => {
     const drive = ambilightDrive(model.detected, { byStrip: new Map() }, true);
     expect(drive.driven).toEqual(['light.salon_ambilight_wled']);
     expect(railColors(drive)).toHaveLength(2);
+  });
+});
+
+describe('Ambilight mode', () => {
+  it('starts when the screen drives a strip, and only then', () => {
+    expect(screenMode(side(home({ overrides: ['0', '1', '1'] })))).toBe(true);
+    // WLED ignores the stream (live override on): the card keeps its colors.
+    expect(screenMode(side(home({ overrides: ['1', '1', '1'] })))).toBe(false);
+    // The Pi is off: nothing follows the screen even when WLED listens.
+    expect(screenMode(side(home({ box: { piOff: true }, overrides: ['0', '0', '0'] })))).toBe(
+      false,
+    );
+    expect(screenMode(undefined)).toBe(false);
   });
 });
 

@@ -321,3 +321,12 @@ export function buildAmbilightSide(
     watched: [...new Set([...built.watched, ...hyperhdr.watched])],
   };
 }
+
+/**
+ * Ambilight mode: the screen drives at least one strip of the group. The card
+ * then keeps only the brightness: colors, effects and favorites belong to the
+ * screen until the strips are taken back.
+ */
+export function screenMode(side: AmbilightSide | undefined): boolean {
+  return (side?.drive.driven.length ?? 0) > 0;
+}

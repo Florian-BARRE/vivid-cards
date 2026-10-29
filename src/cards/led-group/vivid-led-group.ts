@@ -13,7 +13,7 @@ import '../../components/vivid-chip';
 import '../../components/vivid-light-header';
 import { formatWatts } from '../../components/vivid-light-header';
 import '../../components/vivid-light-tile';
-import { buildAmbilightSide, type AmbilightSide } from './ambilight-link';
+import { buildAmbilightSide, screenMode, type AmbilightSide } from './ambilight-link';
 import { readExpanded, writeExpanded } from './fold';
 import type { VividAmbilightRail } from './vivid-ambilight-rail';
 import './vivid-ambilight-rail';
@@ -83,7 +83,8 @@ export class VividLedGroup extends LitElement {
     if (!config) return 3;
     const rail = this.side ? 1 : 0;
     if (config.layout === 'collapsible') {
-      return 1 + rail + (this._expanded ? 1 + (config.tile.favorites.length ? 1 : 0) : 0);
+      const open = this._expanded && !screenMode(this.side);
+      return 1 + rail + (open ? 1 + (config.tile.favorites.length ? 1 : 0) : 0);
     }
     return (config.appearance.header ? 1 : 0) + 2 + (config.tile.favorites.length ? 1 : 0) + rail;
   }
@@ -354,6 +355,7 @@ export class VividLedGroup extends LitElement {
   /** Second line of the collapsible layout: lights on, then the consumption. */
   private subtitle(model: LedGroupModel, config: ResolvedLedGroupConfig): string | undefined {
     const parts: string[] = [];
+    if (screenMode(this.side)) parts.push(localize(this.hass, 'led_ambilight_mode'));
     if (model.isGroup && model.available) {
       const on = model.detected.filter((strip) => strip.isOn).length;
       parts.push(`${on}/${model.detected.length}`);
@@ -364,29 +366,50 @@ export class VividLedGroup extends LitElement {
     return parts.length ? parts.join(' · ') : undefined;
   }
 
-  /** Power button, live override (without a box) and fold chevron of the collapsible line. */
+  /**
+   * Turns Ambilight on (WLED follows the realtime stream, the Pi is started
+   * when the card has a box and it is off) or gives the strips back to the card.
+   */
+  private readonly toggleAmbilight = (): void => {
+    const override = this.model?.liveOverride;
+    if (!this.hass || !override || override.available.length === 0) return;
+    haptic(this, 'light');
+    const turnOn = override.active;
+    if (turnOn && this.side?.box && !this.side.box.relay.on) this.rail?.startPi();
+    void selectOption(this.hass, override.available, turnOn ? '0' : '1');
+  };
+
+  /** The Ambilight button: pressed while WLED follows the screen. */
+  private renderAmbilightChip(model: LedGroupModel, config: ResolvedLedGroupConfig) {
+    const override = model.liveOverride;
+    if (!config.ambilight.enabled || !override) return nothing;
+    const usable = override.available.length > 0;
+    const on = !override.active;
+    const startsPi = Boolean(this.side?.box && !this.side.box.relay.on);
+    const tooltip = !usable
+      ? localize(this.hass, 'live_override_unavailable')
+      : localize(
+          this.hass,
+          on ? 'led_ambilight_stop' : startsPi ? 'led_ambilight_start_pi' : 'led_ambilight_start',
+        );
+    return html`<vivid-chip
+      .icon=${'mdi:television-ambient-light'}
+      .tooltip=${tooltip}
+      .tone=${toggleTone(on && usable)}
+      .pressed=${on}
+      ?disabled=${!usable}
+      @click=${this.toggleAmbilight}
+    ></vivid-chip>`;
+  }
+
+  /** Ambilight button, power button and fold chevron of the collapsible line. */
   private renderLineActions(model: LedGroupModel, config: ResolvedLedGroupConfig) {
     const capture = this.side?.drive.driven.length ? this.side.drive.colors : undefined;
     const colors = capture ?? (model.colors.length ? model.colors : model.rgb);
-    const override = model.liveOverride;
-    const showOverride = this._expanded && !this.side && config.ambilight.enabled && override;
+    // In Ambilight mode only the brightness is left: nothing to unfold.
+    const screen = screenMode(this.side);
     return html`<span slot="actions" class="tile-actions">
-      ${
-        showOverride
-          ? html`<vivid-chip
-              .icon=${'mdi:television-ambient-light'}
-              .tooltip=${localize(this.hass, override.active ? 'ambilight_off' : 'ambilight_on')}
-              .tone=${toggleTone(!override.active && override.available.length > 0)}
-              .pressed=${!override.active}
-              ?disabled=${override.available.length === 0}
-              @click=${() => {
-                if (!this.hass) return;
-                haptic(this, 'light');
-                void selectOption(this.hass, override.available, override.active ? '0' : '1');
-              }}
-            ></vivid-chip>`
-          : nothing
-      }
+      ${this.renderAmbilightChip(model, config)}
       <vivid-chip
         wide
         .icon=${'mdi:power'}
@@ -400,16 +423,20 @@ export class VividLedGroup extends LitElement {
           void toggleEntity(this.hass, model.entityId, this.lightOptions);
         }}
       ></vivid-chip>
-      <button
-        type="button"
-        class=${`reset chevron${this._expanded ? ' open' : ''}`}
-        aria-expanded=${this._expanded ? 'true' : 'false'}
-        aria-label=${localize(this.hass, this._expanded ? 'led_collapse' : 'led_expand')}
-        title=${localize(this.hass, this._expanded ? 'led_collapse' : 'led_expand')}
-        @click=${this.toggleFold}
-      >
-        <ha-icon .icon=${'mdi:chevron-down'}></ha-icon>
-      </button>
+      ${
+        screen
+          ? nothing
+          : html`<button
+              type="button"
+              class=${`reset chevron${this._expanded ? ' open' : ''}`}
+              aria-expanded=${this._expanded ? 'true' : 'false'}
+              aria-label=${localize(this.hass, this._expanded ? 'led_collapse' : 'led_expand')}
+              title=${localize(this.hass, this._expanded ? 'led_collapse' : 'led_expand')}
+              @click=${this.toggleFold}
+            >
+              <ha-icon .icon=${'mdi:chevron-down'}></ha-icon>
+            </button>`
+      }
     </span>`;
   }
 
@@ -422,6 +449,8 @@ export class VividLedGroup extends LitElement {
     }
     const collapsible = config.layout === 'collapsible';
     const side = this.side;
+    // Ambilight mode: the screen owns the colors, the card keeps the brightness.
+    const screen = screenMode(side);
     const capture = side?.drive.driven.length ? side.drive.colors : undefined;
     const header =
       config.appearance.header && !collapsible
@@ -442,7 +471,7 @@ export class VividLedGroup extends LitElement {
             .hasPower=${model.hasPower}
             .watts=${model.watts}
             .scale=${model.groupScale}
-            .showLiveOverride=${config.ambilight.enabled && !side}
+            .showLiveOverride=${config.ambilight.enabled}
             .liveOverride=${model.liveOverride}
             @vivid-name-click=${this.openDetails}
             @vivid-more-info=${this.onMoreInfo}
@@ -453,12 +482,12 @@ export class VividLedGroup extends LitElement {
       .entityId=${model.entityId}
       .icon=${model.icon}
       .name=${model.name}
-      .showEffects=${config.tile.effects}
+      .showEffects=${config.tile.effects && !screen}
       .showState=${config.tile.state !== 'none' || collapsible}
-      .colorBar=${model.tileColorBar}
-      .saturationBar=${config.tile.saturationBar}
+      .colorBar=${screen ? 'none' : model.tileColorBar}
+      .saturationBar=${config.tile.saturationBar && !screen}
       .doubleTap=${config.tile.doubleTapAction.action !== 'none'}
-      .favorites=${config.tile.favorites}
+      .favorites=${screen ? [] : config.tile.favorites}
       .badges=${model.badges}
       @vivid-more-info=${this.onMoreInfo}
       .brightnessMin=${config.tile.brightnessMin}
@@ -466,7 +495,7 @@ export class VividLedGroup extends LitElement {
       .lightOptions=${this.lightOptions}
       .animateEffects=${config.appearance.animateEffects}
       .collapsible=${collapsible}
-      .collapsed=${collapsible && !this._expanded}
+      .collapsed=${collapsible && (screen || !this._expanded)}
       .subtitle=${collapsible ? this.subtitle(model, config) : undefined}
       .capture=${capture}
       .captureLabel=${localize(this.hass, 'led_screen_colors')}

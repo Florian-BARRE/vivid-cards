@@ -134,6 +134,11 @@ const SCENARIOS: Scenario[] = [
     config: { ...base, layout: 'collapsible', ambilight: { inputs } },
   },
   {
+    title: fr ? 'Pi allumé · Ambilight coupé (bouton TV)' : 'Pi on · Ambilight off (TV button)',
+    overrides: ['1', '1', '1'],
+    config: { ...base, layout: 'collapsible', ambilight: { inputs } },
+  },
+  {
     title: fr ? 'Ambilight coupé · couleur à la main' : 'Ambilight off · color by hand',
     ambilight: { piOff: true },
     overrides: ['1', '1', '0'],
