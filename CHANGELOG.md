@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.15.0] - 2026-10-29
 
 ### Added
 
@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   `tariff` block (prices, off-peak hours, subscription, billing day, invoices).
 - `vivid-power-badge`: `cost: month | hour` with a `tariff` adds the cost of
   the power at this pace.
+
+### Changed
+
+- `vivid-room-header`: the halo fades out towards its edges instead of
+  stopping at the card's corners.
 
 ## [0.14.1] - 2026-10-29
 
