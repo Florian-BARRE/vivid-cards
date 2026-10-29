@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.5] - 2026-10-29
+
+### Fixed
+
+- On a phone, the tabs of the `vivid-led-group` details put the icon above a
+  label that may wrap, so "Ambilight Manager" is no longer cut.
+- The fan status of the Ambilight Manager's Ventilation tab goes under the
+  Auto / Manual switch instead of being cut.
+
 ## [0.15.4] - 2026-10-29
 
 ### Changed
