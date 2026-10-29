@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.15.1] - 2026-10-29
+
+### Fixed
+
+- `vivid-led-group` with an Ambilight box shows its Ambilight button again
+  (in the collapsible line and the header). When the Pi is off, a tap starts
+  it and switches the strips to the screen.
+
+### Changed
+
+- Ambilight mode: while the screen drives the strips, the LED group keeps
+  only the brightness (no color bars, effects or favorites) and its
+  collapsible line stays folded. Once the strips are taken back, it is a
+  normal LED line again.
+
 ## [0.15.0] - 2026-10-29
 
 ### Added
