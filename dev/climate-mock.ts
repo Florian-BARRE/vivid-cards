@@ -1,256 +1,228 @@
 /**
- * Simulated climate sensors for the preview pages: five rooms (temperature
- * and humidity), a bathroom with a morning shower, a kitchen with an evening
- * oven, a veranda in °F, a cellar that went offline, an attic without
- * history and a living room CO₂ sensor. Serves their history and hourly
- * statistics like the recorder, and can wrap another mock's `callWS`.
+ * Climate sensors layered over the simulated Home Assistant for the badge
+ * preview and the tests: a bathroom (BME280-like temperature, humidity and
+ * pressure, and a CO₂ sensor), a five-room temperature group, sensors across
+ * every scale and a text illuminance sensor. Their history is synthetic and
+ * shaped so trends, a shower and a pressure drop show.
  */
 import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
 
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
+export const SDB_TEMPERATURE = 'sensor.sdb_temperature';
+export const SDB_HUMIDITY = 'sensor.sdb_humidite';
+export const SDB_PRESSURE = 'sensor.sdb_pression';
+export const SDB_CO2 = 'sensor.sdb_co2';
+export const SDB_ILLUMINANCE = 'sensor.sdb_eclairement';
+export const TEMPERATURES_GROUP = 'sensor.all_temperatures';
+export const HUMIDITY_GROUP = 'sensor.all_humidites';
+export const CO2_GROUP = 'sensor.all_co2';
+export const FAHRENHEIT = 'sensor.garage_temperature';
 
-interface Profile {
+interface Spec {
+  id: string;
   name: string;
-  unit: string;
-  device_class: string;
-  /** Value at the coolest moment of the day. */
-  base: number;
-  /** Daily swing (peak to trough). */
-  swing: number;
-  /** Local hour of the daily peak. */
-  peak: number;
-  /** Short events: local hour, height, rise and decay (hours). */
-  events?: [number, number, number, number][];
-  noise: number;
-  /** Offline since that many hours ago. */
-  offlineFor?: number;
-  /** No recorder history at all. */
-  noHistory?: boolean;
-  /** No long-term statistics (no state_class). */
-  noStatistics?: boolean;
-  digits: number;
+  value: number | string;
+  unit?: string;
+  deviceClass: string;
+  /** Value at `minutes` ago (the history); a gentle wave around the current value otherwise. */
+  past?: (minutesAgo: number) => number;
 }
 
-export const CLIMATE_PROFILES: Record<string, Profile> = {
-  'sensor.sdb_temperature': {
-    name: 'Salle de bain',
+const ramp =
+  (from: number, to: number, span: number) =>
+  (minutesAgo: number): number =>
+    minutesAgo >= span ? from : to + ((from - to) * minutesAgo) / span;
+
+const SPECS: Spec[] = [
+  {
+    id: SDB_TEMPERATURE,
+    name: 'Salle de bain Température',
+    value: 21.8,
     unit: '°C',
-    device_class: 'temperature',
-    base: 18.1,
-    swing: 2.2,
-    peak: 18,
-    events: [[7.6, 4.2, 0.25, 1.1]],
-    noise: 0.08,
-    digits: 1,
+    deviceClass: 'temperature',
+    past: ramp(20.9, 21.8, 60),
   },
-  'sensor.sdb_humidite': {
-    name: 'Salle de bain',
+  {
+    id: SDB_HUMIDITY,
+    name: 'Salle de bain Humidité',
+    value: 88,
     unit: '%',
-    device_class: 'humidity',
-    base: 54,
-    swing: 5,
-    peak: 4,
-    events: [
-      [7.6, 32, 0.2, 0.9],
-      [21.5, 14, 0.2, 0.7],
-    ],
-    noise: 0.6,
-    digits: 0,
+    deviceClass: 'humidity',
+    // A shower started twelve minutes ago.
+    past: ramp(55, 88, 12),
   },
-  'sensor.chambre_temperature': {
-    name: 'Chambre',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 16.1,
-    swing: 1.8,
-    peak: 16,
-    noise: 0.05,
-    digits: 1,
+  {
+    id: SDB_PRESSURE,
+    name: 'Salle de bain Pression',
+    value: 1002,
+    unit: 'hPa',
+    deviceClass: 'atmospheric_pressure',
+    past: ramp(1006.5, 1002, 180),
   },
-  'sensor.salon_temperature': {
-    name: 'Salon',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 20.3,
-    swing: 2.4,
-    peak: 19,
-    events: [[19.2, 0.6, 0.5, 1.5]],
-    noise: 0.06,
-    digits: 1,
-  },
-  'sensor.bureau_temperature': {
-    name: 'Bureau',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 20,
-    swing: 1.4,
-    peak: 17,
-    noise: 0.05,
-    digits: 1,
-  },
-  'sensor.cuisine_temperature': {
-    name: 'Cuisine',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 20.2,
-    swing: 1,
-    peak: 14,
-    events: [
-      [19.3, 2.6, 0.4, 1.2],
-      [12.4, 1.2, 0.3, 0.8],
-    ],
-    noise: 0.06,
-    digits: 1,
-  },
-  'sensor.chambre_humidite': {
-    name: 'Chambre',
-    unit: '%',
-    device_class: 'humidity',
-    base: 44,
-    swing: 6,
-    peak: 7,
-    noise: 0.5,
-    digits: 0,
-  },
-  'sensor.salon_humidite': {
-    name: 'Salon',
-    unit: '%',
-    device_class: 'humidity',
-    base: 38,
-    swing: 5,
-    peak: 20,
-    noise: 0.5,
-    digits: 0,
-  },
-  'sensor.bureau_humidite': {
-    name: 'Bureau',
-    unit: '%',
-    device_class: 'humidity',
-    base: 41,
-    swing: 4,
-    peak: 10,
-    noise: 0.5,
-    digits: 0,
-  },
-  'sensor.cuisine_humidite': {
-    name: 'Cuisine',
-    unit: '%',
-    device_class: 'humidity',
-    base: 47,
-    swing: 4,
-    peak: 13,
-    events: [[19.5, 12, 0.4, 1]],
-    noise: 0.5,
-    digits: 0,
-  },
-  'sensor.cave_humidite': {
-    name: 'Cave',
-    unit: '%',
-    device_class: 'humidity',
-    base: 70,
-    swing: 3,
-    peak: 6,
-    noise: 0.5,
-    offlineFor: 5,
-    digits: 0,
-  },
-  'sensor.veranda_temperature': {
-    name: 'Véranda',
-    unit: '°F',
-    device_class: 'temperature',
-    base: 61,
-    swing: 19,
-    peak: 15,
-    noise: 0.3,
-    digits: 1,
-  },
-  'sensor.cave_temperature': {
-    name: 'Cave',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 13.5,
-    swing: 0.6,
-    peak: 18,
-    noise: 0.04,
-    offlineFor: 5,
-    digits: 1,
-  },
-  'sensor.grenier_temperature': {
-    name: 'Grenier',
-    unit: '°C',
-    device_class: 'temperature',
-    base: 21,
-    swing: 3,
-    peak: 16,
-    noise: 0.1,
-    noHistory: true,
-    noStatistics: true,
-    digits: 1,
-  },
-  'sensor.salon_co2': {
-    name: 'Salon',
+  {
+    id: SDB_CO2,
+    name: 'Salle de bain CO2',
+    value: 1250,
     unit: 'ppm',
-    device_class: 'carbon_dioxide',
-    base: 520,
-    swing: 380,
-    peak: 22,
-    events: [[20.5, 450, 1.2, 1.5]],
-    noise: 15,
-    digits: 0,
+    deviceClass: 'carbon_dioxide',
   },
-};
+  {
+    id: 'sensor.chambre_temperature',
+    name: 'Chambre Température',
+    value: 17.9,
+    unit: '°C',
+    deviceClass: 'temperature',
+    past: ramp(18.6, 17.9, 60),
+  },
+  {
+    id: 'sensor.bureau_temperature',
+    name: 'Bureau Température',
+    value: 22.7,
+    unit: '°C',
+    deviceClass: 'temperature',
+  },
+  {
+    id: 'sensor.cuisine_temperature',
+    name: 'Cuisine Température',
+    value: 20.6,
+    unit: '°C',
+    deviceClass: 'temperature',
+  },
+  {
+    id: 'sensor.salon_humidite',
+    name: 'Salon Humidité',
+    value: 47,
+    unit: '%',
+    deviceClass: 'humidity',
+  },
+  {
+    id: 'sensor.chambre_humidite',
+    name: 'Chambre Humidité',
+    value: 58,
+    unit: '%',
+    deviceClass: 'humidity',
+  },
+  {
+    id: 'sensor.salon_co2',
+    name: 'Salon CO2',
+    value: 620,
+    unit: 'ppm',
+    deviceClass: 'carbon_dioxide',
+  },
+  {
+    id: 'sensor.bureau_co2',
+    name: 'Bureau CO2',
+    value: 1150,
+    unit: 'ppm',
+    deviceClass: 'carbon_dioxide',
+  },
+  {
+    id: FAHRENHEIT,
+    name: 'Garage Temperature',
+    value: 59.4,
+    unit: '°F',
+    deviceClass: 'temperature',
+    past: ramp(61, 59.4, 60),
+  },
+  {
+    id: SDB_ILLUMINANCE,
+    name: 'Salle de bain Éclairement',
+    value: 'bright',
+    deviceClass: 'illuminance',
+  },
+  // Values across each scale.
+  ...[15.2, 18.4, 21.0, 24.1, 27.3].map((value, index) => ({
+    id: `sensor.demo_temperature_${index}`,
+    name: `Démo ${value} °C`,
+    value,
+    unit: '°C',
+    deviceClass: 'temperature',
+    past: index === 0 ? ramp(16, value, 60) : index === 3 ? ramp(23.3, value, 60) : undefined,
+  })),
+  ...[28, 47, 58, 72].map((value, index) => ({
+    id: `sensor.demo_humidity_${index}`,
+    name: `Démo ${value} %`,
+    value,
+    unit: '%',
+    deviceClass: 'humidity',
+  })),
+  ...[988, 1008, 1022, 1034].map((value, index) => ({
+    id: `sensor.demo_pressure_${index}`,
+    name: `Démo ${value} hPa`,
+    value,
+    unit: 'hPa',
+    deviceClass: 'atmospheric_pressure',
+    past: index === 0 ? ramp(990.5, value, 180) : index === 2 ? ramp(1020, value, 180) : undefined,
+  })),
+  ...[520, 880, 1700, 2400].map((value, index) => ({
+    id: `sensor.demo_co2_${index}`,
+    name: `Démo ${value} ppm`,
+    value,
+    unit: 'ppm',
+    deviceClass: 'carbon_dioxide',
+  })),
+  ...['dim', 'dark'].map((value) => ({
+    id: `sensor.demo_light_${value}`,
+    name: `Démo ${value}`,
+    value,
+    deviceClass: 'illuminance',
+  })),
+];
 
-/** Deterministic noise in [-1, 1]. */
-function noise(seed: number): number {
-  const x = Math.sin(seed * 12.9898) * 43758.5453;
-  return (x - Math.floor(x)) * 2 - 1;
-}
+const GROUPS: [string, string, string, string[], string][] = [
+  [
+    TEMPERATURES_GROUP,
+    'Températures du logement',
+    'temperature',
+    [
+      'sensor.salon_temperature',
+      'sensor.chambre_temperature',
+      'sensor.bureau_temperature',
+      'sensor.cuisine_temperature',
+      SDB_TEMPERATURE,
+    ],
+    '°C',
+  ],
+  [
+    HUMIDITY_GROUP,
+    'Humidité du logement',
+    'humidity',
+    ['sensor.salon_humidite', 'sensor.chambre_humidite', 'sensor.demo_humidity_0'],
+    '%',
+  ],
+  [
+    CO2_GROUP,
+    'Air du logement',
+    'carbon_dioxide',
+    ['sensor.salon_co2', 'sensor.bureau_co2'],
+    'ppm',
+  ],
+];
 
-/** Hours since the local `hour` today (wrapped to [0, 24)). */
-function hoursSince(time: number, hour: number): number {
-  const date = new Date(time);
-  const local = date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
-  return (((local - hour) % 24) + 24) % 24;
-}
-
-/** Simulated value of a sensor at `time`. */
-export function climateValue(entityId: string, time: number): number | undefined {
-  const profile = CLIMATE_PROFILES[entityId];
-  if (!profile) return undefined;
-  if (profile.offlineFor !== undefined && time > Date.now() - profile.offlineFor * HOUR) {
-    return undefined;
-  }
-  const phase = (hoursSince(time, profile.peak) / 24) * 2 * Math.PI;
-  let value = profile.base + (profile.swing * (1 + Math.cos(phase))) / 2;
-  // Weekly drift so the long ranges are not a flat repetition.
-  value += profile.swing * 0.35 * Math.sin(time / (3.3 * DAY) + entityId.length);
-  for (const [hour, height, rise, decay] of profile.events ?? []) {
-    const since = hoursSince(time, hour);
-    const before = 24 - since;
-    if (before < rise) value += height * (1 - before / rise);
-    else if (since < decay * 4) value += height * Math.exp(-since / decay);
-  }
-  value += profile.noise * noise(Math.floor(time / 600_000) + entityId.length * 7);
-  const scale = 10 ** profile.digits;
-  return Math.round(value * scale) / scale;
-}
-
-export function climateStates(now = Date.now()): Record<string, HassEntity> {
+function climateStates(now: number): Record<string, HassEntity> {
+  const changed = new Date(now - 2 * 60_000).toISOString();
   const states: Record<string, HassEntity> = {};
-  for (const [entityId, profile] of Object.entries(CLIMATE_PROFILES)) {
-    const value = climateValue(entityId, now);
-    const changed = new Date(
-      profile.offlineFor ? now - profile.offlineFor * HOUR : now - 120_000,
-    ).toISOString();
-    states[entityId] = {
-      entity_id: entityId,
-      state: value === undefined ? 'unavailable' : String(value),
+  for (const spec of SPECS) {
+    states[spec.id] = {
+      entity_id: spec.id,
+      state: String(spec.value),
       attributes: {
-        friendly_name: profile.name,
-        unit_of_measurement: profile.unit,
-        device_class: profile.device_class,
-        ...(profile.noStatistics ? {} : { state_class: 'measurement' }),
+        friendly_name: spec.name,
+        device_class: spec.deviceClass,
+        ...(spec.unit ? { unit_of_measurement: spec.unit, state_class: 'measurement' } : {}),
+      },
+      last_changed: changed,
+      last_updated: changed,
+    };
+  }
+  for (const [id, name, deviceClass, ids, unit] of GROUPS) {
+    states[id] = {
+      entity_id: id,
+      state: '0',
+      attributes: {
+        friendly_name: name,
+        device_class: deviceClass,
+        unit_of_measurement: unit,
+        entity_id: ids,
       },
       last_changed: changed,
       last_updated: changed,
@@ -259,111 +231,69 @@ export function climateStates(now = Date.now()): Record<string, HassEntity> {
   return states;
 }
 
-/** `history/history_during_period` for the climate sensors (a reading every 5 min, on change). */
-export function climateHistory(
-  entityIds: readonly string[],
+/** A reading every ten minutes (every minute over the last half hour). */
+function series(
+  current: number,
+  past: ((minutesAgo: number) => number) | undefined,
+  seed: number,
   start: number,
   end: number,
-): Record<string, { s: string; lu: number }[]> {
-  const result: Record<string, { s: string; lu: number }[]> = {};
-  for (const entityId of entityIds) {
-    const profile = CLIMATE_PROFILES[entityId];
-    if (!profile || profile.noHistory) continue;
-    const points: { s: string; lu: number }[] = [];
-    let previous: string | undefined;
-    const first = Math.ceil(start / 300_000) * 300_000;
-    for (let time = first; time <= end; time += 300_000) {
-      const value = climateValue(entityId, time);
-      const state = value === undefined ? 'unavailable' : String(value);
-      if (state === previous) continue;
-      previous = state;
-      points.push({ s: state, lu: Math.max(time, start) / 1000 });
-    }
-    if (points[0]) points[0].lu = start / 1000;
-    result[entityId] = points;
+  now: number,
+) {
+  const points: { s: string; lu: number }[] = [];
+  let time = start;
+  while (time <= end) {
+    const minutesAgo = (now - time) / 60_000;
+    const amplitude = current > 500 ? 0.3 : Math.max(0.3, Math.abs(current) * 0.004);
+    const wave = Math.sin(time / 5_400_000 + seed) * amplitude;
+    const value = past ? past(minutesAgo) : current + wave * Math.min(1, minutesAgo / 90);
+    points.push({ s: String(Math.round(value * 100) / 100), lu: time / 1000 });
+    time += minutesAgo > 30 ? 10 * 60_000 : 60_000;
   }
-  return result;
+  points.push({ s: String(current), lu: end / 1000 });
+  return points;
 }
 
-/** `recorder/statistics_during_period` (hourly mean, min and max). */
-export function climateStatistics(
-  entityIds: readonly string[],
-  start: number,
-  end: number,
-): Record<string, { start: number; end: number; mean: number; min: number; max: number }[]> {
-  const result: Record<
-    string,
-    { start: number; end: number; mean: number; min: number; max: number }[]
-  > = {};
-  for (const entityId of entityIds) {
-    const profile = CLIMATE_PROFILES[entityId];
-    if (!profile || profile.noStatistics) continue;
-    const rows = [];
-    for (let hour = Math.ceil(start / HOUR) * HOUR; hour + HOUR <= end; hour += HOUR) {
-      const values: number[] = [];
-      for (let time = hour; time < hour + HOUR; time += 300_000) {
-        const value = climateValue(entityId, time);
-        if (value !== undefined) values.push(value);
-      }
-      if (!values.length) continue;
-      rows.push({
-        start: hour,
-        end: hour + HOUR,
-        mean: values.reduce((sum, value) => sum + value, 0) / values.length,
-        min: Math.min(...values),
-        max: Math.max(...values),
-      });
-    }
-    result[entityId] = rows;
-  }
-  return result;
-}
+const CLIMATE_CLASSES = ['temperature', 'humidity', 'atmospheric_pressure', 'carbon_dioxide'];
 
-/**
- * Wraps a `callWS` so the climate sensors get their history and statistics;
- * every other entity goes to `fallback`.
- */
-export function withClimateHistory(
-  fallback: HomeAssistant['callWS'],
-): NonNullable<HomeAssistant['callWS']> {
-  return async <T>(message: Record<string, unknown>): Promise<T> => {
+const layered = new WeakMap<HomeAssistant, HomeAssistant>();
+let shared: Record<string, HassEntity> | undefined;
+
+/** The simulated Home Assistant with the climate sensors and their history. */
+export function withClimate(hass: HomeAssistant): HomeAssistant {
+  const cached = layered.get(hass);
+  if (cached) return cached;
+  const now = Date.now();
+  shared ??= climateStates(now);
+  const extra = shared;
+  const states = { ...hass.states, ...extra };
+  // Every climate sensor, the ones of the base mock included (salon).
+  const isClimate = (id: string) =>
+    CLIMATE_CLASSES.includes(String(states[id]?.attributes.device_class)) &&
+    Number.isFinite(Number.parseFloat(states[id]?.state ?? ''));
+  const callWS = async <T>(message: Record<string, unknown>): Promise<T> => {
+    const ids = (message.entity_ids as string[] | undefined) ?? [];
+    const ours = ids.filter(isClimate);
+    if (message.type !== 'history/history_during_period' || ours.length === 0) {
+      if (!hass.callWS) throw new Error('unsupported');
+      return hass.callWS<T>(message);
+    }
+    const others = ids.filter((id) => !isClimate(id));
+    const base =
+      others.length && hass.callWS
+        ? await hass.callWS<Record<string, unknown>>({ ...message, entity_ids: others })
+        : {};
     const start = Date.parse(String(message.start_time));
     const end = Date.parse(String(message.end_time));
-    const ids =
-      ((message.entity_ids ?? message.statistic_ids) as string[] | undefined) ?? ([] as string[]);
-    const ours = ids.filter((id) => id in CLIMATE_PROFILES);
-    const others = ids.filter((id) => !(id in CLIMATE_PROFILES));
-    const rest =
-      others.length && fallback
-        ? await fallback<Record<string, unknown>>({
-            ...message,
-            ...(message.entity_ids ? { entity_ids: others } : { statistic_ids: others }),
-          })
-        : {};
-    // A little latency, like the real websocket.
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    if (message.type === 'recorder/statistics_during_period') {
-      return { ...rest, ...climateStatistics(ours, start, end) } as T;
+    const result: Record<string, unknown> = { ...base };
+    for (const id of ours) {
+      const spec = SPECS.find((item) => item.id === id);
+      const current = Number.parseFloat(states[id]?.state ?? '');
+      result[id] = series(current, spec?.past, id.length, start, end, Date.now());
     }
-    if (message.type === 'history/history_during_period') {
-      return { ...rest, ...climateHistory(ours, start, end) } as T;
-    }
-    if (!fallback) throw new Error('unsupported');
-    return fallback<T>(message);
+    return result as T;
   };
-}
-
-/** A standalone Home Assistant with the climate sensors only. */
-export function createClimateHass(language: string, dark = true): HomeAssistant {
-  return {
-    states: climateStates(),
-    entities: {},
-    devices: {},
-    language,
-    locale: { language },
-    themes: { darkMode: dark },
-    config: { time_zone: 'Europe/Paris' },
-    callService: async () => undefined,
-    callWS: withClimateHistory(undefined),
-  } as unknown as HomeAssistant;
+  const next: HomeAssistant = { ...hass, states, callWS };
+  layered.set(hass, next);
+  return next;
 }

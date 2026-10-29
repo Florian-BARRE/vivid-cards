@@ -7,7 +7,7 @@ import type { HomeAssistant } from '../../core/hass-types';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
-import { BADGE_LOOKS } from './config';
+import { BADGE_LOOKS, ICON_COLORS } from './config';
 
 type FormData = Record<string, unknown>;
 type Selector = Record<string, unknown>;
@@ -160,6 +160,13 @@ export class VividBadgeEditor extends LitElement {
         label: 'badge_look',
         choices: { values: BADGE_LOOKS, labelPrefix: 'look_' },
         default: 'disc',
+        row: 90,
+      },
+      {
+        name: 'icon_color',
+        label: 'icon_color',
+        choices: { values: ICON_COLORS, labelPrefix: 'icon_color_' },
+        default: 'white',
         row: 90,
       },
       { name: 'glow', label: 'glow', selector: GLOW_SLIDER, default: 100, helper: 'glow_helper' },

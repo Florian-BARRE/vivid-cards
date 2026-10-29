@@ -1,5 +1,5 @@
 import { defineHaStubs } from './ha-stubs';
-import { createClimateHass } from './climate-mock';
+import { createClimateHass } from './climate-chart-mock';
 import type { HomeAssistant } from '../src/core/hass-types';
 import type { ClimateKind } from '../src/core/climate';
 

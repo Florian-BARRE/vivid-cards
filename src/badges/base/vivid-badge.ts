@@ -11,12 +11,12 @@ import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { runAction, type ActionConfig } from '../../core/action-handler';
 import { haptic, openMoreInfo } from '../../core/actions';
-import { GLOW_REFERENCE_PX, glowSize, glowVars, type ChipTone } from '../../core/glow';
+import { DARK_ICON, GLOW_REFERENCE_PX, glowSize, glowVars, type ChipTone } from '../../core/glow';
 import type { HomeAssistant } from '../../core/hass-types';
 import { buttonReset, tokens } from '../../components/shared-styles';
 import { VividPopover } from '../../components/vivid-popover';
 import { watchedChanged } from '../../cards/led-group/model';
-import type { BadgeLook, ResolvedBaseBadge } from './config';
+import type { BadgeLook, IconColor, ResolvedBaseBadge } from './config';
 
 const HOLD_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
@@ -38,12 +38,20 @@ export interface BadgeView {
   text?: string;
   /** Text in the secondary color ("0/7", a stale duration). */
   textMuted?: boolean;
+  /** Muted words before the text ("max"). */
+  prefix?: string;
+  /** Muted words after the text ("· 19 min"). */
+  suffix?: string;
+  /** A small muted arrow after the text: the value is rising or falling. */
+  trend?: 'up' | 'down';
   /** CSS values while active. */
   tone?: ChipTone;
   /** Translucent tone: in the pill look it lies over the badge background. */
   soft?: boolean;
   /** Duration of the pulse ring around the icon; no pulse when undefined. */
   pulse?: string;
+  /** Color of the pulse ring; the icon color when undefined. */
+  pulseColor?: string;
   /** 0–1: a gauge ring around the icon. */
   ring?: number;
   ringColor?: string;
@@ -64,20 +72,25 @@ export function lookVars(
   view: BadgeView,
   look: BadgeLook,
   glow: number,
+  iconColor: IconColor = 'white',
 ): Record<string, string | undefined> {
   const vars: Record<string, string | undefined> = {
     ...glowVars(glow * (view.glowScale ?? 1)),
     // The pill glows around the whole badge, the disc around its icon.
     '--vivid-glow-size': glowSize(look === 'pill' ? GLOW_REFERENCE_PX : DISC_PX),
   };
-  const tone = view.active ? view.tone : undefined;
-  if (!tone) return vars;
+  const raw = view.active ? view.tone : undefined;
+  if (!raw) return vars;
+  // White ink everywhere unless `icon_color: auto` keeps dark ink on very light colors.
+  const tone =
+    iconColor === 'white' && raw.iconColor === DARK_ICON ? { ...raw, iconColor: '#ffffff' } : raw;
   // White ink only: dark ink is chosen precisely because the surface is light.
   if (tone.iconColor === '#ffffff') {
     vars['--badge-ink-shadow'] = 'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35))';
     vars['--badge-text-shadow'] = '0 1px 2px rgba(0, 0, 0, 0.35)';
   }
   if (view.pulse) vars['--pulse-duration'] = view.pulse;
+  if (view.pulseColor) vars['--pulse-color'] = view.pulseColor;
   if (look === 'pill') {
     return {
       ...vars,
@@ -171,6 +184,8 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
             --badge-border,
             var(--ha-card-border-color, var(--divider-color, rgba(255, 255, 255, 0.12)))
           );
+        /* Gradients (a split disc look) also cover the border. */
+        background-origin: border-box;
         box-shadow: var(--badge-shadow, none);
         color: var(--badge-color, var(--primary-text-color));
         font-size: var(--ha-badge-font-size, 12px);
@@ -242,7 +257,7 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
         position: absolute;
         inset: -2px;
         border-radius: 50%;
-        border: 2px solid currentColor;
+        border: 2px solid var(--pulse-color, currentColor);
         opacity: 0;
         animation: vivid-badge-pulse var(--pulse-duration, 2s) ease-out infinite;
         animation-play-state: var(--vivid-glow-play, running);
@@ -275,6 +290,22 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
         box-shadow: 0 0 0 1.5px var(--ha-card-background, var(--card-background-color, #1c1c1c));
       }
       .muted {
+        color: var(--secondary-text-color);
+      }
+      .label .muted {
+        font-weight: 500;
+        text-shadow: none;
+      }
+      /* On a filled pill, muted words keep the ink, only lighter. */
+      .active.pill .label .muted,
+      .active.pill .trend {
+        color: inherit;
+        opacity: 0.75;
+      }
+      .trend {
+        --mdc-icon-size: 14px;
+        display: inline-flex;
+        margin-left: -3px;
         color: var(--secondary-text-color);
       }
       .unavailable {
@@ -473,7 +504,7 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
         pulse: view.active && view.pulse !== undefined,
         unavailable: Boolean(view.unavailable),
       })}
-      style=${styleMap(lookVars(view, config.look, config.glow))}
+      style=${styleMap(lookVars(view, config.look, config.glow, config.iconColor))}
       title=${label}
       aria-label=${label}
       aria-haspopup="dialog"
@@ -493,7 +524,19 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
       </span>
       ${
         view.text !== undefined
-          ? html`<span class=${view.textMuted ? 'label muted' : 'label'}>${view.text}</span>`
+          ? html`<span class=${view.textMuted ? 'label muted' : 'label'}
+              >${view.prefix ? html`<span class="muted">${view.prefix} </span>` : nothing}${
+                view.text
+              }${view.suffix ? html`<span class="muted"> ${view.suffix}</span>` : nothing}</span
+            >`
+          : nothing
+      }
+      ${
+        view.trend
+          ? html`<ha-icon
+              class="trend"
+              .icon=${view.trend === 'up' ? 'mdi:arrow-up-thin' : 'mdi:arrow-down-thin'}
+            ></ha-icon>`
           : nothing
       }
     </button>`;

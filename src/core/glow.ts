@@ -135,7 +135,8 @@ export const DEFAULT_POWER_COLORS: [Rgb, Rgb, Rgb] = [
 ];
 const AMBER: Rgb = [255, 193, 7];
 const WHITE = '#ffffff';
-const DARK_ICON = 'rgba(0, 0, 0, 0.72)';
+/** Dark ink `iconOn` picks for very light surfaces. */
+export const DARK_ICON = 'rgba(0, 0, 0, 0.72)';
 
 /** Relative luminance (0–1) of an sRGB color. */
 export function luminance([r, g, b]: Rgb): number {

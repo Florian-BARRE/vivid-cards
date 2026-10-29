@@ -7,6 +7,7 @@ import type { HomeAssistant } from '../../core/hass-types';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
+import { ICON_COLORS } from '../base/config';
 import {
   BADGE_LOOKS,
   DETAILS_LAYOUTS,
@@ -29,6 +30,7 @@ const LABELS: Record<string, EditorStringKey> = {
   show_count: 'show_count',
   show_zero: 'show_zero',
   look: 'badge_look',
+  icon_color: 'icon_color',
   layout: 'badge_layout',
   glow: 'glow',
   glow_boost: 'glow_boost',
@@ -163,6 +165,7 @@ export class VividLightBadgeEditor extends LitElement {
     if (value.glow !== glowPercent(previous.glow ?? 100)) set('glow', value.glow, 100);
     set('glow_boost', value.glow_boost, 100);
     set('look', value.look, 'disc');
+    set('icon_color', value.icon_color, 'white');
     set('layout', value.layout, 'list');
     set('transition', value.transition);
     for (const key of ['tap_action', 'hold_action']) {
@@ -214,6 +217,7 @@ export class VividLightBadgeEditor extends LitElement {
           { name: 'layout', selector: this.choice(DETAILS_LAYOUTS, 'layout_') },
         ],
       },
+      { name: 'icon_color', selector: this.choice(ICON_COLORS, 'icon_color_') },
       { name: 'glow', selector: GLOW_SLIDER },
       { name: 'glow_boost', selector: GLOW_SLIDER },
       {
@@ -235,6 +239,7 @@ export class VividLightBadgeEditor extends LitElement {
       glow: glowPercent(config.glow ?? 100) ?? 100,
       glow_boost: config.glow_boost ?? 100,
       look: config.look ?? 'disc',
+      icon_color: config.icon_color ?? 'white',
       layout: config.layout ?? 'list',
       transition: config.transition,
       tap_action: tap,
