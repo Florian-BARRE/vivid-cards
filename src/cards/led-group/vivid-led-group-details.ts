@@ -26,6 +26,9 @@ import type { LedGroupModel, StripModel } from './model';
  * dialog is wide enough. A tap toggles a strip, a hold asks for its more-info
  * dialog (`vivid-more-info`).
  */
+/** Tabs of the details when the group has an Ambilight box. */
+export type DetailsTab = 'leds' | 'manager' | 'hyperhdr';
+
 export class VividLedGroupDetails extends LitElement {
   static override properties = {
     hass: { attribute: false },
@@ -35,6 +38,7 @@ export class VividLedGroupDetails extends LitElement {
     box: { attribute: false },
     phases: { attribute: false },
     hyperhdrInstance: { state: true },
+    tab: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -47,10 +51,13 @@ export class VividLedGroupDetails extends LitElement {
   declare phases: Partial<Record<number, SourcePhase>>;
   /** The HyperHDR strip opened from the server's list. */
   declare hyperhdrInstance?: string;
+  /** With an Ambilight box: the strips, the Ambilight Manager or HyperHDR. */
+  declare tab: DetailsTab;
 
   constructor() {
     super();
     this.phases = {};
+    this.tab = 'leds';
   }
 
   static override styles = [
@@ -64,6 +71,50 @@ export class VividLedGroupDetails extends LitElement {
       }
       .summary {
         padding: 4px 0 2px;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        border-radius: 16px;
+        background: var(--vivid-layer-1);
+      }
+      .tabs button {
+        appearance: none;
+        border: none;
+        margin: 0;
+        font: inherit;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        flex: 1;
+        min-width: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 6px;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--secondary-text-color);
+        font-size: 13.5px;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tabs button ha-icon {
+        --mdc-icon-size: 18px;
+        display: inline-flex;
+        flex: none;
+      }
+      .tabs button[aria-selected='true'] {
+        background: var(--vivid-layer-2);
+        color: var(--primary-text-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      .tabs button:focus-visible {
+        outline: 2px solid var(--vivid-focus);
+        outline-offset: 2px;
       }
       /*
        * One column keeps the group order; two columns (wide dialogs) take every
@@ -255,10 +306,8 @@ export class VividLedGroupDetails extends LitElement {
     </section>`;
   }
 
-  protected override render() {
-    const model = this.model;
-    const config = this.config;
-    if (!model || !config) return nothing;
+  /** The strips: the group's summary, then one block per strip. */
+  private renderLeds(model: LedGroupModel, config: ResolvedLedGroupConfig) {
     const columns = [0, 1].map((column) =>
       model.members
         .map((strip, order) => ({ strip, order }))
@@ -277,8 +326,64 @@ export class VividLedGroupDetails extends LitElement {
               )}
             </div>`,
         )}
-      </div>
-      ${this.renderBox()} ${this.renderHyperHdr()}`;
+      </div>`;
+  }
+
+  private renderTabs(tabs: { key: DetailsTab; icon: string; label: string }[]) {
+    return html`<div class="tabs" role="tablist">
+      ${tabs.map(
+        (item) =>
+          html`<button
+            type="button"
+            role="tab"
+            aria-selected=${String(this.tab === item.key)}
+            @click=${() => {
+              this.tab = item.key;
+            }}
+          >
+            <ha-icon .icon=${item.icon}></ha-icon>${item.label}
+          </button>`,
+      )}
+    </div>`;
+  }
+
+  protected override render() {
+    const model = this.model;
+    const config = this.config;
+    if (!model || !config) return nothing;
+    const hasBox = Boolean(this.side && (this.box ?? this.side.box));
+    const hasHyperHdr = Boolean(this.side?.hyperhdr.hub);
+    if (!hasBox && !hasHyperHdr) return this.renderLeds(model, config);
+    const tabs: { key: DetailsTab; icon: string; label: string }[] = [
+      { key: 'leds', icon: 'mdi:led-strip-variant', label: localize(this.hass, 'led_tab_leds') },
+      ...(hasBox
+        ? [
+            {
+              key: 'manager' as const,
+              icon: 'mdi:television-ambient-light',
+              label: localize(this.hass, 'led_tab_manager'),
+            },
+          ]
+        : []),
+      ...(hasHyperHdr
+        ? [
+            {
+              key: 'hyperhdr' as const,
+              icon: 'mdi:television-shimmer',
+              label: localize(this.hass, 'led_tab_hyperhdr'),
+            },
+          ]
+        : []),
+    ];
+    const tab = tabs.some((item) => item.key === this.tab) ? this.tab : 'leds';
+    return html`${this.renderTabs(tabs)}
+    ${
+      tab === 'manager'
+        ? this.renderBox()
+        : tab === 'hyperhdr'
+          ? this.renderHyperHdr()
+          : this.renderLeds(model, config)
+    }`;
   }
 
   /** The Ambilight box, as in its own card's details. */
@@ -287,9 +392,6 @@ export class VividLedGroupDetails extends LitElement {
     const box = this.box ?? side?.box;
     if (!side || !box) return nothing;
     return html`<section class="device">
-      <h3>
-        <ha-icon .icon=${'mdi:television-ambient-light'}></ha-icon>${localize(this.hass, 'led_box')}
-      </h3>
       <vivid-ambilight-details
         .hass=${this.hass}
         .model=${box}
@@ -303,27 +405,36 @@ export class VividLedGroupDetails extends LitElement {
   private renderHyperHdr() {
     const link = this.side?.hyperhdr;
     if (!link?.hub) return nothing;
-    const instance = link.instances.find((item) => item.deviceId === this.hyperhdrInstance);
+    // HyperHDR's instances under the names of the strips they drive.
+    const names = new Map<string, string>();
+    for (const strip of this.model?.detected ?? []) {
+      const driving = link.byStrip.get(strip.entityId);
+      if (driving) names.set(driving.deviceId, strip.name);
+    }
+    const instances = link.instances.map((item) => ({
+      ...item,
+      name: names.get(item.deviceId) ?? item.name,
+    }));
+    const hub = { ...link.hub, name: localize(this.hass, 'led_tab_hyperhdr') };
+    const instance = instances.find((item) => item.deviceId === this.hyperhdrInstance);
     return html`<section class="device">
-      <h3>
-        <ha-icon .icon=${'mdi:television-shimmer'}></ha-icon>${localize(this.hass, 'led_hyperhdr')}
-        ${
-          instance
-            ? html`<button
+      ${
+        instance
+          ? html`<h3>
+              <button
                 type="button"
                 class="back"
                 @click=${() => (this.hyperhdrInstance = undefined)}
               >
                 ${localize(this.hass, 'led_back_server')}
-              </button>`
-            : nothing
-        }
-      </h3>
+              </button>
+            </h3>`
+          : nothing
+      }
       ${
-        !instance && link.hub.camera
+        !instance && hub.camera
           ? html`<vivid-hyperhdr-screen
               class="screen"
-              onDemand
               .labels=${{
                 show: localize(this.hass, 'hh_show_screen'),
                 extend: localize(this.hass, 'hh_extend'),
@@ -332,7 +443,7 @@ export class VividLedGroupDetails extends LitElement {
                 ended: localize(this.hass, 'hh_screen_ended'),
               }}
               .hass=${this.hass}
-              .camera=${link.hub.camera}
+              .camera=${hub.camera}
               .fallback=${this.side?.drive.colors.length ? this.side.drive.colors : [[70, 70, 70]]}
               .tags=${[localize(this.hass, 'hh_live')]}
             ></vivid-hyperhdr-screen>`
@@ -340,9 +451,9 @@ export class VividLedGroupDetails extends LitElement {
       }
       <vivid-hyperhdr-details
         .hass=${this.hass}
-        .hub=${link.hub}
+        .hub=${hub}
         .instance=${instance}
-        .instances=${link.instances}
+        .instances=${instances}
         .initialTab=${instance ? 'overview' : 'system'}
         @vivid-hyperhdr-open=${(event: CustomEvent<{ instance: string }>) => {
           event.stopPropagation();
