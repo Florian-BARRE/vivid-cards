@@ -1,8 +1,8 @@
 /**
  * A light reading of what the TV shows, for the LED group in Ambilight mode:
- * every few seconds, a still of HyperHDR's captured picture shrunk to a few
- * pixels, whose edges give two or three colors. One small JPEG per read, only
- * while the card is on screen and the page visible.
+ * every few seconds, a still of HyperHDR's LED colors (or of its captured
+ * picture) shrunk to a few pixels, whose edges give two or three colors. One
+ * small JPEG per read, only while the card is on screen and the page visible.
  */
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { colorDistance } from '../../core/color';

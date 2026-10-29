@@ -17,6 +17,7 @@ import {
   piRunning,
   autoFold,
   railTint,
+  sampleCamera,
   SCREEN_RGB,
 } from '../src/cards/led-group/ambilight-link';
 import { resolveConfig } from '../src/cards/led-group/config';
@@ -335,6 +336,28 @@ describe('rail tint', () => {
     expect(railTint(true, [warm])).toEqual(SCREEN_RGB);
     expect(railTint(false, [warm])).toEqual([warm]);
     expect(railTint(false, [])).toEqual([]);
+  });
+});
+
+describe('sample camera', () => {
+  it('prefers the LED colors of an ambilight strip, then the captured picture', () => {
+    const hass = home({ overrides: ['0', '0', '0'] });
+    const result = side(hass)!;
+    const model = buildLedGroupModel(hass, config());
+    const byStrip = new Map(result.hyperhdr.byStrip);
+    const first = model.detected[0]!.entityId;
+    byStrip.set(first, { ...byStrip.get(first)!, ledCamera: 'camera.leds' });
+    const hub = { ...result.hyperhdr.hub!, camera: 'camera.capture' };
+    expect(
+      sampleCamera({ ...result, hyperhdr: { ...result.hyperhdr, byStrip, hub } }, model.detected),
+    ).toBe('camera.leds');
+    expect(
+      sampleCamera(
+        { ...result, hyperhdr: { ...result.hyperhdr, byStrip: new Map(), hub } },
+        model.detected,
+      ),
+    ).toBe('camera.capture');
+    expect(sampleCamera(undefined, model.detected)).toBeUndefined();
   });
 });
 

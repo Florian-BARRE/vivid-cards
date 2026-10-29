@@ -379,3 +379,21 @@ export function autoFold(previous: FoldStep | undefined, next: FoldStep): boolea
   if (previous.screen && !next.screen && next.piOn) return true;
   return undefined;
 }
+
+/**
+ * The picture Ambilight mode reads its colors from: the LED colors of an
+ * ambilight strip's HyperHDR instance (a tiny drawing of the LEDs, cheap for
+ * the Pi), else the captured picture of the server.
+ */
+export function sampleCamera(
+  side: AmbilightSide | undefined,
+  strips: readonly StripModel[],
+): string | undefined {
+  if (!side) return undefined;
+  for (const strip of strips) {
+    if (!strip.ambilight) continue;
+    const camera = side.hyperhdr.byStrip.get(strip.entityId)?.ledCamera;
+    if (camera) return camera;
+  }
+  return side.hyperhdr.hub?.camera;
+}

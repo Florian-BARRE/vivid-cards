@@ -18,6 +18,7 @@ import {
   buildAmbilightSide,
   SCREEN_RGB,
   piRunning,
+  sampleCamera,
   screenMode,
   type AmbilightSide,
   type FoldStep,
@@ -214,7 +215,7 @@ export class VividLedGroup extends LitElement {
       }
       this.foldStep = step;
     }
-    this.sampler.sync(this.side?.hyperhdr.hub?.camera, this.screen);
+    this.sampler.sync(sampleCamera(this.side, model.detected), this.screen);
   }
 
   /** Ambilight mode: the Pi runs and the strips follow the screen. */
