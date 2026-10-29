@@ -12,6 +12,7 @@ import './badges/presence/vivid-presence-badge';
 import './badges/illuminance/vivid-illuminance-badge';
 import './badges/power/vivid-power-badge';
 import './badges/battery/vivid-battery-badge';
+import './badges/climate/vivid-climate-badge';
 
 export const VERSION = __VIVID_VERSION__;
 
