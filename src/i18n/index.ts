@@ -103,6 +103,8 @@ const en = {
   lamp_on: 'on',
   lamp_no_draw: 'draws nothing',
   lamp_no_draw_hint: 'On but drawing less than {w}: a bulb out, or the lamp’s own switch off?',
+  lamp_expand: 'Show the lamps',
+  lamp_collapse: 'Hide the lamps',
   lamps_warn_one: '1 draws nothing',
   lamps_warn: '{n} draw nothing',
   energy_today: 'Today: {e}',
@@ -420,6 +422,8 @@ const fr: Strings = {
   lamp_no_draw: 'ne consomme rien',
   lamp_no_draw_hint:
     'Allumée mais consomme moins de {w} : ampoule grillée, ou interrupteur de la lampe coupé ?',
+  lamp_expand: 'Afficher les lampes',
+  lamp_collapse: 'Masquer les lampes',
   lamps_warn_one: '1 ne consomme rien',
   lamps_warn: '{n} ne consomment rien',
   energy_today: 'Aujourd’hui : {e}',

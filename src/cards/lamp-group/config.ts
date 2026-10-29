@@ -9,7 +9,8 @@ export const LAMP_DOMAINS = ['light', 'switch', 'group', 'input_boolean'];
 
 /**
  * `ambiance`: optional scene presets, then a round button per lamp.
- * `line`: the whole group on one line, a small button per lamp.
+ * `line`: the whole group on one line, a small button per lamp; a chevron
+ *   unfolds the lamp grid of `ambiance` inside the card (`expandable`).
  */
 export type LampLayout = 'ambiance' | 'line';
 export const LAMP_LAYOUTS: LampLayout[] = ['ambiance', 'line'];
@@ -62,6 +63,10 @@ export interface LampGroupCardConfig extends LovelaceCardConfig {
   size?: LampSize;
   /** Lamps per row (ambiance); auto when unset. */
   columns?: number;
+  /** Line layout: a chevron unfolds the lamp grid inside the card. */
+  expandable?: boolean;
+  /** Line layout: unfolded when first shown (a choice made on the card wins). */
+  expanded?: boolean;
   tap_action?: LampAction | { action: LampAction };
   hold_action?: LampAction | { action: LampAction };
   show_power?: boolean;
@@ -110,6 +115,10 @@ export interface ResolvedLampGroupConfig {
   showStatus: boolean;
   size: LampSize;
   columns?: number;
+  /** Line layout only: the lamp grid can be unfolded in the card. */
+  expandable: boolean;
+  /** Line layout only: initial state of the fold. */
+  expanded: boolean;
   tapAction: LampAction;
   holdAction: LampAction;
   showPower: boolean;
@@ -269,6 +278,8 @@ export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
     showStatus: bool(config.show_status, 'show_status', true),
     size: choice(config.size, 'size', LAMP_SIZES) ?? 'medium',
     columns: resolveColumns(config.columns),
+    expandable: bool(config.expandable, 'expandable', true),
+    expanded: bool(config.expanded, 'expanded', false),
     tapAction: lampAction(config.tap_action, 'tap_action') ?? 'toggle',
     holdAction: lampAction(config.hold_action, 'hold_action') ?? 'details',
     showPower: bool(config.show_power, 'show_power', true),

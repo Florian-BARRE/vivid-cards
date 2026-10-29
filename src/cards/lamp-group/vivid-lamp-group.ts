@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing, unsafeCSS, type PropertyValues } from 'lit';
+import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -42,6 +42,7 @@ import {
   type LampModel,
   type LampSceneModel,
 } from './model';
+import { canFold, initialFold, rememberFold } from './fold';
 import type { LampEnergy } from './vivid-lamp-group-details';
 import './vivid-lamp-group-details';
 import './vivid-lamp-group-editor';
@@ -94,19 +95,25 @@ function sourceFactor(hass: HomeAssistant, source: PowerSource): number {
  * - `ambiance`: a header (consumption, a button for the whole group), quick
  *   presets, then a round button per lamp glowing with what it draws, with
  *   its consumption and how long it has been on or off.
- * - `line`: the whole group on one line, a small button per lamp.
+ * - `line`: the whole group on one line, a small button per lamp. With
+ *   `expandable`, a chevron (or a tap on the free part of the line) unfolds
+ *   the ambiance lamp grid inside the card.
  *
  * A tap switches a lamp, a hold (or a tap on the title) opens the details:
- * every lamp with today's timeline, and the energy and cost of the day.
+ * every lamp with today's timeline, and the energy and cost of the day. On an
+ * expandable line, a tap on the title unfolds and a hold opens the details.
  */
 export class VividLampGroup extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
+    _expanded: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: ResolvedLampGroupConfig;
+  /** Line layout: the lamp grid is unfolded. */
+  declare _expanded: boolean;
 
   private model?: LampGroupModel;
   private dialog?: VividDialog;
@@ -116,6 +123,11 @@ export class VividLampGroup extends LitElement {
   private loading = false;
   /** When this card last switched lamps itself: a scene applied before is no longer current. */
   private switchedAt?: number;
+
+  constructor() {
+    super();
+    this._expanded = false;
+  }
 
   static getConfigElement(): HTMLElement {
     return document.createElement('vivid-lamp-group-editor');
@@ -145,14 +157,17 @@ export class VividLampGroup extends LitElement {
 
   setConfig(config: LampGroupCardConfig): void {
     this._config = resolveLampConfig(config);
+    this._expanded = initialFold(this._config);
     this.history = undefined;
   }
 
   getCardSize(): number {
     const config = this._config;
     if (!config) return 3;
-    if (config.layout === 'line') return 1;
     const labels = config.showNames || config.showStatus;
+    if (config.layout === 'line') {
+      return this._expanded ? 1 + (labels || config.size === 'large' ? 2 : 1) : 1;
+    }
     return (
       (config.showHeader ? 1 : 0) +
       (config.scenes.length ? 1 : 0) +
@@ -161,6 +176,10 @@ export class VividLampGroup extends LitElement {
   }
 
   getGridOptions(): LovelaceGridOptions {
+    // An expandable line grows when it unfolds: its height follows its content.
+    if (this._config && canFold(this._config)) {
+      return { columns: 12, min_columns: 6, rows: 'auto', min_rows: 1 };
+    }
     const rows = this.getCardSize();
     return { columns: 12, min_columns: 6, rows, min_rows: rows };
   }
@@ -311,12 +330,19 @@ export class VividLampGroup extends LitElement {
       .warn ha-icon {
         --mdc-icon-size: calc(var(--lamp-warn, 20px) * 0.65);
       }
-      /* One line. */
-      .panel.line {
-        flex-direction: row;
+      /* One line, 64 px high; when expandable, the lamp grid unfolds under it. */
+      .panel.line-card {
+        gap: 0;
+        padding: 0;
+        --vivid-card-chip-height: 40px;
+      }
+      .line {
+        display: flex;
         align-items: center;
         gap: 10px;
-        padding: 8px 8px 8px 12px;
+        box-sizing: border-box;
+        min-height: 64px;
+        padding: 12px 8px 12px 12px;
       }
       .title {
         display: inline-flex;
@@ -324,17 +350,79 @@ export class VividLampGroup extends LitElement {
         gap: 12px;
         min-width: 0;
         flex: 1 1 auto;
-        padding: 2px;
+        align-self: stretch;
+        padding: 0 2px 0 0;
         border-radius: 12px;
         text-align: left;
       }
-      .title > ha-icon {
-        --mdc-icon-size: 24px;
-        display: inline-flex;
+      .group-disc {
+        display: grid;
+        place-items: center;
         flex: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        --vivid-glow-size: var(--lamp-group-glow);
+        background: var(--disc-bg, var(--vivid-layer-2));
+        box-shadow: var(--disc-shadow, none);
+        color: var(--disc-color, var(--secondary-text-color));
+        transition:
+          background 0.4s ease,
+          box-shadow 0.4s ease,
+          color 0.4s ease;
       }
-      .title.on > ha-icon {
-        color: ${unsafeCSS(AMBER_INK)};
+      .group-disc ha-icon {
+        --mdc-icon-size: 22px;
+        display: inline-flex;
+      }
+      .chevron {
+        display: grid;
+        place-items: center;
+        flex: none;
+        width: 28px;
+        height: 40px;
+        margin-left: -4px;
+        border-radius: 12px;
+        color: var(--secondary-text-color);
+      }
+      .chevron ha-icon {
+        --mdc-icon-size: 22px;
+        display: inline-flex;
+        transition: transform 0.3s ease;
+      }
+      .expanded .chevron ha-icon {
+        transform: rotate(180deg);
+      }
+      .fold {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transition:
+          grid-template-rows 0.3s ease,
+          opacity 0.25s ease;
+      }
+      .expanded .fold {
+        grid-template-rows: 1fr;
+        opacity: 1;
+      }
+      .fold-inner {
+        min-height: 0;
+        overflow: hidden;
+      }
+      /* Unfolded, the halos may spill out again, once the fold is open. */
+      .expanded .fold-inner {
+        animation: vivid-unclip 0.3s step-end forwards;
+      }
+      @keyframes vivid-unclip {
+        from {
+          overflow: hidden;
+        }
+        to {
+          overflow: visible;
+        }
+      }
+      .fold .lamps {
+        padding: 0 12px 14px;
       }
       .names {
         display: flex;
@@ -401,8 +489,15 @@ export class VividLampGroup extends LitElement {
       }
       @media (prefers-reduced-motion: reduce) {
         .disc,
-        .mini {
+        .mini,
+        .group-disc,
+        .chevron ha-icon,
+        .fold {
           transition: none;
+        }
+        .expanded .fold-inner {
+          animation: none;
+          overflow: visible;
         }
       }
     `,
@@ -487,10 +582,26 @@ export class VividLampGroup extends LitElement {
     this.press = undefined;
   }
 
-  /** `target`: a lamp's entity id, or `title` (which always opens the details). */
+  /** Unfolds or folds the lamp grid of an expandable line, and remembers it. */
+  private readonly toggleFold = (): void => {
+    const config = this._config;
+    if (!config || !canFold(config)) return;
+    haptic(this, 'light');
+    this._expanded = !this._expanded;
+    rememberFold(config, this._expanded);
+  };
+
+  /**
+   * `target`: a lamp's entity id, or `title` (which opens the details; a tap
+   * on the title of an expandable line unfolds it instead).
+   */
   private run(target: string, gesture: 'tap' | 'hold'): void {
     const config = this._config;
     if (!config) return;
+    if (target === 'title' && gesture === 'tap' && canFold(config)) {
+      this.toggleFold();
+      return;
+    }
     const action: LampAction =
       target === 'title' ? 'details' : gesture === 'tap' ? config.tapAction : config.holdAction;
     if (action === 'none') return;
@@ -698,6 +809,7 @@ export class VividLampGroup extends LitElement {
       '--lamp-mini-icon': `${size.miniIcon}px`,
       '--lamp-disc-glow': glowSize(size.disc),
       '--lamp-mini-glow': glowSize(size.mini),
+      '--lamp-group-glow': glowSize(40),
       '--lamp-warn': `${size.warn}px`,
       // Icons only: buttons sit closer, no room kept for the names.
       ...(labels ? {} : { '--lamp-min': '0px', '--lamp-disc-gap': '0px' }),
@@ -837,32 +949,89 @@ export class VividLampGroup extends LitElement {
       .filter(Boolean)
       .join(' · ');
     const title = this.gestures('title');
-    return html`<div class="panel line">
-      <button
-        type="button"
-        class=${classMap({ reset: true, title: true, on: model.on > 0 })}
-        title=${localize(hass, 'details')}
-        @pointerdown=${title.down}
-        @pointermove=${this.onPointerMove}
-        @pointerup=${title.up}
-        @pointercancel=${() => this.cancelPress()}
-        @keydown=${title.key}
+    const foldable = canFold(config);
+    const expanded = foldable && this._expanded;
+    const foldLabel = localize(hass, expanded ? 'lamp_collapse' : 'lamp_expand');
+    const tone = model.on ? lampTone(model.level) : undefined;
+    return html`<div class=${classMap({ panel: true, 'line-card': true, expanded })}>
+      <div
+        class="line"
+        @click=${(event: Event) => {
+          // The free part of the line, between the controls.
+          if (foldable && event.target === event.currentTarget) this.toggleFold();
+        }}
       >
-        <ha-icon .icon=${model.on ? model.icon : model.iconOff}></ha-icon>
-        <span class="names"
-          ><span class="name">${model.name}</span>${
-            sub ? html`<span class="sub">${sub}</span>` : nothing
-          }</span
+        <button
+          type="button"
+          class=${classMap({ reset: true, title: true, on: model.on > 0 })}
+          title=${foldable ? foldLabel : localize(hass, 'details')}
+          aria-expanded=${foldable ? String(expanded) : nothing}
+          aria-controls=${foldable ? 'fold' : nothing}
+          @pointerdown=${title.down}
+          @pointermove=${this.onPointerMove}
+          @pointerup=${title.up}
+          @pointercancel=${() => this.cancelPress()}
+          @keydown=${title.key}
+          @contextmenu=${(event: Event) => event.preventDefault()}
         >
-      </button>
-      <div class="minis">
-        ${repeat(
-          model.lamps,
-          (lamp) => lamp.entityId,
-          (lamp) => this.renderMini(lamp, config),
-        )}
+          <span
+            class="group-disc"
+            style=${styleMap({
+              '--disc-bg': tone?.background,
+              '--disc-shadow': tone?.shadow,
+              '--disc-color': tone?.iconColor,
+            })}
+            ><ha-icon .icon=${model.on ? model.icon : model.iconOff}></ha-icon
+          ></span>
+          <span class="names"
+            ><span class="name">${model.name}</span>${
+              sub ? html`<span class="sub">${sub}</span>` : nothing
+            }</span
+          >
+        </button>
+        ${
+          expanded
+            ? nothing
+            : html`<div class="minis">
+                ${repeat(
+                  model.lamps,
+                  (lamp) => lamp.entityId,
+                  (lamp) => this.renderMini(lamp, config),
+                )}
+              </div>`
+        }
+        ${config.showToggleAll ? this.renderToggleAll(model) : nothing}
+        ${
+          foldable
+            ? html`<button
+                type="button"
+                class="reset chevron"
+                title=${foldLabel}
+                aria-label=${foldLabel}
+                aria-expanded=${String(expanded)}
+                aria-controls="fold"
+                @click=${this.toggleFold}
+              >
+                <ha-icon .icon=${'mdi:chevron-down'}></ha-icon>
+              </button>`
+            : nothing
+        }
       </div>
-      ${config.showToggleAll ? this.renderToggleAll(model) : nothing}
+      ${
+        foldable
+          ? html`<div class="fold" id="fold" ?inert=${!expanded} aria-hidden=${String(!expanded)}>
+              <div class="fold-inner">
+                <div class="lamps">
+                  ${repeat(
+                    model.lamps,
+                    (lamp) => lamp.entityId,
+                    (lamp) => this.renderLamp(lamp, config),
+                  )}
+                </div>
+              </div>
+            </div>`
+          : nothing
+      }
     </div>`;
   }
 
