@@ -25,7 +25,7 @@ function prune<T extends Record<string, unknown>>(object: T): T {
 /** Sets a top-level key; empty values remove it. */
 export function setRoot(
   config: LedGroupCardConfig,
-  key: 'entity' | 'name' | 'icon',
+  key: 'entity' | 'name' | 'icon' | 'layout' | 'expanded',
   value: unknown,
 ): LedGroupCardConfig {
   const next = { ...config } as Record<string, unknown>;

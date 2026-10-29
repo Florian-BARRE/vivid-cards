@@ -10,6 +10,12 @@ import '../../components/vivid-light-tile';
 import '../../components/vivid-power-history';
 import type { PowerSeriesSource } from '../../components/vivid-power-history';
 import '../../components/vivid-wled-panel';
+import { localize } from '../../i18n';
+import type { SourcePhase } from '../../components/vivid-source-row';
+import type { AmbilightModel } from '../ambilight/model';
+import '../ambilight/vivid-ambilight-details';
+import '../hyperhdr/vivid-hyperhdr-details';
+import type { AmbilightSide } from './ambilight-link';
 import type { ResolvedLedGroupConfig } from './config';
 import type { LedGroupModel, StripModel } from './model';
 
@@ -24,11 +30,27 @@ export class VividLedGroupDetails extends LitElement {
     hass: { attribute: false },
     model: { attribute: false },
     config: { attribute: false },
+    side: { attribute: false },
+    box: { attribute: false },
+    phases: { attribute: false },
+    hyperhdrInstance: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare model?: LedGroupModel;
   declare config?: ResolvedLedGroupConfig;
+  /** The Ambilight box of the card, when it has one. */
+  declare side?: AmbilightSide;
+  /** The box as the rail reads it (with its pending sends). */
+  declare box?: AmbilightModel;
+  declare phases: Partial<Record<number, SourcePhase>>;
+  /** The HyperHDR strip opened from the server's list. */
+  declare hyperhdrInstance?: string;
+
+  constructor() {
+    super();
+    this.phases = {};
+  }
 
   static override styles = [
     tokens,
@@ -76,6 +98,42 @@ export class VividLedGroupDetails extends LitElement {
         flex-direction: column;
         gap: 8px;
         min-width: 0;
+      }
+      .device {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-top: 6px;
+      }
+      .device h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 0 4px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+      }
+      .device h3 ha-icon {
+        --mdc-icon-size: 18px;
+        display: inline-flex;
+      }
+      .back {
+        appearance: none;
+        border: none;
+        margin: 0 0 0 auto;
+        padding: 4px 10px;
+        border-radius: 14px;
+        background: var(--vivid-layer-1);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-size: 12.5px;
+        cursor: pointer;
+      }
+      .back:focus-visible {
+        outline: 2px solid var(--vivid-focus);
+        outline-offset: 2px;
       }
       .extras {
         display: flex;
@@ -218,7 +276,60 @@ export class VividLedGroupDetails extends LitElement {
               )}
             </div>`,
         )}
-      </div>`;
+      </div>
+      ${this.renderBox()} ${this.renderHyperHdr()}`;
+  }
+
+  /** The Ambilight box, as in its own card's details. */
+  private renderBox() {
+    const side = this.side;
+    const box = this.box ?? side?.box;
+    if (!side || !box) return nothing;
+    return html`<section class="device">
+      <h3>
+        <ha-icon .icon=${'mdi:television-ambient-light'}></ha-icon>${localize(this.hass, 'led_box')}
+      </h3>
+      <vivid-ambilight-details
+        .hass=${this.hass}
+        .model=${box}
+        .config=${side.boxConfig}
+        .phases=${this.phases}
+      ></vivid-ambilight-details>
+    </section>`;
+  }
+
+  /** The HyperHDR server and its strips; a strip of the list opens in place. */
+  private renderHyperHdr() {
+    const link = this.side?.hyperhdr;
+    if (!link?.hub) return nothing;
+    const instance = link.instances.find((item) => item.deviceId === this.hyperhdrInstance);
+    return html`<section class="device">
+      <h3>
+        <ha-icon .icon=${'mdi:television-shimmer'}></ha-icon>${localize(this.hass, 'led_hyperhdr')}
+        ${
+          instance
+            ? html`<button
+                type="button"
+                class="back"
+                @click=${() => (this.hyperhdrInstance = undefined)}
+              >
+                ${localize(this.hass, 'led_back_server')}
+              </button>`
+            : nothing
+        }
+      </h3>
+      <vivid-hyperhdr-details
+        .hass=${this.hass}
+        .hub=${link.hub}
+        .instance=${instance}
+        .instances=${link.instances}
+        .initialTab=${instance ? 'overview' : 'system'}
+        @vivid-hyperhdr-open=${(event: CustomEvent<{ instance: string }>) => {
+          event.stopPropagation();
+          this.hyperhdrInstance = event.detail.instance;
+        }}
+      ></vivid-hyperhdr-details>
+    </section>`;
   }
 
   private renderSummary(model: LedGroupModel, config: ResolvedLedGroupConfig) {

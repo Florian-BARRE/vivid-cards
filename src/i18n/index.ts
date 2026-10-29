@@ -365,6 +365,14 @@ const en = {
   room_all_off: 'everything is off',
   room_turn_off: 'Turn off everything in {room}',
   room_turn_on: 'Turn on {room}',
+  // LED group: collapsible layout and Ambilight rail.
+  led_expand: 'Unfold',
+  led_collapse: 'Fold',
+  led_screen_colors: 'Colors follow the screen · tap to take over',
+  led_box: 'Ambilight box',
+  led_hyperhdr: 'HyperHDR server',
+  led_back_server: 'Back to the server',
+  rail_missing: 'Ambilight box not found',
 };
 
 type Strings = typeof en;
@@ -735,6 +743,14 @@ const fr: Strings = {
   room_all_off: 'tout est éteint',
   room_turn_off: 'Tout éteindre : {room}',
   room_turn_on: 'Allumer : {room}',
+  // LED group: collapsible layout and Ambilight rail.
+  led_expand: 'Déplier',
+  led_collapse: 'Replier',
+  led_screen_colors: 'Couleurs suivies de l’écran · toucher pour reprendre la main',
+  led_box: 'Boîtier Ambilight',
+  led_hyperhdr: 'Serveur HyperHDR',
+  led_back_server: 'Retour au serveur',
+  rail_missing: 'Boîtier Ambilight introuvable',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };

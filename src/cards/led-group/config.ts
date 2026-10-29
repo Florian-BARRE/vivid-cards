@@ -18,10 +18,13 @@ export const CARD_TYPE = 'vivid-led-group';
 export type ColorBarMode = 'auto' | 'hue' | 'temperature' | 'none';
 export type StateText = 'brightness' | 'none';
 export type MemberOrder = 'name' | 'group' | 'custom';
+/** `default`: header above the tile; `collapsible`: one line that unfolds into the tile. */
+export type CardLayout = 'default' | 'collapsible';
 
 export const COLOR_BAR_MODES: ColorBarMode[] = ['auto', 'hue', 'temperature', 'none'];
 export const STATE_TEXTS: StateText[] = ['brightness', 'none'];
 export const MEMBER_ORDERS: MemberOrder[] = ['name', 'group', 'custom'];
+export const CARD_LAYOUTS: CardLayout[] = ['default', 'collapsible'];
 export const POWER_MODES: PowerMode[] = ['auto', 'sensor', 'voltage', 'none'];
 
 /** `"#ff8800"`, `[255, 136, 0]` or `{ rgb | color | kelvin, brightness }`. */
@@ -55,6 +58,9 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
   entity: string;
   name?: string;
   icon?: string;
+  layout?: CardLayout;
+  /** `layout: collapsible`: unfolded when the dashboard opens. */
+  expanded?: boolean;
   tile?: {
     state?: StateText;
     color_bar?: ColorBarMode;
@@ -97,6 +103,18 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
   };
   ambilight?: {
     enabled?: boolean;
+    /**
+     * The Ambilight box (its device, or one of its entities): a rail at the
+     * bottom of the card. `false` hides it; left out, the only box there is,
+     * when it sits with these strips.
+     */
+    box?: string | false;
+    /** The HyperHDR server device; the only one found when left out. */
+    hyperhdr?: string;
+    /** Names and icons of the HDMI inputs, in order (as in `vivid-ambilight-card`). */
+    inputs?: (string | { name?: string; icon?: string; hidden?: boolean })[];
+    /** Turning Ambilight off asks for a second tap (default on). */
+    confirm_off?: boolean;
   };
   details?: {
     enabled?: boolean;
@@ -122,6 +140,9 @@ export interface ResolvedLedGroupConfig {
   name?: string;
   /** Icon of every tile; `undefined` uses each light's own icon. */
   icon?: string;
+  layout: CardLayout;
+  /** Initial state of the collapsible layout. */
+  expanded: boolean;
   tile: {
     state: StateText;
     colorBar: ColorBarMode;
@@ -161,7 +182,14 @@ export interface ResolvedLedGroupConfig {
     priceEntity?: string;
     currency?: string;
   };
-  ambilight: { enabled: boolean };
+  ambilight: {
+    enabled: boolean;
+    /** Device or entity of the box; `false`: no rail; `undefined`: auto-detect. */
+    box?: string | false;
+    hyperhdr?: string;
+    inputs?: (string | { name?: string; icon?: string; hidden?: boolean })[];
+    confirmOff: boolean;
+  };
   details: {
     /** `undefined` means: enabled for groups only. */
     enabled?: boolean;
@@ -432,6 +460,23 @@ function resolveMembers(raw: unknown): Map<string, LedGroupMemberConfig> {
   return members;
 }
 
+/** `false` hides the rail; a device id or an entity id points at the box. */
+function resolveBox(value: unknown): string | false | undefined {
+  if (value === false) return false;
+  if (value === true) return undefined;
+  return optionalString(value, 'ambilight.box');
+}
+
+function resolveInputs(value: unknown): ResolvedLedGroupConfig['ambilight']['inputs'] {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) fail('"ambilight.inputs" must be a list of names or { name, icon }.');
+  return value.map((item) => {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'object' && item !== null) return item as { name?: string };
+    fail('"ambilight.inputs" must be a list of names or { name, icon }.');
+  });
+}
+
 export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = migrateConfig(raw as LedGroupCardConfig);
@@ -452,6 +497,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
     entity,
     name: optionalString(config.name, 'name'),
     icon: optionalString(config.icon, 'icon'),
+    layout: optionalChoice(config.layout, 'layout', CARD_LAYOUTS) ?? 'default',
+    expanded: optionalBoolean(config.expanded, 'expanded') ?? false,
     tile: {
       state: optionalChoice(tile.state, 'tile.state', STATE_TEXTS) ?? 'brightness',
       colorBar: tileColorBar,
@@ -488,7 +535,13 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       priceEntity: resolvePriceEntity(power.price_entity),
       currency: resolveCurrency(power.currency),
     },
-    ambilight: { enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true },
+    ambilight: {
+      enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true,
+      box: resolveBox(ambilight.box),
+      hyperhdr: optionalString(ambilight.hyperhdr, 'ambilight.hyperhdr'),
+      inputs: resolveInputs(ambilight.inputs),
+      confirmOff: optionalBoolean(ambilight.confirm_off, 'ambilight.confirm_off') ?? true,
+    },
     details: {
       enabled: optionalBoolean(details.enabled, 'details.enabled'),
       hash: normalizeHash(optionalString(details.hash, 'details.hash')),

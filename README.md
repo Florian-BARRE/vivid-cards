@@ -1433,3 +1433,38 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture and conventions.
 ## License
 
 [MIT](LICENSE) © Florian Barre
+
+## LED group: collapsible layout and Ambilight rail
+
+`vivid-led-group` keeps its header and tile by default. Two opt-in additions:
+
+**Collapsible layout.** `layout: collapsible` turns the card into one 64 px line
+tinted with the LEDs' color (icon, name, `57 % · Solid · 2/3 · 42 W`, power
+button, chevron). The chevron unfolds the color bar and the favorites in the same
+card; dragging the line still dims. The card remembers the choice per light on
+this device; `expanded: true` sets the first state.
+
+**Ambilight rail.** With the [Ambilight box](#vivid-ambilight-card), a rail at the
+bottom of the card shows its state (controlling temperature and fan, or the
+alarm in red), the HDMI input menu and a switch that starts and stops the Pi
+(clean shutdown and confirmation, as in the Ambilight card). While the screen
+drives the strips (WLED listens to realtime data, HyperHDR sends to them), the
+tile fills with their captured colors and the color bar steps back: touching it
+takes the strips back (WLED live override). The details dialog adds the box and
+the HyperHDR server.
+
+The only box of the home is found by itself when it sits in the strips' area or
+when HyperHDR sends to one of the strips; `vivid-ambilight-card` and
+`vivid-hyperhdr-card` keep working on their own.
+
+```yaml
+type: custom:vivid-led-group
+entity: light.salon_leds
+layout: collapsible # default: header and tile
+expanded: false # first state of the collapsible layout
+ambilight:
+  box: device_ambilight # a device or one of its entities; false hides the rail
+  hyperhdr: device_hub # optional, the only server when left out
+  inputs: [TV box, Console, PC, HDMI 4, HDMI 5]
+  confirm_off: true # second tap before switching Ambilight off
+```
