@@ -43,6 +43,8 @@ import {
 } from './view';
 
 type Tab = 'overview' | 'fan' | 'ir' | 'maint';
+/** A single part shown on its own by a focused card: a tab, or the input tiles. */
+export type AmbilightPane = Tab | 'inputs';
 const TABS: { id: Tab; icon: string; label: StringKey }[] = [
   { id: 'overview', icon: 'mdi:view-dashboard-outline', label: 'amb_tab_overview' },
   { id: 'fan', icon: 'mdi:fan', label: 'amb_tab_fan' },
@@ -80,6 +82,8 @@ export class VividAmbilightDetails extends LitElement {
     armed: { state: true },
     open: { state: true },
     curveTab: { state: true },
+    pane: {},
+    heading: {},
   };
 
   declare hass?: HomeAssistant;
@@ -97,6 +101,10 @@ export class VividAmbilightDetails extends LitElement {
   declare open: Record<string, boolean>;
   /** Curve shown in the fan tab; follows the driving one until picked. */
   declare curveTab?: FanSource;
+  /** Shows this part alone, under a head without tabs (the focused cards). */
+  declare pane?: AmbilightPane;
+  /** Title of the head instead of the box's name. */
+  declare heading?: string;
 
   private armTimer?: number;
 
@@ -939,8 +947,38 @@ export class VividAmbilightDetails extends LitElement {
 
   /* --------------------------------- sections ------------------------------- */
 
+  /** Head of the input tiles shown alone: the active input, lit in the input color. */
+  private renderInputsHead(model: AmbilightModel) {
+    const hass = this.hass;
+    const active =
+      model.hdmi.active === undefined ? undefined : model.hdmi.inputs[model.hdmi.active];
+    const tone = model.online && active ? tintTone(SOURCE_RGB, 0.85) : undefined;
+    return html`<div class="head">
+      <span
+        class="disc"
+        style=${styleMap({
+          '--disc-bg': tone?.background,
+          '--disc-shadow': tone?.shadow,
+          '--disc-color': tone?.iconColor,
+        })}
+        ><ha-icon .icon=${active?.icon ?? 'mdi:video-input-hdmi'}></ha-icon
+      ></span>
+      <span class="names"
+        ><span class="title">${this.heading ?? model.name}</span
+        ><span class="sub"
+          >${
+            model.online
+              ? (active?.name ?? localize(hass, 'amb_no_input'))
+              : localize(hass, 'amb_offline')
+          }</span
+        ></span
+      >
+    </div>`;
+  }
+
   private renderHead(model: AmbilightModel) {
     const hass = this.hass;
+    if (this.pane === 'inputs') return this.renderInputsHead(model);
     const color = healthColor(model);
     const tone = color ? tintTone(color, 0.85) : undefined;
     const spin = model.online ? spinSeconds(model.fan.percentage) : undefined;
@@ -966,26 +1004,31 @@ export class VividAmbilightDetails extends LitElement {
           ><ha-icon .icon=${healthIcon(model)}></ha-icon
         ></span>
         <span class="names"
-          ><span class="title">${model.name}</span
+          ><span class="title">${this.heading ?? model.name}</span
           ><span class="sub">${parts.join(' · ')}</span></span
         >
       </div>
-      <div class="tabs" role="tablist">
-        ${TABS.map(
-          (tab) =>
-            html`<button
-              type="button"
-              class="reset tab"
-              role="tab"
-              aria-selected=${this.tab === tab.id ? 'true' : 'false'}
-              @click=${() => {
-                this.tab = tab.id;
-              }}
-            >
-              <ha-icon .icon=${tab.icon}></ha-icon>${localize(hass, tab.label)}
-            </button>`,
-        )}
-      </div>`;
+      ${this.pane ? nothing : this.renderTabs()}`;
+  }
+
+  private renderTabs() {
+    const hass = this.hass;
+    return html`<div class="tabs" role="tablist">
+      ${TABS.map(
+        (tab) =>
+          html`<button
+            type="button"
+            class="reset tab"
+            role="tab"
+            aria-selected=${this.tab === tab.id ? 'true' : 'false'}
+            @click=${() => {
+              this.tab = tab.id;
+            }}
+          >
+            <ha-icon .icon=${tab.icon}></ha-icon>${localize(hass, tab.label)}
+          </button>`,
+      )}
+    </div>`;
   }
 
   /** Alarms, then what keeps the box and HyperHDR from working together. */
@@ -1822,18 +1865,19 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
   protected override render() {
     const model = this.model;
     if (!model || !this.config) return nothing;
-    const panes: Record<Tab, () => unknown> = {
+    const panes: Record<AmbilightPane, () => unknown> = {
       overview: () => this.renderOverview(model),
       fan: () => this.renderFan(model),
       ir: () => this.renderIr(model),
       maint: () => this.renderMaint(model),
+      inputs: () => this.renderSources(model, 'large'),
     };
     return html`<div
       style=${styleMap({ '--source-rgb': SOURCE_RGB.join(', '), display: 'contents' })}
     >
       ${this.renderHead(model)}
       <div class="pane" style=${styleMap({ '--source-rgb': SOURCE_RGB.join(', ') })}>
-        ${panes[this.tab]()}
+        ${panes[this.pane ?? this.tab]()}
       </div>
     </div>`;
   }

@@ -87,6 +87,7 @@ export class VividClimateChart extends LitElement {
     kind: { attribute: false },
     comfort: { attribute: false },
     range: { attribute: false },
+    heading: {},
     _range: { state: true },
     _samples: { state: true },
     _failed: { state: true },
@@ -102,6 +103,8 @@ export class VividClimateChart extends LitElement {
   declare comfort?: ComfortRange;
   /** The range shown first; the tabs change it afterwards. */
   declare range: ClimateRange;
+  /** Name shown instead of the sensor's. */
+  declare heading?: string;
   declare _range: ClimateRange;
   /** Loaded samples of the entity for the current range. */
   declare _samples?: ClimateSample[];
@@ -332,7 +335,7 @@ export class VividClimateChart extends LitElement {
       ? windowSamples(loaded, Math.min(loaded[0]?.t ?? now, start), now, { t: now, v: current })
       : [];
     const visible = windowSamples(full, start, now);
-    const name = entity.attributes.friendly_name ?? entityId ?? '';
+    const name = this.heading ?? entity.attributes.friendly_name ?? entityId ?? '';
     const head = this.renderHead(name, kind, unit, current, full, now);
 
     let body: TemplateResult;

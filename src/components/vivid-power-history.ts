@@ -107,6 +107,7 @@ export class VividPowerHistory extends LitElement {
     sources: { attribute: false },
     price: { type: Number },
     currency: {},
+    heading: {},
     _range: { state: true },
     _day: { state: true },
     _week: { state: true },
@@ -118,6 +119,8 @@ export class VividPowerHistory extends LitElement {
   declare sources: PowerSeriesSource[];
   declare price?: number;
   declare currency?: string;
+  /** Title of the panel instead of "Consumption". */
+  declare heading?: string;
   declare _range: HistoryRange;
   /** Last 24 hours, from the history. */
   declare _day?: HistorySeries;
@@ -683,7 +686,9 @@ export class VividPowerHistory extends LitElement {
     const hass = this.hass;
     const head = html`<div class="head">
       <span class="title"
-        ><ha-icon .icon=${'mdi:chart-areaspline'}></ha-icon>${localize(hass, 'consumption')}</span
+        ><ha-icon .icon=${'mdi:chart-areaspline'}></ha-icon>${
+          this.heading ?? localize(hass, 'consumption')
+        }</span
       >
       <span class="ranges" role="group" aria-label=${localize(hass, 'period')}>
         ${(Object.keys(RANGES) as HistoryRange[]).map(
