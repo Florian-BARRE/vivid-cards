@@ -16,7 +16,7 @@ import type { BadgeModel } from '../core/badges';
 import { clamp, colorDistance, kelvinToRgb, lightColor, rgbCss } from '../core/color';
 import { activeTone } from '../core/glow';
 import { isAvailable } from '../core/entities';
-import type { HomeAssistant, LightAttributes } from '../core/hass-types';
+import type { HomeAssistant, LightAttributes, Rgb } from '../core/hass-types';
 import { temperatureRange, type ColorBar } from '../core/light';
 import { defineElement } from '../core/register';
 import { localize } from '../i18n';
@@ -50,6 +50,19 @@ type Gesture = {
 /** Close enough to count as the current color of the light. */
 const SAME_COLOR_DISTANCE = 24;
 
+/** The fill of a tile driven by the screen: its colors side by side. */
+export function captureGradient(colors: readonly Rgb[]): string {
+  if (colors.length === 1) {
+    const [r, g, b] = colors[0] as Rgb;
+    return `rgba(${r}, ${g}, ${b}, 0.42)`;
+  }
+  const stops = colors.map(([r, g, b], index) => {
+    const at = Math.round((index / (colors.length - 1)) * 100);
+    return `rgba(${r}, ${g}, ${b}, 0.42) ${at}%`;
+  });
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
 /** Brightness actually sent for a drag to `percent` (0 turns off). */
 export function snapBrightness(percent: number, min = 1, step = 1): number {
   if (percent <= 0) return 0;
@@ -81,6 +94,11 @@ export class VividLightTile extends LitElement {
     brightnessStep: { type: Number, attribute: 'brightness-step' },
     lightOptions: { attribute: false },
     animateEffects: { type: Boolean, attribute: 'animate-effects' },
+    collapsible: { type: Boolean },
+    collapsed: { type: Boolean },
+    subtitle: {},
+    capture: { attribute: false },
+    captureLabel: { attribute: 'capture-label' },
     _preview: { state: true },
   };
 
@@ -104,6 +122,21 @@ export class VividLightTile extends LitElement {
   declare lightOptions?: LightCallOptions;
   /** Shimmer while an effect runs. */
   declare animateEffects: boolean;
+  /**
+   * One line (name, state, `actions` slot) that unfolds into the color bar and
+   * the favorites; `collapsed` keeps them folded.
+   */
+  declare collapsible: boolean;
+  declare collapsed: boolean;
+  /** Appended to the state line ("4,3 W"). */
+  declare subtitle?: string;
+  /**
+   * Colors the screen sends to the strips (Ambilight): the fill shows them and
+   * the color bar steps back behind `captureLabel`, which fires
+   * `vivid-take-control` when touched.
+   */
+  declare capture?: Rgb[];
+  declare captureLabel?: string;
   /** Brightness shown while dragging or until Home Assistant confirms the change. */
   declare _preview?: number;
 
@@ -126,6 +159,8 @@ export class VividLightTile extends LitElement {
     this.brightnessMin = 1;
     this.brightnessStep = 1;
     this.animateEffects = true;
+    this.collapsible = false;
+    this.collapsed = false;
   }
 
   static override styles = [
@@ -301,7 +336,103 @@ export class VividLightTile extends LitElement {
       .tile.unavailable .surface {
         cursor: default;
       }
+      /* Screen colors (Ambilight): a gradient fill, the color bar behind a veil. */
+      .tile.captured .fill {
+        background: var(--capture-fill);
+      }
+      .bar-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .bar-wrap.captured > vivid-color-bar {
+        opacity: 0.25;
+        pointer-events: none;
+      }
+      .take {
+        appearance: none;
+        border: none;
+        margin: 0;
+        background: transparent;
+        font: inherit;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 0 12px;
+        border-radius: 20px;
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        text-align: center;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
+      /* Collapsible: a 64 px line; the rest unfolds under it in the same tile. */
+      .tile.collapsible {
+        padding: 12px;
+        gap: 0;
+      }
+      .tile.collapsible .name {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .tile.collapsible .state {
+        font-size: 12.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile.collapsible.on .icon {
+        color: rgb(var(--tile-rgb, 255, 214, 170));
+      }
+      .tile.collapsible.collapsed.on .icon {
+        box-shadow: 0 0 14px rgba(var(--tile-rgb, 255, 214, 170), 0.5);
+      }
+      .tile.collapsed .fill {
+        background: rgba(var(--tile-rgb, 255, 214, 170), 0.24);
+      }
+      .tile.collapsed.captured .fill {
+        background: var(--capture-fill);
+        opacity: 0.6;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+      }
+      .more {
+        display: grid;
+        grid-template-rows: 1fr;
+        transition: grid-template-rows 0.28s ease;
+      }
+      .tile.collapsed .more {
+        grid-template-rows: 0fr;
+      }
+      .more-inner {
+        min-height: 0;
+        overflow: hidden;
+        /* Room for the focus ring and the current favorite's ring. */
+        margin: 0 -4px -4px;
+      }
+      .more-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 4px 4px;
+      }
+      .take:focus-visible {
+        outline: 2px solid var(--vivid-focus);
+        outline-offset: 2px;
+      }
       @media (prefers-reduced-motion: reduce) {
+        .more {
+          transition: none;
+        }
         .fill,
         .icon,
         .swatch {
@@ -590,6 +721,26 @@ export class VividLightTile extends LitElement {
     </div>`;
   }
 
+  /** The color bar, behind the "screen colors" veil while the screen drives the strips. */
+  private renderBars(isOn: boolean, available: boolean) {
+    const bars = this.renderColorBar(isOn, available);
+    const captured = (this.capture?.length ?? 0) > 0;
+    if (bars === nothing || !captured) return bars;
+    return html`<div class="bar-wrap captured">
+      ${bars}
+      <button
+        type="button"
+        class="take"
+        @click=${() => {
+          haptic(this, 'light');
+          fireEvent(this, 'vivid-take-control', { entityId: this.entityId });
+        }}
+      >
+        ${this.captureLabel}
+      </button>
+    </div>`;
+  }
+
   private renderColorBar(isOn: boolean, available: boolean) {
     if (this.colorBar === 'none') return nothing;
     const attributes = (this.stateObj?.attributes ?? {}) as LightAttributes;
@@ -641,10 +792,22 @@ export class VividLightTile extends LitElement {
         ? `${brightness} %`
         : localize(this.hass, 'off');
 
+    const capture = this.capture?.length ? this.capture : undefined;
     const tileStyle = styleMap({
-      '--fill': lit ? `${brightness}%` : '0%',
+      '--fill': lit || capture ? `${capture && !lit ? 100 : brightness}%` : '0%',
       '--tile-rgb': rgb ? rgb.join(', ') : undefined,
+      '--capture-fill': capture ? captureGradient(capture) : undefined,
     });
+    const collapsed = this.collapsible && this.collapsed;
+    const effectName =
+      typeof attributes.effect === 'string' && attributes.effect ? attributes.effect : undefined;
+    const stateLine = [
+      stateText,
+      collapsed && this.showEffects && isOn ? effectName : undefined,
+      this.subtitle,
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     const effect = attributes.effect;
     const effectActive =
@@ -653,8 +816,18 @@ export class VividLightTile extends LitElement {
       typeof effect === 'string' &&
       !['solid', 'none', 'off', ''].includes(effect.toLowerCase());
 
+    const extras = html`${this.renderBars(isOn, available)} ${this.renderFavorites(isOn, available)}`;
     return html`<div
-      class=${classMap({ tile: true, on: lit, unavailable: !available, effect: effectActive })}
+      part="tile"
+      class=${classMap({
+        tile: true,
+        on: lit,
+        unavailable: !available,
+        effect: effectActive,
+        captured: capture !== undefined,
+        collapsible: this.collapsible,
+        collapsed,
+      })}
       style=${tileStyle}
     >
       <div class="fill"></div>
@@ -677,12 +850,20 @@ export class VividLightTile extends LitElement {
       >
         <div class="icon"><ha-icon .icon=${this.icon}></ha-icon></div>
         <div class="text">
-          ${this.showName && this.name ? html`<span class="name">${this.name}</span>` : nothing}
-          ${this.showState ? html`<span class="state">${stateText}</span>` : nothing}
+          ${
+            (this.showName || this.collapsible) && this.name
+              ? html`<span class="name">${this.name}</span>`
+              : nothing
+          }
+          ${
+            this.showState
+              ? html`<span class="state">${this.collapsible ? stateLine : stateText}</span>`
+              : nothing
+          }
         </div>
-        ${this.renderBadges()}
+        ${collapsed ? nothing : this.renderBadges()}
         ${
-          this.showEffects && effects.length > 0
+          !collapsed && this.showEffects && effects.length > 0
             ? html`<vivid-select-chip
                 .icon=${'mdi:format-list-bulleted'}
                 .value=${attributes.effect ?? undefined}
@@ -694,8 +875,27 @@ export class VividLightTile extends LitElement {
               ></vivid-select-chip>`
             : nothing
         }
+        ${
+          this.collapsible
+            ? html`<div
+                class="actions"
+                @pointerdown=${(event: Event) => event.stopPropagation()}
+                @click=${(event: Event) => event.stopPropagation()}
+              >
+                <slot name="actions"></slot>
+              </div>`
+            : nothing
+        }
       </div>
-      ${this.renderColorBar(isOn, available)} ${this.renderFavorites(isOn, available)}
+      ${
+        this.collapsible && (this.colorBar !== 'none' || this.favorites.length > 0)
+          ? html`<div class="more" ?inert=${collapsed} aria-hidden=${collapsed ? 'true' : 'false'}>
+              <div class="more-inner"><div class="more-body">${extras}</div></div>
+            </div>`
+          : this.collapsible
+            ? nothing
+            : extras
+      }
     </div>`;
   }
 }
