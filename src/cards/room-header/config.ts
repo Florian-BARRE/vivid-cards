@@ -1,6 +1,7 @@
 import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import type { LovelaceCardConfig } from '../../core/hass-types';
+import { ROOM_ROLES, nameKey, roleOf, type RoomRole } from './roles';
 
 export const ROOM_HEADER_CARD = 'vivid-room-header';
 
@@ -14,8 +15,12 @@ export interface RoomBadgeConfig {
 }
 
 export interface RoomHeaderCardConfig extends LovelaceCardConfig {
-  /** Room id of the naming convention (`salon` finds `light.salon_leds`, …). */
+  /** Room of the naming convention (`salon` finds `light.salon_leds`, "salon-présence", …). */
   room?: string;
+  /** Finds the room's entities from their names (default: on when `room` is set). */
+  discover?: boolean;
+  /** Discovered roles (`presence`, `windows`…) or entity ids to leave out. */
+  exclude?: string[];
   /** Title; the room id, capitalized, when unset. */
   name?: string;
   /** Lights and switches of the room, instead of the discovered groups. */
@@ -24,7 +29,10 @@ export interface RoomHeaderCardConfig extends LovelaceCardConfig {
   power?: string;
   /** Entity whose more-info a hold on the power button opens; the first light when unset. */
   entity?: string;
-  /** Vivid badges under the title, instead of the discovered ones. */
+  /**
+   * Vivid badges added after the discovered ones; one on a discovered entity
+   * replaces its discovered badge (to change its options).
+   */
   badges?: RoomBadgeConfig[];
   /** "4 on · 138 W" under the title. */
   show_subtitle?: boolean;
@@ -36,7 +44,15 @@ export interface RoomHeaderCardConfig extends LovelaceCardConfig {
 
 export interface ResolvedRoomHeaderConfig {
   type: string;
+  /** Room key: lower case, no accents, `_` between words (`salle_de_bain`). */
   room?: string;
+  /** The room as written, for the title. */
+  roomLabel?: string;
+  discover: boolean;
+  /** Roles left out. */
+  excludeRoles: RoomRole[];
+  /** Entity ids left out. */
+  excludeEntities: string[];
   name?: string;
   lights?: string[];
   power?: string;
@@ -87,13 +103,41 @@ function badgeList(value: unknown): RoomBadgeConfig[] | undefined {
   });
 }
 
+/** `exclude`: role names (French or English) and entity ids. */
+function exclusions(value: unknown): { roles: RoomRole[]; entities: string[] } {
+  const roles: RoomRole[] = [];
+  const entities: string[] = [];
+  if (value === undefined || value === null) return { roles, entities };
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    fail('"exclude" must be a list of roles (presence, windows…) or entity ids.');
+  }
+  for (const raw of value as string[]) {
+    const item = raw.trim();
+    if (!item) continue;
+    if (item.includes('.')) {
+      entities.push(item);
+      continue;
+    }
+    const role = roleOf(item);
+    if (!role) {
+      fail(
+        `"exclude" has an unknown role "${item}". Roles: ${ROOM_ROLES.map((spec) => spec.role).join(', ')} (or their English names), or an entity id.`,
+      );
+    }
+    if (!roles.includes(role)) roles.push(role);
+  }
+  return { roles, entities };
+}
+
 export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = raw as RoomHeaderCardConfig;
-  const room = text(config.room, 'room')?.toLowerCase();
-  if (room !== undefined && !/^[a-z0-9_]+$/.test(room)) {
-    fail('"room" must be a room id such as salon (letters, digits and _).');
-  }
+  const roomLabel = text(config.room, 'room');
+  const room = roomLabel === undefined ? undefined : nameKey(roomLabel);
+  if (roomLabel !== undefined && !room) fail('"room" must be a room name such as salon.');
+  const discover = bool(config.discover, 'discover', room !== undefined);
+  if (discover && !room) fail('"discover" needs a "room".');
+  const { roles: excludeRoles, entities: excludeEntities } = exclusions(config.exclude);
   const name = text(config.name, 'name');
   const lights = entityList(config.lights, 'lights');
   for (const id of lights ?? []) {
@@ -103,7 +147,7 @@ export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig 
   }
   const power = text(config.power, 'power');
   if (power && domainOf(power) !== 'sensor') fail('"power" must be a sensor.');
-  if (!room && !name && !lights?.length) {
+  if (!room && !name && !lights?.length && !config.badges) {
     fail('set "room" (e.g. salon), or a "name" and its "lights".');
   }
   const glow = config.glow === undefined ? 100 : glowPercent(config.glow);
@@ -113,6 +157,10 @@ export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig 
   return {
     type: String(config.type ?? ''),
     room,
+    roomLabel,
+    discover,
+    excludeRoles,
+    excludeEntities,
     name,
     lights: lights?.length ? lights : undefined,
     power,

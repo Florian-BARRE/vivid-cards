@@ -34,7 +34,12 @@ function title(id: string): string {
 
 export function createRoomMock(
   scenario: RoomScenario = 'all',
-  options: { language?: string; climate?: boolean } = {},
+  options: {
+    language?: string;
+    climate?: boolean;
+    /** Entity id of the presence helper (still titled "salon-présence"). */
+    presenceId?: string;
+  } = {},
 ): RoomMock {
   const states: Record<string, HassEntity> = {};
   const put = (item: HassEntity): void => {
@@ -65,36 +70,40 @@ export function createRoomMock(
     const on = members.some((member) => states[member]?.state === 'on');
     put(entity(id, on ? 'on' : 'off', { entity_id: members, ...extra }));
   };
-  group('switch.salon_lampes', lampIds, { friendly_name: 'Lampes du salon' });
+  group('switch.salon_lampes', lampIds, { friendly_name: 'salon-lampes' });
   group('light.salon_leds', stripIds, {
-    friendly_name: 'LEDs du salon',
+    friendly_name: 'salon-leds',
     supported_color_modes: ['rgb'],
   });
   put(
     entity('sensor.salon_puissance', String(WATTS[scenario]), {
-      friendly_name: 'Puissance salon',
+      friendly_name: 'salon-puissance',
       unit_of_measurement: 'W',
       device_class: 'power',
     }),
   );
   put(
     entity('sensor.salon_eclairement', scenario === 'off' ? '3' : '49', {
-      friendly_name: 'Éclairement salon',
+      friendly_name: 'salon-éclairement',
       unit_of_measurement: 'lx',
       device_class: 'illuminance',
     }),
   );
   put(
-    entity('binary_sensor.salon_presence', scenario === 'off' ? 'off' : 'on', {
-      friendly_name: 'Présence salon',
-      device_class: 'occupancy',
-    }),
+    entity(
+      options.presenceId ?? 'binary_sensor.salon_presence',
+      scenario === 'off' ? 'off' : 'on',
+      {
+        friendly_name: 'salon-présence',
+        device_class: 'occupancy',
+      },
+    ),
   );
   const windows = ['binary_sensor.salon_fenetre_gauche', 'binary_sensor.salon_fenetre_droite'];
   for (const id of windows)
     put(entity(id, 'off', { device_class: 'window', friendly_name: title(id.slice(14)) }));
   group('binary_sensor.salon_fenetres', windows, {
-    friendly_name: 'Fenêtres salon',
+    friendly_name: 'salon-fenêtres',
     device_class: 'window',
   });
   put(
@@ -104,19 +113,20 @@ export function createRoomMock(
     }),
   );
   group('binary_sensor.salon_portes', ['binary_sensor.salon_porte_entree'], {
-    friendly_name: 'Portes salon',
+    friendly_name: 'salon-portes',
     device_class: 'door',
   });
   if (options.climate) {
-    const climate: [string, string, string, string][] = [
-      ['temperature', '21.4', '°C', 'temperature'],
-      ['humidite', '48', '%', 'humidity'],
-      ['pression', '1013', 'hPa', 'atmospheric_pressure'],
-      ['co2', '640', 'ppm', 'carbon_dioxide'],
+    const climate: [string, string, string, string, string][] = [
+      ['temperature', 'température', '21.4', '°C', 'temperature'],
+      ['humidite', 'humidité', '48', '%', 'humidity'],
+      ['pression', 'pression', '1013', 'hPa', 'atmospheric_pressure'],
+      ['co2', 'co2', '640', 'ppm', 'carbon_dioxide'],
     ];
-    for (const [suffix, value, unit, deviceClass] of climate) {
+    for (const [suffix, role, value, unit, deviceClass] of climate) {
       put(
         entity(`sensor.salon_${suffix}`, value, {
+          friendly_name: `salon-${role}`,
           unit_of_measurement: unit,
           device_class: deviceClass,
         }),

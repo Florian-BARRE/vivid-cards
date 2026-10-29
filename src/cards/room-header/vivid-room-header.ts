@@ -71,7 +71,7 @@ export class VividRoomHeader extends LitElement {
 
   static getStubConfig(hass?: HomeAssistant): Partial<RoomHeaderCardConfig> {
     const rooms = ['salon', 'chambre', 'bureau', 'cuisine', 'sdb'];
-    const room = hass ? rooms.find((id) => discoverRoom(hass, id).lights.length > 0) : undefined;
+    const room = hass ? rooms.find((id) => discoverRoom(hass, id).length > 0) : undefined;
     return { room: room ?? 'salon' };
   }
 

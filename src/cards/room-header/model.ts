@@ -8,8 +8,8 @@ import {
   parseNumericState,
 } from '../../core/entities';
 import type { HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
-import type { ClimateKind } from '../../core/climate';
 import type { ResolvedRoomHeaderConfig, RoomBadgeConfig } from './config';
+import { findRoles, roleOf, roleSpec, type FoundRole } from './roles';
 
 /** Halo of lamps, plugs and white lights. */
 export const AMBER: Rgb = [255, 193, 7];
@@ -17,108 +17,100 @@ export const AMBER: Rgb = [255, 193, 7];
 /** Color modes of a light that can show a color of its own (LED strips). */
 const COLOR_MODES = new Set(['hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
 
-/** Climate badges, built only when another bundle (or branch) defines them. */
-export const CLIMATE_BADGES: Partial<Record<ClimateKind, string>> = {
-  temperature: 'vivid-temperature-badge',
-  humidity: 'vivid-humidity-badge',
-  co2: 'vivid-air-quality-badge',
-};
-
-/** French suffixes of the owner's naming convention, per climate measure. */
-const CLIMATE_SUFFIXES: Record<ClimateKind, string> = {
-  temperature: 'temperature',
-  humidity: 'humidite',
-  pressure: 'pression',
-  co2: 'co2',
-};
-
-/** What the naming convention finds for a room, or what the config sets instead. */
+/** What the room shows: its lights, its power sensor and its badges before the manual ones. */
 export interface RoomEntities {
   /** Lamps and switches first (left of the halo), then LED strips. */
   lights: string[];
   power?: string;
-  illuminance?: string;
-  presence?: string;
-  windows?: string;
-  doors?: string;
-  climate: Partial<Record<ClimateKind, string>>;
+  /** Badges of the roles found and kept, in the order of the role table. */
+  roleBadges: RoomBadgeConfig[];
+  /** Every role found, excluded ones included (for the editor). */
+  found: (FoundRole & { excluded: boolean })[];
 }
 
-/** `light.salon_leds`, `switch.salon_lampes`, … that exist in Home Assistant. */
-export function discoverRoom(hass: HomeAssistant, room: string): RoomEntities {
-  const found = (id: string): string | undefined => (hass.states[id] ? id : undefined);
-  const lights = [`switch.${room}_lampes`, `switch.${room}_interrupteurs`, `light.${room}_leds`]
-    .map(found)
-    .filter((id): id is string => id !== undefined);
-  const climate: Partial<Record<ClimateKind, string>> = {};
-  for (const [kind, suffix] of Object.entries(CLIMATE_SUFFIXES) as [ClimateKind, string][]) {
-    const id = found(`sensor.${room}_${suffix}`);
-    if (id) climate[kind] = id;
-  }
-  return {
-    lights,
-    power: found(`sensor.${room}_puissance`),
-    illuminance: found(`sensor.${room}_eclairement`),
-    presence: found(`binary_sensor.${room}_presence`),
-    windows: found(`binary_sensor.${room}_fenetres`),
-    doors: found(`binary_sensor.${room}_portes`),
-    climate,
-  };
-}
-
-/** Discovered entities, with the config's `lights` and `power` taking over. */
-export function roomEntities(hass: HomeAssistant, config: ResolvedRoomHeaderConfig): RoomEntities {
-  const found: RoomEntities = config.room
-    ? discoverRoom(hass, config.room)
-    : { lights: [], climate: {} };
-  return {
-    ...found,
-    lights: config.lights ?? found.lights,
-    power: config.power ?? found.power,
-  };
-}
-
-/** `salon` → `Salon`, `salle_de_bain` → `Salle de bain`. */
-export function roomTitle(room: string): string {
-  const words = room.replace(/_+/g, ' ').trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** Badge type of a light group: lamps, LED strips, or any light. */
-export function lightBadgeType(entityId: string): string {
-  const object = objectIdOf(entityId);
-  if (domainOf(entityId) === 'switch' && !object.endsWith('_interrupteurs')) {
-    return 'custom:vivid-lamp-badge';
-  }
-  if (domainOf(entityId) === 'light' && /(^|_)leds?($|_)/.test(object)) {
-    return 'custom:vivid-led-badge';
-  }
-  return 'custom:vivid-light-badge';
+/** The roles found for a room, by entity id or by name. */
+export function discoverRoom(hass: HomeAssistant, room: string): FoundRole[] {
+  return findRoles(hass, room);
 }
 
 /**
- * Badges for what was found: lights, illuminance, presence, windows, doors,
- * then the climate badges whose element `isDefined` reports.
+ * Discovered roles minus the exclusions, with the config's `lights` and
+ * `power` taking over theirs. Without discovery, only `lights` and `power`.
  */
-export function autoBadges(
-  entities: RoomEntities,
-  isDefined: (tag: string) => boolean = () => false,
-): RoomBadgeConfig[] {
-  const badges: RoomBadgeConfig[] = entities.lights.map((entity) => ({
-    type: lightBadgeType(entity),
-    entity,
-  }));
-  const add = (tag: string, entity: string | undefined): void => {
-    if (entity) badges.push({ type: `custom:${tag}`, entity });
-  };
-  add('vivid-illuminance-badge', entities.illuminance);
-  add('vivid-presence-badge', entities.presence);
-  add('vivid-window-badge', entities.windows);
-  add('vivid-door-badge', entities.doors);
-  for (const [kind, tag] of Object.entries(CLIMATE_BADGES) as [ClimateKind, string][]) {
-    if (entities.climate[kind] && isDefined(tag)) add(tag, entities.climate[kind]);
+export function roomEntities(
+  hass: HomeAssistant,
+  config: ResolvedRoomHeaderConfig,
+  isDefined: (tag: string) => boolean = () => true,
+): RoomEntities {
+  const found = (config.discover && config.room ? findRoles(hass, config.room) : []).map(
+    (item) => ({
+      ...item,
+      excluded:
+        config.excludeRoles.includes(item.role) || config.excludeEntities.includes(item.entity),
+    }),
+  );
+  const kept = found.filter((item) => !item.excluded);
+  const feeds = (item: FoundRole) => roleSpec(item.role).feeds;
+  const lights =
+    config.lights ?? kept.filter((item) => feeds(item) === 'light').map((item) => item.entity);
+  const power = config.power ?? kept.find((item) => feeds(item) === 'power')?.entity;
+  const badge = (tag: string | undefined, entity: string): RoomBadgeConfig[] =>
+    tag && isDefined(tag) ? [{ type: `custom:${tag}`, entity }] : [];
+  let roleBadges: RoomBadgeConfig[] = [];
+  if (config.discover) {
+    const lightBadges = config.lights
+      ? config.lights.flatMap((entity) => {
+          const role = found.find((item) => item.entity === entity)?.role;
+          return badge(
+            role ? roleSpec(role).badge : lightBadgeType(entity).replace(/^custom:/, ''),
+            entity,
+          );
+        })
+      : [];
+    roleBadges = kept.flatMap((item) => {
+      if (feeds(item) === 'light') {
+        return config.lights ? [] : badge(roleSpec(item.role).badge, item.entity);
+      }
+      return badge(roleSpec(item.role).badge, item.entity);
+    });
+    roleBadges = [...lightBadges, ...roleBadges];
   }
-  return badges;
+  return { lights, power, roleBadges, found };
+}
+
+/**
+ * Manual badges after the discovered ones; a manual badge on the entity of a
+ * discovered badge takes its place.
+ */
+export function mergeBadges(
+  discovered: RoomBadgeConfig[],
+  manual: RoomBadgeConfig[] = [],
+): RoomBadgeConfig[] {
+  const rest = [...manual];
+  const merged = discovered.map((item) => {
+    const index = rest.findIndex(
+      (badge) => typeof badge.entity === 'string' && badge.entity === item.entity,
+    );
+    return index === -1 ? item : rest.splice(index, 1)[0]!;
+  });
+  return [...merged, ...rest];
+}
+
+/** `salon` → `Salon`, `salle_de_bain` → `Salle de bain`, `séjour` → `Séjour`. */
+export function roomTitle(room: string): string {
+  const words = room.replace(/[_-]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Badge type of a light that no role names: lamps, LED strips, or any light. */
+export function lightBadgeType(entityId: string): string {
+  const object = objectIdOf(entityId);
+  const role = roleOf(object.split('_').pop() ?? '');
+  if (role === 'lampes' || role === 'leds' || role === 'interrupteurs') {
+    return `custom:${roleSpec(role).badge!}`;
+  }
+  if (domainOf(entityId) === 'switch') return 'custom:vivid-lamp-badge';
+  return 'custom:vivid-light-badge';
 }
 
 /** One glow behind the title. Positions and sizes are percentages of the card. */
@@ -244,6 +236,8 @@ export interface RoomHeaderModel {
   power?: number;
   sources: HaloSource[];
   badges: RoomBadgeConfig[];
+  /** Roles found for the room, excluded ones included. */
+  found: (FoundRole & { excluded: boolean })[];
   /** Entity of the more-info a hold on the power button opens. */
   mainEntity?: string;
   /** Entities read by the title, the subtitle and the halo (badges watch their own). */
@@ -253,16 +247,16 @@ export interface RoomHeaderModel {
 export function buildRoomHeaderModel(
   hass: HomeAssistant,
   config: ResolvedRoomHeaderConfig,
-  isDefined: (tag: string) => boolean = () => false,
+  isDefined: (tag: string) => boolean = () => true,
 ): RoomHeaderModel {
-  const entities = roomEntities(hass, config);
+  const entities = roomEntities(hass, config, isDefined);
   const members = [...new Set(entities.lights.flatMap((id) => expandGroup(hass, id)))];
   const readable = members.filter((id) => isAvailable(hass.states[id]));
   const on = readable.filter((id) => isOn(hass, id)).length;
   const name =
     config.name ??
-    (config.room
-      ? roomTitle(config.room)
+    (config.roomLabel
+      ? roomTitle(config.roomLabel)
       : entities.lights[0]
         ? friendlyName(hass, entities.lights[0])
         : '');
@@ -279,7 +273,8 @@ export function buildRoomHeaderModel(
     unavailable: members.length > 0 && readable.length === 0,
     power: powerWatts(hass, entities.power),
     sources: haloSources(hass, entities.lights),
-    badges: config.badges ?? autoBadges(entities, isDefined),
+    badges: mergeBadges(entities.roleBadges, config.badges),
+    found: entities.found,
     mainEntity,
     watched: [...watched],
   };
