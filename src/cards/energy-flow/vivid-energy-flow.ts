@@ -55,7 +55,7 @@ function label(x: number, y: number, title: string, sub: string) {
   return svg`<text x=${x} y=${y.toFixed(1)} class="label"><tspan class="label-title" x=${x} dy="-0.2em">${title}</tspan><tspan class="label-sub" x=${x} dy="1.25em">${sub}</tspan></text>`;
 }
 
-const LABEL_GAP = 30;
+const LABEL_GAP = 34;
 
 /**
  * Energy flow, from the meter to the home, then to what is measured and what

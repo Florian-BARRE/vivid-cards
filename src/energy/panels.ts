@@ -255,7 +255,7 @@ export class VividBillSummary extends LitElement {
           <div class="row">
             <span class="grow">${localize(hass, 'energy_pace')}</span
             ><span class="num"
-              >${localize(hass, 'energy_per_day', { v: formatMoney(hass, view.pace) })}</span
+              >${localize(hass, 'energy_per_day', { v: formatMoney(hass, view.dailyCost) })}</span
             >
           </div>
           ${
@@ -285,7 +285,7 @@ export class VividBillSummary extends LitElement {
         <div class="tile">
           <div class="sub">${localize(hass, 'energy_pace')}</div>
           <div class="value">
-            ${localize(hass, 'energy_per_day', { v: formatMoney(hass, view.pace) })}
+            ${localize(hass, 'energy_per_day', { v: formatMoney(hass, view.dailyCost) })}
           </div>
         </div>
         <div class="tile">

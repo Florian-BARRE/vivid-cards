@@ -131,7 +131,7 @@ export class VividBillCard extends VividEnergyCard<ResolvedBillCard> {
       const parts = [
         `J${cycle.dayIndex}/${cycle.length}`,
         view.delta !== undefined ? formatDelta(hass, view.delta) : undefined,
-        localize(hass, 'energy_per_day', { v: formatMoney(hass, view.pace) }),
+        localize(hass, 'energy_per_day', { v: formatMoney(hass, view.dailyCost) }),
       ].filter(Boolean);
       return {
         icon: BILL_ICON,

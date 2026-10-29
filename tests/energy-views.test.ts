@@ -58,6 +58,7 @@ describe('energy views', () => {
     const view = billView(flatDays(), TARIFF, '2026-10-29');
     expect(view.cycle.start).toBe('2026-10-12');
     expect(view.pace).toBeCloseTo(1.68);
+    expect(view.dailyCost).toBeCloseTo(1.68 + (16.58 * 12) / 365);
     expect(view.previous?.projected).toBe(79.52);
     expect(view.delta).toBeCloseTo(view.cycle.projected / 79.52 - 1);
     expect(view.lastDay?.date).toBe('2026-10-28');

@@ -35,6 +35,8 @@ export interface BillView {
   delta?: number;
   /** Energy cost per day over the last days, subscription excluded. */
   pace: number;
+  /** The same, subscription included: what a day costs at this pace. */
+  dailyCost: number;
   /** The last day with data. */
   lastDay?: { date: string; kwh: number; cost: number };
 }
@@ -51,6 +53,7 @@ export function billView(days: readonly DayRecord[], tariff: Tariff, today: stri
     delta:
       previous && previous.projected > 0 ? cycle.projected / previous.projected - 1 : undefined,
     pace: recentRate(known, tariff, FAST_RATE_DAYS),
+    dailyCost: recentRate(known, tariff, FAST_RATE_DAYS) + dailySubscription(tariff),
     lastDay: last ? { date: last.date, kwh: last.kwh, cost: dayTotal(last, tariff) } : undefined,
   };
 }
