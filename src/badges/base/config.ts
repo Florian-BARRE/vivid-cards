@@ -7,6 +7,10 @@ import type { LovelaceCardConfig } from '../../core/hass-types';
 export type BadgeLook = 'disc' | 'pill';
 export const BADGE_LOOKS: BadgeLook[] = ['disc', 'pill'];
 
+/** Ink on colored discs: always white (with a soft shadow), or dark on very light colors. */
+export type IconColor = 'white' | 'auto';
+export const ICON_COLORS: IconColor[] = ['white', 'auto'];
+
 /** How the values of a group combine into the one the badge shows. */
 export type Aggregate = 'mean' | 'median' | 'min' | 'max' | 'sum';
 export const AGGREGATES: Aggregate[] = ['mean', 'median', 'min', 'max', 'sum'];
@@ -22,6 +26,7 @@ export interface BaseBadgeConfig extends LovelaceCardConfig {
   icon?: string;
   icon_off?: string;
   look?: BadgeLook;
+  icon_color?: IconColor;
   /** Halo strength in percent (100 = default), or off / soft / normal / strong. */
   glow?: GlowSetting;
   tap_action?: unknown;
@@ -36,6 +41,8 @@ export interface ResolvedBaseBadge {
   icon?: string;
   iconOff?: string;
   look: BadgeLook;
+  /** White ink on colored discs (default), or `auto`: dark ink on very light colors. */
+  iconColor?: IconColor;
   /** Percent. */
   glow: number;
   tapAction: ActionConfig;
@@ -151,6 +158,7 @@ export function resolveBase(reader: ConfigReader, options: BaseOptions): Resolve
     icon: reader.text('icon'),
     iconOff: reader.text('icon_off'),
     look: reader.choice('look', BADGE_LOOKS, 'disc'),
+    iconColor: reader.choice('icon_color', ICON_COLORS, 'white'),
     glow: reader.glow(),
     tapAction: reader.action('tap_action', options.tapAction ?? details),
     holdAction: reader.action('hold_action', options.holdAction ?? details),

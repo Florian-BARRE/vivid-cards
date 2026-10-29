@@ -20,6 +20,7 @@ import {
   ICONS,
   type OpeningModel,
   buildOpeningModel,
+  openingLabel,
 } from './model';
 
 /**
@@ -50,17 +51,20 @@ export class VividOpeningBadge extends VividBadge<ResolvedOpeningBadge> {
     const [openIcon, closedIcon] = ICONS[model.kind];
     const isOpen = model.open > 0;
     const severity = SEVERITY[model.severity];
-    let text: string | undefined;
-    if (model.isGroup) {
-      if (config.showCount && (isOpen || config.showZero)) text = `${model.open}/${model.total}`;
-    } else if (isOpen && config.showCount) {
-      text = shortDuration(hass, model.longest);
-    }
+    const label = openingLabel(model, config);
+    const text =
+      label.count ?? (label.since !== undefined ? shortDuration(hass, label.since) : undefined);
+    // A group shows how long the oldest has been open after its count ("3/6 · 19 min").
+    const suffix =
+      label.count !== undefined && label.since !== undefined
+        ? `· ${shortDuration(hass, label.since)}`
+        : undefined;
     return {
       name: model.name,
       active: isOpen,
       icon: isOpen ? (config.icon ?? openIcon) : (config.iconOff ?? closedIcon),
       text,
+      suffix,
       textMuted: !isOpen,
       tone: tintTone(severity.color, severity.level),
       soft: true,

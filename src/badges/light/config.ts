@@ -1,7 +1,7 @@
 import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
-import { BADGE_LOOKS, type BadgeLook } from '../base/config';
+import { BADGE_LOOKS, ICON_COLORS, type BadgeLook, type IconColor } from '../base/config';
 import type { LovelaceCardConfig } from '../../core/hass-types';
 
 export const BADGE_TYPE = 'vivid-light-badge';
@@ -47,6 +47,8 @@ export interface LightBadgeConfig extends LovelaceCardConfig {
   /** How much the halo grows with the brightness, in percent (100 = default). */
   glow_boost?: number;
   look?: BadgeLook;
+  /** White ink on colored discs (default), or `auto`: dark ink on very light colors. */
+  icon_color?: IconColor;
   layout?: DetailsLayout;
   /** Seconds of fade sent with every light command. */
   transition?: number;
@@ -68,6 +70,7 @@ export interface ResolvedLightBadgeConfig {
   /** Percent. */
   glowBoost: number;
   look: BadgeLook;
+  iconColor: IconColor;
   layout: DetailsLayout;
   transition?: number;
   tapAction: ActionConfig;
@@ -125,6 +128,9 @@ export function resolveLightBadgeConfig(
   if (config.look !== undefined && !BADGE_LOOKS.includes(config.look)) {
     fail(`"look" must be one of: ${BADGE_LOOKS.join(', ')}.`);
   }
+  if (config.icon_color !== undefined && !ICON_COLORS.includes(config.icon_color)) {
+    fail(`"icon_color" must be one of: ${ICON_COLORS.join(', ')}.`);
+  }
   if (config.layout !== undefined && !DETAILS_LAYOUTS.includes(config.layout)) {
     fail(`"layout" must be one of: ${DETAILS_LAYOUTS.join(', ')}.`);
   }
@@ -147,6 +153,7 @@ export function resolveLightBadgeConfig(
     glow,
     glowBoost: boost ?? 100,
     look: config.look ?? 'disc',
+    iconColor: config.icon_color ?? 'white',
     layout: config.layout ?? 'list',
     transition,
     tapAction: action(config.tap_action, 'tap_action', { action: 'toggle' }),
