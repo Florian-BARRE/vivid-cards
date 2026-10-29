@@ -4,6 +4,7 @@ import { resolveTariff, type Tariff } from '../src/energy/tariff';
 import {
   billRing,
   billView,
+  busiestHour,
   calendarMonth,
   curveDates,
   devicesView,
@@ -174,5 +175,41 @@ describe('energy views', () => {
     expect(powerCost(1000, TARIFF, 'month', evening)).toBeCloseTo(
       720 * (0.1787 * (2 / 3) + 0.1344 / 3),
     );
+  });
+});
+
+describe('busiest hour', () => {
+  const view = (kwh: number[]) => ({
+    date: '2026-10-28',
+    hours: kwh.map((value, hour) => ({ hour, kwh: value, offPeakShare: 0 })),
+    peakKwh: 0,
+    offPeakKwh: 0,
+    cost: 0,
+    standbyWatts: 0,
+    standbyYear: 0,
+  });
+
+  it('points at the hour that drew the most', () => {
+    const kwh = Array.from({ length: 24 }, () => 0.2);
+    kwh[19] = 2.1;
+    kwh[7] = 1.4;
+    expect(busiestHour(view(kwh))).toEqual({ hour: 19, kwh: 2.1 });
+  });
+
+  it('keeps the first of equal hours and ignores an empty day', () => {
+    expect(busiestHour(view([0, 1, 1, 0]))).toEqual({ hour: 1, kwh: 1 });
+    expect(busiestHour(view(Array.from({ length: 24 }, () => 0)))).toBeUndefined();
+  });
+});
+
+describe('load curve of a day sent as one row', () => {
+  it('is not drawn hour by hour', () => {
+    const tariff = resolveTariff({
+      peak: 0.2,
+      off_peak: 0.15,
+      off_peak_hours: ['22:00-06:00'],
+    }) as Tariff;
+    const daily = [{ start: new Date(2026, 9, 27).getTime(), change: 12.9 }];
+    expect(loadCurve(daily, tariff, '2026-10-27')).toBeUndefined();
   });
 });

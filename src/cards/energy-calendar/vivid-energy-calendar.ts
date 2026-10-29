@@ -17,7 +17,14 @@ import {
 } from '../../energy/format';
 import { VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
 import { energyEditor } from '../../energy/vivid-energy-editor';
-import { calendarMonth, CALENDAR_REFERENCE_DAYS, type CalendarCell } from '../../energy/views';
+import {
+  calendarMonth,
+  CALENDAR_REFERENCE_DAYS,
+  loadCurve,
+  type CalendarCell,
+} from '../../energy/views';
+import type { Tariff } from '../../energy/tariff';
+import '../../energy/hour-chart';
 
 export const ENERGY_CALENDAR = 'vivid-energy-calendar';
 
@@ -149,6 +156,12 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
       }
       .detail b {
         font-size: 15px;
+      }
+      .hourly-waiting {
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: normal;
+        overflow: visible;
       }
       .detail .amount {
         font-size: 22px;
@@ -296,9 +309,10 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     </button>`;
   }
 
-  private renderDetail(cell: CalendarCell | undefined) {
+  private renderDetail(cell: CalendarCell | undefined, data: EnergyData, tariff: Tariff) {
     if (!cell || cell.cost === undefined) return nothing;
     const hass = this.hass;
+    const curve = loadCurve(data.hourly, tariff, cell.date);
     const share = cell.offPeakShare;
     return html`<div class="detail">
       <div class="top">
@@ -324,6 +338,17 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
               <span class="sub">${formatKwh(hass, cell.kwh ?? 0)}</span>
             </div>`
       }
+      ${
+        curve
+          ? html`<vivid-hour-chart
+              class="hourly"
+              .legend=${false}
+              .hass=${hass}
+              .curve=${curve}
+              .tariff=${tariff}
+            ></vivid-hour-chart>`
+          : html`<div class="sub hourly-waiting">${localize(hass, 'energy_day_waiting')}</div>`
+      }
     </div>`;
   }
 
@@ -346,7 +371,11 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
         ${Array.from({ length: month.lead }, () => html`<div></div>`)}
         ${month.cells.map((cell) => this.renderCell(cell))}
       </div>
-      ${this.renderDetail(month.cells.find((cell) => cell.date === this._selected))}
+      ${this.renderDetail(
+        month.cells.find((cell) => cell.date === this._selected),
+        data,
+        config.tariff,
+      )}
       <div class="legend">
         <span
           ><i class="dot scale" style="background: ${COST_GRADIENT}"></i

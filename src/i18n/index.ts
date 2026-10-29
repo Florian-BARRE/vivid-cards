@@ -464,6 +464,8 @@ const en = {
   energy_tariff: 'Tariff',
   energy_previous_bill: 'Previous bill {v}',
   energy_day_of: 'D{day}/{total}',
+  energy_busiest: 'max {h} h · {v}',
+  energy_day_waiting: 'Hour by hour once the meter sends hourly data (Enedis hourly collection).',
 };
 
 type Strings = typeof en;
@@ -934,6 +936,9 @@ const fr: Strings = {
   energy_tariff: 'Tarif',
   energy_previous_bill: 'Facture précédente {v}',
   energy_day_of: 'J{day}/{total}',
+  energy_busiest: 'max {h} h · {v}',
+  energy_day_waiting:
+    'Le détail heure par heure arrivera avec les données horaires du compteur (collecte horaire Enedis).',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };
