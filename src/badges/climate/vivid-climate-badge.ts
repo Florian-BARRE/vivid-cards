@@ -4,7 +4,7 @@ import { rgbCss } from '../../core/color';
 import type { HomeAssistant } from '../../core/hass-types';
 import { fetchHistory, type HistorySeries } from '../../core/history';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
-import { localize, type StringKey } from '../../i18n';
+import { localize, type StringKey, localeOf } from '../../i18n';
 import { AGGREGATES } from '../base/config';
 import { VividBadge, type BadgeView } from '../base/vivid-badge';
 import { badgeEditor, type BadgeEditorSpec, type EditorField } from '../base/vivid-badge-editor';
@@ -42,7 +42,7 @@ const HISTORY_MARGIN_MS = 10 * 60_000;
 /** A number with exactly `digits` decimals, in the user's language. */
 function fixed(hass: HomeAssistant | undefined, value: number, digits: number): string {
   try {
-    return new Intl.NumberFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+    return new Intl.NumberFormat(localeOf(hass), {
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
     }).format(value);

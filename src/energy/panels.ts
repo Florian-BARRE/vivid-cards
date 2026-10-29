@@ -7,7 +7,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import type { HomeAssistant } from '../core/hass-types';
 import { defineElement } from '../core/register';
 import { tokens } from '../components/shared-styles';
-import { localize } from '../i18n';
+import { localize, localeOf } from '../i18n';
 import { addDays } from './days';
 import {
   costColor,
@@ -514,7 +514,7 @@ export class VividRecentDays extends LitElement {
     const weekday = (key: string) => {
       const [year, month, day] = key.split('-').map(Number) as [number, number, number];
       try {
-        return new Intl.DateTimeFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+        return new Intl.DateTimeFormat(localeOf(hass), {
           weekday: 'short',
         }).format(new Date(year, month - 1, day, 12));
       } catch {

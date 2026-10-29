@@ -82,7 +82,10 @@ export interface HomeAssistant {
   ): Promise<unknown>;
   /** Websocket command; resolves with its result. */
   callWS?<T>(message: Record<string, unknown>): Promise<T>;
-  config?: { currency?: string; time_zone?: string };
+  /** `language` is the server's (household) language. */
+  config?: { currency?: string; time_zone?: string; language?: string };
+  /** The language picked in the user's profile on this device; unset when it follows the device. */
+  selectedLanguage?: string | null;
   /** A state in the user's language (select options, units); 2023.9+. */
   formatEntityState?(stateObj: HassEntity, state?: string): string;
 }

@@ -45,11 +45,6 @@ export class VividAmbilightRail extends VividAmbilightCard {
     return this.model;
   }
 
-  /** Starts the Raspberry Pi when it is off (the Ambilight button of the group). */
-  startPi(): void {
-    if (this.model?.relay.available && !this.model.relay.on) this.togglePi();
-  }
-
   /** Sends an HDMI input picked in the group's details. */
   sendInput(index: number): void {
     this.selectSource(new CustomEvent('vivid-source-select', { detail: { index } }));

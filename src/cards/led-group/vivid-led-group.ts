@@ -13,7 +13,14 @@ import '../../components/vivid-chip';
 import '../../components/vivid-light-header';
 import { formatWatts } from '../../components/vivid-light-header';
 import '../../components/vivid-light-tile';
-import { buildAmbilightSide, screenMode, type AmbilightSide } from './ambilight-link';
+import {
+  autoFold,
+  buildAmbilightSide,
+  piRunning,
+  screenMode,
+  type AmbilightSide,
+  type FoldStep,
+} from './ambilight-link';
 import { readExpanded, writeExpanded } from './fold';
 import type { VividAmbilightRail } from './vivid-ambilight-rail';
 import './vivid-ambilight-rail';
@@ -47,6 +54,8 @@ export class VividLedGroup extends LitElement {
   declare _expanded: boolean;
 
   private model?: LedGroupModel;
+  /** Pi and Ambilight state at the last render, to fold or unfold on their changes. */
+  private foldStep?: FoldStep;
   /** The Ambilight box and what the screen drives, when the card has a box. */
   private side?: AmbilightSide;
   private dialog?: VividDialog;
@@ -83,7 +92,7 @@ export class VividLedGroup extends LitElement {
     if (!config) return 3;
     const rail = this.side ? 1 : 0;
     if (config.layout === 'collapsible') {
-      const open = this._expanded && !screenMode(this.side);
+      const open = this._expanded && !this.screen;
       return 1 + rail + (open ? 1 + (config.tile.favorites.length ? 1 : 0) : 0);
     }
     return (config.appearance.header ? 1 : 0) + 2 + (config.tile.favorites.length ? 1 : 0) + rail;
@@ -192,6 +201,20 @@ export class VividLedGroup extends LitElement {
     // The box and HyperHDR redraw the card too.
     if (this.side) model.watched = [...new Set([...model.watched, ...this.side.watched])];
     this.model = model;
+    if (this._config.layout === 'collapsible' && this.side) {
+      const step = { piOn: piRunning(this.side), screen: this.screen };
+      const expanded = autoFold(this.foldStep, step);
+      if (expanded !== undefined && expanded !== this._expanded) {
+        this._expanded = expanded;
+        writeExpanded(this._config.entity, expanded);
+      }
+      this.foldStep = step;
+    }
+  }
+
+  /** Ambilight mode: the Pi runs and the strips follow the screen. */
+  private get screen(): boolean {
+    return screenMode(this.side, this.model?.liveOverride);
   }
 
   private get rail(): VividAmbilightRail | null {
@@ -355,7 +378,7 @@ export class VividLedGroup extends LitElement {
   /** Second line of the collapsible layout: lights on, then the consumption. */
   private subtitle(model: LedGroupModel, config: ResolvedLedGroupConfig): string | undefined {
     const parts: string[] = [];
-    if (screenMode(this.side)) parts.push(localize(this.hass, 'led_ambilight_mode'));
+    if (this.screen) parts.push(localize(this.hass, 'led_ambilight_mode'));
     if (model.isGroup && model.available) {
       const on = model.detected.filter((strip) => strip.isOn).length;
       parts.push(`${on}/${model.detected.length}`);
@@ -366,32 +389,25 @@ export class VividLedGroup extends LitElement {
     return parts.length ? parts.join(' · ') : undefined;
   }
 
-  /**
-   * Turns Ambilight on (WLED follows the realtime stream, the Pi is started
-   * when the card has a box and it is off) or gives the strips back to the card.
-   */
+  /** Switches the ambilight strips to the screen, or gives them back to the card. */
   private readonly toggleAmbilight = (): void => {
     const override = this.model?.liveOverride;
     if (!this.hass || !override || override.available.length === 0) return;
     haptic(this, 'light');
-    const turnOn = override.active;
-    if (turnOn && this.side?.box && !this.side.box.relay.on) this.rail?.startPi();
-    void selectOption(this.hass, override.available, turnOn ? '0' : '1');
+    void selectOption(this.hass, override.available, override.active ? '0' : '1');
   };
 
   /** The Ambilight button: pressed while WLED follows the screen. */
   private renderAmbilightChip(model: LedGroupModel, config: ResolvedLedGroupConfig) {
     const override = model.liveOverride;
     if (!config.ambilight.enabled || !override) return nothing;
+    // With a box, the button comes with the Pi: without it there is no stream.
+    if (this.side && !piRunning(this.side)) return nothing;
     const usable = override.available.length > 0;
     const on = !override.active;
-    const startsPi = Boolean(this.side?.box && !this.side.box.relay.on);
     const tooltip = !usable
       ? localize(this.hass, 'live_override_unavailable')
-      : localize(
-          this.hass,
-          on ? 'led_ambilight_stop' : startsPi ? 'led_ambilight_start_pi' : 'led_ambilight_start',
-        );
+      : localize(this.hass, on ? 'led_ambilight_stop' : 'led_ambilight_start');
     return html`<vivid-chip
       .icon=${'mdi:television-ambient-light'}
       .tooltip=${tooltip}
@@ -407,7 +423,7 @@ export class VividLedGroup extends LitElement {
     const capture = this.side?.drive.driven.length ? this.side.drive.colors : undefined;
     const colors = capture ?? (model.colors.length ? model.colors : model.rgb);
     // In Ambilight mode only the brightness is left: nothing to unfold.
-    const screen = screenMode(this.side);
+    const screen = this.screen;
     return html`<span slot="actions" class="tile-actions">
       ${this.renderAmbilightChip(model, config)}
       <vivid-chip
@@ -450,7 +466,7 @@ export class VividLedGroup extends LitElement {
     const collapsible = config.layout === 'collapsible';
     const side = this.side;
     // Ambilight mode: the screen owns the colors, the card keeps the brightness.
-    const screen = screenMode(side);
+    const screen = this.screen;
     const capture = side?.drive.driven.length ? side.drive.colors : undefined;
     const header =
       config.appearance.header && !collapsible
@@ -471,7 +487,7 @@ export class VividLedGroup extends LitElement {
             .hasPower=${model.hasPower}
             .watts=${model.watts}
             .scale=${model.groupScale}
-            .showLiveOverride=${config.ambilight.enabled}
+            .showLiveOverride=${config.ambilight.enabled && (!side || piRunning(side))}
             .liveOverride=${model.liveOverride}
             @vivid-name-click=${this.openDetails}
             @vivid-more-info=${this.onMoreInfo}

@@ -1,6 +1,6 @@
 import type { ClimateKind } from '../core/climate';
 import type { HomeAssistant } from '../core/hass-types';
-import { formatNumber, localize, type StringKey } from '../i18n';
+import { formatNumber, localize, type StringKey, localeOf } from '../i18n';
 import type { ClimateRange } from './vivid-climate-chart';
 import type { TickFormat } from './climate-chart-model';
 
@@ -30,7 +30,7 @@ export const KIND_ICONS: Record<ClimateKind, string> = {
 const DIGITS: Record<ClimateKind, number> = { temperature: 1, humidity: 0, pressure: 0, co2: 0 };
 
 function locale(hass: HomeAssistant | undefined): string {
-  return hass?.locale?.language ?? hass?.language ?? 'en';
+  return localeOf(hass);
 }
 
 /**

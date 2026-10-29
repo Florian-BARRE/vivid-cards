@@ -14,6 +14,8 @@ import {
   railConfig,
   resolveBoxTarget,
   screenMode,
+  piRunning,
+  autoFold,
 } from '../src/cards/led-group/ambilight-link';
 import { resolveConfig } from '../src/cards/led-group/config';
 import { forgetExpanded, readExpanded, writeExpanded } from '../src/cards/led-group/fold';
@@ -242,15 +244,30 @@ describe('what the screen drives', () => {
 });
 
 describe('Ambilight mode', () => {
-  it('starts when the screen drives a strip, and only then', () => {
-    expect(screenMode(side(home({ overrides: ['0', '1', '1'] })))).toBe(true);
-    // WLED ignores the stream (live override on): the card keeps its colors.
-    expect(screenMode(side(home({ overrides: ['1', '1', '1'] })))).toBe(false);
-    // The Pi is off: nothing follows the screen even when WLED listens.
-    expect(screenMode(side(home({ box: { piOff: true }, overrides: ['0', '0', '0'] })))).toBe(
-      false,
-    );
-    expect(screenMode(undefined)).toBe(false);
+  const mode = (hass: HomeAssistant) => {
+    const result = side(hass);
+    return screenMode(result, buildLedGroupModel(hass, config()).liveOverride);
+  };
+
+  it('follows the Ambilight button while the Pi runs', () => {
+    expect(mode(home({ overrides: ['0', '0', '0'] }))).toBe(true);
+    // One ambilight strip ignores the stream: the button is up, the colors come back.
+    expect(mode(home({ overrides: ['0', '1', '0'] }))).toBe(false);
+    expect(mode(home({ overrides: ['1', '1', '1'] }))).toBe(false);
+    // The Pi is off: no Ambilight mode, even when WLED listens.
+    expect(mode(home({ box: { piOff: true }, overrides: ['0', '0', '0'] }))).toBe(false);
+    expect(screenMode(undefined, { active: false })).toBe(false);
+    expect(piRunning(side(home()))).toBe(true);
+  });
+
+  it('folds when the Pi starts and unfolds when the strips are taken back', () => {
+    expect(autoFold(undefined, { piOn: true, screen: false })).toBeUndefined();
+    expect(autoFold({ piOn: false, screen: false }, { piOn: true, screen: false })).toBe(false);
+    expect(autoFold({ piOn: true, screen: false }, { piOn: true, screen: true })).toBeUndefined();
+    expect(autoFold({ piOn: true, screen: true }, { piOn: true, screen: false })).toBe(true);
+    // The Pi stops: the card stays as the user left it.
+    expect(autoFold({ piOn: true, screen: true }, { piOn: false, screen: false })).toBeUndefined();
+    expect(autoFold({ piOn: true, screen: false }, { piOn: true, screen: false })).toBeUndefined();
   });
 });
 
@@ -307,5 +324,20 @@ describe('capture fill', () => {
         [0, 0, 255],
       ]),
     ).toBe('linear-gradient(90deg, rgba(255, 0, 0, 0.42) 0%, rgba(0, 0, 255, 0.42) 100%)');
+  });
+});
+
+describe('card language', () => {
+  it('follows the profile, else the home, else the device', async () => {
+    const { languageOf, localeOf } = await import('../src/i18n');
+    const phone = {
+      locale: { language: 'en' },
+      language: 'en',
+      config: { language: 'fr' },
+    } as HomeAssistant;
+    expect(languageOf(phone)).toBe('fr');
+    expect(localeOf({ ...phone, selectedLanguage: 'en-GB' })).toBe('en-GB');
+    expect(languageOf({ locale: { language: 'de' } } as HomeAssistant)).toBe('de');
+    expect(languageOf(undefined)).toBe('en');
   });
 });

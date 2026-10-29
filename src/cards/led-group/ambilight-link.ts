@@ -323,10 +323,36 @@ export function buildAmbilightSide(
 }
 
 /**
- * Ambilight mode: the screen drives at least one strip of the group. The card
- * then keeps only the brightness: colors, effects and favorites belong to the
- * screen until the strips are taken back.
+ * Ambilight mode: the Pi runs and the ambilight strips listen to the screen
+ * (their live override is off), i.e. the Ambilight button is pressed. The
+ * card then keeps only the brightness: colors, effects and favorites belong
+ * to the screen until the strips are taken back.
  */
-export function screenMode(side: AmbilightSide | undefined): boolean {
-  return (side?.drive.driven.length ?? 0) > 0;
+export function screenMode(
+  side: AmbilightSide | undefined,
+  liveOverride: { active: boolean } | undefined,
+): boolean {
+  return Boolean(side?.box?.relay.on && liveOverride && !liveOverride.active);
+}
+
+/** The Pi of the box runs. */
+export function piRunning(side: AmbilightSide | undefined): boolean {
+  return side?.box?.relay.on === true;
+}
+
+export interface FoldStep {
+  piOn: boolean;
+  screen: boolean;
+}
+
+/**
+ * How the collapsible line reacts to the Ambilight: it folds when the Pi
+ * starts (colors are no longer needed), and unfolds when the strips are taken
+ * back from the screen while the Pi keeps running. `undefined`: no change.
+ */
+export function autoFold(previous: FoldStep | undefined, next: FoldStep): boolean | undefined {
+  if (!previous) return undefined;
+  if (!previous.piOn && next.piOn) return false;
+  if (previous.screen && !next.screen && next.piOn) return true;
+  return undefined;
 }

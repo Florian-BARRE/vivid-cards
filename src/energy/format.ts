@@ -1,11 +1,12 @@
 /**
  * Money and energy formatting, and the colors shared by the energy cards.
  */
+import { localeOf } from '../i18n';
 import { blendStops } from '../core/glow';
 import type { HomeAssistant, Rgb } from '../core/hass-types';
 
 function locale(hass: HomeAssistant | undefined): string {
-  return hass?.locale?.language ?? hass?.language ?? 'en';
+  return localeOf(hass);
 }
 
 /** "100,47 €", "100 €" with `digits` 0. */

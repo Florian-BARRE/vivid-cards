@@ -2,7 +2,7 @@ import { css, html, nothing, type CSSResultGroup } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
-import { localize } from '../../i18n';
+import { localize, localeOf } from '../../i18n';
 import { resolveEnergyBase, SAMPLE_TARIFF, type ResolvedEnergyBase } from '../../energy/config';
 import type { EnergyData, EnergyNeeds } from '../../energy/data';
 import { addDays, daysBetween } from '../../energy/days';
@@ -333,7 +333,7 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     const month = calendarMonth(data.days, config.tariff, shown.year, shown.month, data.today);
     const weekdays = Array.from({ length: 7 }, (_, index) => {
       try {
-        return new Intl.DateTimeFormat(hass?.locale?.language ?? hass?.language ?? 'en', {
+        return new Intl.DateTimeFormat(localeOf(hass), {
           weekday: 'short',
         }).format(new Date(2024, 0, 1 + index, 12));
       } catch {

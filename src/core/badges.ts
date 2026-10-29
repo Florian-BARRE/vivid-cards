@@ -1,3 +1,4 @@
+import { localeOf } from '../i18n';
 import { domainOf, friendlyName, isAvailable } from './entities';
 import type { HomeAssistant } from './hass-types';
 
@@ -62,7 +63,7 @@ function formatState(hass: HomeAssistant, entityId: string, state: string): stri
     (Number.isInteger(value) || Math.abs(value) >= 100 ? 0 : 1);
   let text: string;
   try {
-    text = new Intl.NumberFormat(hass.locale?.language ?? hass.language ?? 'en', {
+    text = new Intl.NumberFormat(localeOf(hass), {
       maximumFractionDigits: precision,
       minimumFractionDigits: precision,
     }).format(value);
