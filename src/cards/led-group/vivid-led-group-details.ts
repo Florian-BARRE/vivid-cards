@@ -118,6 +118,22 @@ export class VividLedGroupDetails extends LitElement {
         color: var(--primary-text-color);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
+      /* A phone: the icon above a label that may wrap, so no tab name is cut. */
+      @container (max-width: 520px) {
+        .tabs button {
+          flex-direction: column;
+          gap: 3px;
+          padding: 7px 4px;
+          font-size: 12.5px;
+          line-height: 1.15;
+          white-space: normal;
+          text-align: center;
+          overflow: visible;
+        }
+        .tabs button ha-icon {
+          --mdc-icon-size: 20px;
+        }
+      }
       .tabs button:focus-visible {
         outline: 2px solid var(--vivid-focus);
         outline-offset: 2px;

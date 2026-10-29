@@ -440,7 +440,8 @@ export class VividAmbilightDetails extends LitElement {
       .fanline {
         display: flex;
         align-items: center;
-        gap: 10px;
+        flex-wrap: wrap;
+        gap: 8px 10px;
       }
       .curvesel {
         display: flex;
@@ -478,15 +479,14 @@ export class VividAmbilightDetails extends LitElement {
         white-space: nowrap;
       }
       .control {
-        flex: 1 1 auto;
+        flex: 1 1 180px;
         min-width: 0;
         padding: 8px 10px;
         border-radius: 12px;
         background: var(--surface);
         color: var(--secondary-text-color);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        /* The status reads in full: on a phone it goes under the switch. */
+        overflow-wrap: anywhere;
       }
       .speeds {
         display: grid;
