@@ -439,6 +439,18 @@ const en = {
   energy_cycle: 'Bill',
   energy_cycle_last: 'The last one',
   energy_cycle_current: 'The one in progress',
+  air_device: 'Air station (ESPHome device)',
+  air_info: 'Values next to the name',
+  air_info_co2: 'CO₂',
+  air_info_temperature: 'Temperature',
+  air_info_humidity: 'Humidity',
+  air_info_dew_point: 'Dew point',
+  air_show_power: 'Power button',
+  air_tab: 'Tab the details open on',
+  air_tab_air: 'Air',
+  air_tab_frame: 'Frame',
+  air_tab_screen: 'Screen',
+  air_tab_settings: 'Settings',
 };
 
 type EditorStrings = typeof en;
@@ -886,6 +898,18 @@ const fr: EditorStrings = {
   energy_cycle: 'Facture',
   energy_cycle_last: 'La dernière',
   energy_cycle_current: 'Celle en cours',
+  air_device: 'Station d’air (appareil ESPHome)',
+  air_info: 'Valeurs à côté du nom',
+  air_info_co2: 'CO₂',
+  air_info_temperature: 'Température',
+  air_info_humidity: 'Humidité',
+  air_info_dew_point: 'Point de rosée',
+  air_show_power: 'Bouton Power',
+  air_tab: 'Onglet ouvert en premier',
+  air_tab_air: 'Air',
+  air_tab_frame: 'Cadre',
+  air_tab_screen: 'Écran',
+  air_tab_settings: 'Réglages',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };

@@ -49,9 +49,10 @@ source and how the projection works, shared by every card below.
 
 ### Climate
 
-| Card                                     | What it is for                                    |
-| ---------------------------------------- | ------------------------------------------------- |
-| [`vivid-climate-card`](cards/climate.md) | One sensor and its history, with the comfort band |
+| Card                                             | What it is for                                                 |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| [`vivid-climate-card`](cards/climate.md)         | One sensor and its history, with the comfort band              |
+| [`vivid-air-station-card`](cards/air-station.md) | An ESPHome air station: comfort, CO₂, its LED frame and screen |
 
 ## Badges
 

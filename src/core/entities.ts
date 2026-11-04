@@ -87,3 +87,40 @@ export function parseNumericState(state: HassEntity | undefined): number | undef
   const value = Number.parseFloat(state.state);
   return Number.isFinite(value) ? value : undefined;
 }
+
+/**
+ * Entity id prefix of a device from known `domain.object` suffixes: the part
+ * before them, the most common one among the device's entities. A prefix is
+ * empty or ends with "_" ("salon_salon_air_station_").
+ */
+export function devicePrefixFor(
+  hass: HomeAssistant,
+  deviceId: string,
+  suffixes: readonly string[],
+): string | undefined {
+  const counts = new Map<string, number>();
+  const parsed = suffixes.map((suffix) => {
+    const [domain, object] = suffix.split('.') as [string, string];
+    return { domain, object };
+  });
+  for (const entry of Object.values(hass.entities ?? {})) {
+    if (entry.device_id !== deviceId) continue;
+    const domain = domainOf(entry.entity_id);
+    const object = objectIdOf(entry.entity_id);
+    for (const suffix of parsed) {
+      if (suffix.domain !== domain || !object.endsWith(suffix.object)) continue;
+      const prefix = object.slice(0, object.length - suffix.object.length);
+      if (prefix && !prefix.endsWith('_')) continue;
+      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+    }
+  }
+  let best: string | undefined;
+  let bestCount = 0;
+  for (const [prefix, count] of counts) {
+    if (count > bestCount) {
+      best = prefix;
+      bestCount = count;
+    }
+  }
+  return best;
+}

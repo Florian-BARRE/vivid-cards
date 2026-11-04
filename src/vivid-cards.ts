@@ -5,6 +5,7 @@
 import './cards/led-group/vivid-led-group';
 import './cards/lamp-group/vivid-lamp-group';
 import './cards/ambilight/vivid-ambilight-card';
+import './cards/air-station/vivid-air-station-card';
 import './cards/hyperhdr/vivid-hyperhdr-card';
 import './cards/room-header/vivid-room-header';
 import './cards/ambilight/focus-cards';
