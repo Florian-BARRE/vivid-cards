@@ -12,7 +12,10 @@ npm run build    # dist/vivid-cards.js
 The preview pages run the cards against an in-memory Home Assistant (three
 WLED strips with presets, diagnostics and history, two tunable white spots), so you can work on the UI without a
 server: `/dev/` for the cards, `/dev/editor.html` for the visual editor in
-several situations, `/dev/lamps.html` for the lamp card.
+several situations, `/dev/lamps.html` for the lamp card. The DIY devices have
+their own simulated firmware: `/dev/ambilight.html`, `/dev/hyperhdr.html` and
+`/dev/air-station.html` (add `?details&tab=…` to open the details on a tab,
+`?editor` for the visual editor, `?lang=fr`, `?theme=light`).
 
 ## Testing on your Home Assistant
 

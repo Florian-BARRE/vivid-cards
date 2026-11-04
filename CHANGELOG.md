@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.17.0] - 2026-11-04
+
+### Added
+
+- `vivid-air-station-card`: an ESPHome air station (CO₂, temperature,
+  humidity, an LED frame and a screen) on one line. The disc and the halo of
+  the line take the station's comfort level, pulse red above its CO₂ alert
+  threshold and dim at night; the CO₂, temperature and humidity follow as
+  pills, outlined outside the comfort ranges set on the station; the power
+  button turns the station's frame and screen on and off. A tap opens the
+  details in four tabs:
+  - Air: each reading in the station's words, its history over 6 h to 30
+    days with the station's comfort band, the dew point, the condensation
+    risk and the ventilation advice.
+  - Frame: the effect running now and its color, following the pages, the
+    eight effects, the automatic or manual brightness, the custom color.
+  - Screen: the page shown, drawn live, the pages, their cycle and the
+    backlight.
+  - Settings: the four CO₂ thresholds on one slider that keeps their order,
+    the comfort ranges, the night threshold, the device and the CO₂
+    calibration.
+- `vivid-range-slider`: a slider with several thumbs that keep their order,
+  and a marker for the reading now.
+
+### Changed
+
+- The entity prefix of an ESPHome device is found by a shared helper, used by
+  the Ambilight card and the air station card.
+
 ## [0.16.0] - 2026-10-29
 
 ### Added

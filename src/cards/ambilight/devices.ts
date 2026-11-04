@@ -1,4 +1,4 @@
-import { domainOf, objectIdOf } from '../../core/entities';
+import { devicePrefixFor } from '../../core/entities';
 import type { HomeAssistant } from '../../core/hass-types';
 import {
   ENTITY_SUFFIXES,
@@ -19,36 +19,9 @@ export function deviceEntities(hass: HomeAssistant, deviceId: string): string[] 
     .map((entry) => entry.entity_id);
 }
 
-/**
- * Entity id prefix of the Ambilight manager from its device: the part before
- * the known entity names, the most common one among the device's entities.
- */
+/** Entity id prefix of the Ambilight manager from its device. */
 export function devicePrefix(hass: HomeAssistant, deviceId: string): string | undefined {
-  const counts = new Map<string, number>();
-  const suffixes = Object.values(ENTITY_SUFFIXES).map((suffix) => {
-    const [domain, object] = suffix.split('.') as [string, string];
-    return { domain, object };
-  });
-  for (const entityId of deviceEntities(hass, deviceId)) {
-    const domain = domainOf(entityId);
-    const object = objectIdOf(entityId);
-    for (const suffix of suffixes) {
-      if (suffix.domain !== domain || !object.endsWith(suffix.object)) continue;
-      const prefix = object.slice(0, object.length - suffix.object.length);
-      // A prefix is empty or ends with a separator ("salon_…_manager_").
-      if (prefix && !prefix.endsWith('_')) continue;
-      counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
-    }
-  }
-  let best: string | undefined;
-  let bestCount = 0;
-  for (const [prefix, count] of counts) {
-    if (count > bestCount) {
-      best = prefix;
-      bestCount = count;
-    }
-  }
-  return best;
+  return devicePrefixFor(hass, deviceId, Object.values(ENTITY_SUFFIXES));
 }
 
 /** Which of the card's entities exist in Home Assistant. */

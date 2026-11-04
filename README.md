@@ -102,6 +102,7 @@ shared by every card.
 <table>
   <tr>
     <td align="center" valign="top" width="33%"><a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/cards/climate.md"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/cards/climate.png" alt="vivid-climate-card" width="260" /></a><br /><a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/cards/climate.md"><code>vivid-climate-card</code></a><br /><sub>One sensor and its history, with the comfort band</sub></td>
+    <td align="center" valign="top" width="33%"><a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/cards/air-station.md"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/cards/air-station.png" alt="vivid-air-station-card" width="260" /></a><br /><a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/cards/air-station.md"><code>vivid-air-station-card</code></a><br /><sub>An ESPHome air station: CO₂, comfort, LED frame, screen</sub></td>
   </tr>
 </table>
 
