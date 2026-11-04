@@ -21,7 +21,7 @@ src/
   integrations/         Knowledge about specific integrations (WLED, power).
   components/           Reusable elements shared by every card (vivid-*): chips,
                         tiles, header, dialog, popover, color bar, power chart,
-                        WLED panel.
+                        WLED panel, range slider with ordered thumbs.
   cards/<card>/         One folder per card: config, model, editor, elements.
   badges/<badge>/       One folder per badge, same structure as a card.
   i18n/                 Interface strings (en, fr).

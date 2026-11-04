@@ -29,6 +29,8 @@ const jobs = [
   ['focus.html?only=7', 'vivid-climate-card', 'climate'],
   ['focus.html?only=8', 'vivid-climate-card', 'climate-humidity'],
   ['air-station.html?only=0', 'vivid-air-station-card', 'air-station'],
+  ['air-station.html?only=0&details&tab=air', 'vivid-dialog .sheet', 'air-station-details'],
+  ['air-station.html?only=0&details&tab=settings', 'vivid-dialog .sheet', 'air-station-settings'],
 ];
 
 const HIDE = '.stage h2, h3, .toolbar { visibility: hidden !important; }';

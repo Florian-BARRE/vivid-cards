@@ -32,6 +32,11 @@ One line:
 
 **Details** (tap the line), in four tabs:
 
+<p>
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/cards/air-station-details.png" alt="Air tab of the details" width="320" />
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/cards/air-station-settings.png" alt="Settings tab of the details" width="320" />
+</p>
+
 - **Air**: the three readings with the station's own words (CO₂ good, fair,
   bad, critical against its thresholds; temperature and humidity against its
   comfort ranges). A tap on one charts it over 6 h, 24 h, 7 days or 30 days,
