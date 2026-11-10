@@ -271,7 +271,9 @@ export class VividRoomHeaderEditor extends LitElement {
     }
     const id = step?.entity ?? state.lights.join(', ');
     return html`<div class="tap">
-      <ha-icon .icon=${way === 'on' ? 'mdi:power' : 'mdi:power-off'}></ha-icon>
+      <ha-icon
+        .icon=${way === 'on' ? 'mdi:lightbulb-on-outline' : 'mdi:lightbulb-off-outline'}
+      ></ha-icon>
       <span class="row-text">
         <span class="when">${this.t(way === 'on' ? 'rh_tap_when_off' : 'rh_tap_when_on')}</span>
         <span class="what">${what}</span>
