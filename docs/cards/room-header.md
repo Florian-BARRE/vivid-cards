@@ -42,13 +42,37 @@ English role names both work.
 | `fenetres` (`windows`), `portes` (`doors`) | binary_sensor | Window and door badges                    |
 | `temperature`, `humidite` (`humidity`)     | sensor        | Temperature and humidity badges           |
 | `pression` (`pressure`), `co2` (`air`)     | sensor        | Pressure and air quality badges           |
+| `scripts_on`, `scripts_off`                | script        | What the power button runs (see below)    |
+| `scripts_toggle`                           | script        | Power button, both ways                   |
 
 Badges follow the order of this table. Batteries are not a room role (the
 battery badge belongs to a home-wide view). Lights on are counted per member
-of the light groups (two lamps and two strips on make "4 on"). A tap on the
-power button turns everything in the room off when something is on, otherwise
-turns the room's lights on; a hold opens the more-info of the main group (the
-first light, or `entity`).
+of the light groups (two lamps and two strips on make "4 on").
+
+## The power button
+
+A tap turns the room off when a light is on, and on otherwise. What it runs,
+first match wins:
+
+1. `turn_on` / `turn_off` from the config: a script, scene, automation or
+   button of your choice.
+2. The room's own scripts, found by name like the other roles:
+   `salon-scripts-on` and `salon-scripts-off` (`script.salon_scripts_on`…), or
+   a single `salon-scripts-toggle` for both ways. This is how the lights come
+   back as they were: an "off" script can save a scene of the lights before
+   switching them off, and the "on" script restore it.
+3. Without any of these, the room's lights themselves (`homeassistant.turn_on`
+   / `turn_off`).
+
+Leave a found script out with `exclude: [scripts_on]` to come back to the
+lights. A hold opens the more-info of `entity` (the first light by default).
+With scripts and no light, the button stays.
+
+```yaml
+type: custom:vivid-room-header
+room: sdb
+turn_on: scene.sdb_soiree # instead of script.sdb_scripts_on
+```
 
 ## Three ways to set it up
 
@@ -95,8 +119,13 @@ badges:
     entity: light.salon_leds
 ```
 
-The visual editor shows one chip per role found, with its entity id: tap one
-to leave it out (it is added to `exclude`). Extra badges are set in YAML.
+The visual editor is in sections: **Room** (the room and what was found for
+it, one chip per light, power sensor and script, tap one to leave it out),
+**Power button** (what a tap runs when everything is off and when a light is
+on, where it comes from, and `turn_on` / `turn_off`), **Badges** (found badges
+to leave out, added badges with their entity, to move or remove, and a form to
+add one), **Look** and **Replace what was found** (`lights`, `power`). Options
+of an added badge other than its entity (name, icon, tariff…) stay in YAML.
 
 ## Options
 
@@ -109,6 +138,8 @@ to leave it out (it is added to `exclude`). Extra badges are set in YAML.
 | `lights`        | discovered light roles | Lights and switches (or groups) of the room.                                |
 | `power`         | discovered `puissance` | Power sensor (W or kW).                                                     |
 | `entity`        | first light            | More-info opened by a hold on the power button.                             |
+| `turn_on`       | `<room>-scripts-on`    | Script, scene, automation or button run to turn the room on.                |
+| `turn_off`      | `<room>-scripts-off`   | Same, to turn the room off.                                                 |
 | `badges`        |                        | Vivid badges added (`type: custom:vivid-…` plus their options), see above.  |
 | `show_subtitle` | `true`                 | Lights on and consumption under the title.                                  |
 | `show_badges`   | `true`                 | Badge row.                                                                  |

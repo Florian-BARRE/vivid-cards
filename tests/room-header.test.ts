@@ -20,6 +20,14 @@ import {
   roomTitle,
 } from '../src/cards/room-header/model';
 import { nameKey, roleOf } from '../src/cards/room-header/roles';
+import { powerCall, powerPlan } from '../src/cards/room-header/power-action';
+import {
+  addBadge,
+  addedBadges,
+  moveBadge,
+  removeBadge,
+} from '../src/cards/room-header/editor-model';
+import { BADGE_KINDS, badgeKindOf } from '../src/cards/room-header/badge-kinds';
 
 const config = (extra: Record<string, unknown> = {}) =>
   resolveRoomHeaderConfig({ type: 'custom:vivid-room-header', room: 'salon', ...extra });
@@ -326,10 +334,11 @@ describe('room header model', () => {
   it('turns everything off, or the lights on', () => {
     const on = buildRoomHeaderModel(createRoomMock('all'), config());
     expect(powerAction(on)).toEqual({
+      domain: 'homeassistant',
       service: 'turn_off',
       entities: ['switch.salon_lampes', 'light.salon_leds'],
     });
-    expect(powerAction(buildRoomHeaderModel(createRoomMock('off'), config())).service).toBe(
+    expect(powerAction(buildRoomHeaderModel(createRoomMock('off'), config()))?.service).toBe(
       'turn_on',
     );
   });
@@ -434,5 +443,137 @@ describe('room header editor', () => {
     const byAlias = { ...base, exclude: ['occupancy', 'binary_sensor.salon_presence', 'doors'] };
     expect(isRoleExcluded(byAlias, presence)).toBe(true);
     expect(setRoleIncluded(byAlias, presence, true).exclude).toEqual(['doors']);
+  });
+});
+
+describe('room header power button', () => {
+  it('finds the room scripts and runs them instead of switching the lights', () => {
+    const hass = createRoomMock('all', { scripts: true });
+    const model = buildRoomHeaderModel(hass, config());
+    expect(model.plan).toEqual({
+      on: { entity: 'script.salon_scripts_on', source: 'room' },
+      off: { entity: 'script.salon_scripts_off', source: 'room' },
+    });
+    expect(powerAction(model)).toEqual({
+      domain: 'script',
+      service: 'turn_on',
+      entities: ['script.salon_scripts_off'],
+    });
+    // Scripts are not badges.
+    expect(types(model.badges).some((type) => type.includes('script'))).toBe(false);
+  });
+
+  it('brings back the lights that were on, through the scripts', async () => {
+    const hass = createRoomMock('lamps', { scripts: true });
+    let current = buildRoomHeaderModel(hass, config());
+    hass.subscribe((next) => {
+      current = buildRoomHeaderModel(next, config());
+    });
+    const tap = async () => {
+      const call = powerAction(current)!;
+      await hass.callService(call.domain, call.service, {}, { entity_id: call.entities });
+    };
+    expect(current.on).toBe(2);
+    await tap();
+    expect(current.on).toBe(0);
+    await tap();
+    expect(current.on).toBe(2);
+    expect(hass.calls.map((item) => item.domain)).toEqual(['script', 'script']);
+  });
+
+  it('lets the config choose, and a left-out script falls back', () => {
+    const hass = createRoomMock('off', { scripts: true });
+    const custom = buildRoomHeaderModel(hass, config({ turn_on: 'scene.salon_soiree' }));
+    expect(custom.plan.on).toEqual({ entity: 'scene.salon_soiree', source: 'config' });
+    expect(powerAction(custom)).toEqual({
+      domain: 'scene',
+      service: 'turn_on',
+      entities: ['scene.salon_soiree'],
+    });
+    const lights = buildRoomHeaderModel(hass, config({ exclude: ['scripts_on', 'scripts_off'] }));
+    expect(powerAction(lights)).toMatchObject({ domain: 'homeassistant', service: 'turn_on' });
+  });
+
+  it('uses a toggle script both ways, and maps each domain to its service', () => {
+    const plan = powerPlan({}, { toggle: 'script.salon_scripts_toggle' });
+    expect(plan.on?.entity).toBe('script.salon_scripts_toggle');
+    expect(plan.off?.entity).toBe('script.salon_scripts_toggle');
+    const run = (entity: string) => powerCall(powerPlan({ turnOn: entity }, {}), [], false);
+    expect(run('automation.soir')).toMatchObject({ domain: 'automation', service: 'trigger' });
+    expect(run('input_button.go')).toMatchObject({ domain: 'input_button', service: 'press' });
+    expect(powerCall({}, [], false)).toBeUndefined();
+  });
+
+  it('shows the button with scripts even without lights', () => {
+    const hass = createRoomMock('off', { scripts: true });
+    const model = buildRoomHeaderModel(
+      hass,
+      config({ exclude: ['lampes', 'leds', 'interrupteurs'] }),
+    );
+    expect(model.lights).toEqual([]);
+    expect(model.hasPower).toBe(true);
+    expect(
+      buildRoomHeaderModel(createRoomMock('off'), config({ exclude: ['lampes', 'leds'] })).hasPower,
+    ).toBe(false);
+  });
+
+  it('rejects what the button cannot run', () => {
+    expect(() => config({ turn_on: 'light.salon' })).toThrow(/turn_on/);
+    expect(() => config({ turn_off: 'sensor.x' })).toThrow(/turn_off/);
+    expect(config({ turn_on: 'script.a', turn_off: 'scene.b' })).toMatchObject({
+      turnOn: 'script.a',
+      turnOff: 'scene.b',
+    });
+  });
+
+  it('keeps turn_on and turn_off from the form, and drops them when emptied', () => {
+    const raw = { type: 'custom:vivid-room-header', room: 'salon' };
+    const set = applyRoomHeaderForm(raw, {
+      ...roomHeaderFormData(raw),
+      turn_on: 'script.a',
+      turn_off: 'script.b',
+    });
+    expect(set).toMatchObject({ turn_on: 'script.a', turn_off: 'script.b' });
+    const cleared = applyRoomHeaderForm(set, { ...roomHeaderFormData(set), turn_on: '' });
+    expect(cleared.turn_on).toBeUndefined();
+    expect(cleared.turn_off).toBe('script.b');
+  });
+});
+
+describe('room header added badges', () => {
+  const base = { type: 'custom:vivid-room-header', room: 'sdb' };
+
+  it('adds, moves and removes badges', () => {
+    let next = addBadge(base, 'vivid-illuminance-badge', 'sensor.lux');
+    next = addBadge(next, 'custom:vivid-door-badge', 'binary_sensor.porte');
+    expect(addedBadges(next)).toEqual([
+      { type: 'custom:vivid-illuminance-badge', entity: 'sensor.lux' },
+      { type: 'custom:vivid-door-badge', entity: 'binary_sensor.porte' },
+    ]);
+    next = moveBadge(next, 1, -1);
+    expect(addedBadges(next).map((badge) => badge.entity)).toEqual([
+      'binary_sensor.porte',
+      'sensor.lux',
+    ]);
+    expect(moveBadge(next, 0, -1)).toBe(next);
+    next = removeBadge(removeBadge(next, 0), 0);
+    expect(next).toEqual(base);
+  });
+
+  it('keeps the options of a badge it does not touch', () => {
+    const withTariff = {
+      ...base,
+      badges: [{ type: 'custom:vivid-bill-badge', tariff: { peak: 0.2 } }],
+    };
+    expect(addedBadges(addBadge(withTariff, 'vivid-door-badge', 'binary_sensor.p'))[0]).toEqual({
+      type: 'custom:vivid-bill-badge',
+      tariff: { peak: 0.2 },
+    });
+  });
+
+  it('knows the kinds it can add', () => {
+    expect(badgeKindOf('custom:vivid-illuminance-badge')?.key).toBe('illuminance');
+    expect(badgeKindOf('custom:vivid-bill-badge')).toBeUndefined();
+    expect(new Set(BADGE_KINDS.map((kind) => kind.tag)).size).toBe(BADGE_KINDS.length);
   });
 });

@@ -297,10 +297,10 @@ export class VividRoomHeader extends LitElement {
   private callPower(): void {
     const hass = this.hass;
     const model = this.model;
-    if (!hass || !model || model.lights.length === 0) return;
-    const { service, entities } = powerAction(model);
-    haptic(this, service === 'turn_off' ? 'medium' : 'light');
-    void hass.callService('homeassistant', service, {}, { entity_id: entities });
+    const call = hass && model ? powerAction(model) : undefined;
+    if (!hass || !model || !call) return;
+    haptic(this, model.on > 0 ? 'medium' : 'light');
+    void hass.callService(call.domain, call.service, {}, { entity_id: call.entities });
   }
 
   private cancelHold(): void {
@@ -402,13 +402,13 @@ export class VividRoomHeader extends LitElement {
           <div class="title-row">
             <h2 class="title">${model.name}</h2>
             ${
-              model.lights.length
+              model.hasPower
                 ? html`<button
                     class=${classMap({ reset: true, power: true, on: anyOn })}
                     aria-label=${label}
                     title=${label}
                     aria-pressed=${anyOn ? 'true' : 'false'}
-                    ?disabled=${model.unavailable}
+                    ?disabled=${model.unavailable && !model.plan.on && !model.plan.off}
                     @pointerdown=${this.onDown}
                     @pointermove=${this.onMove}
                     @pointerup=${this.onUp}

@@ -9,7 +9,15 @@ import {
 } from '../../core/entities';
 import type { HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
 import type { ResolvedRoomHeaderConfig, RoomBadgeConfig } from './config';
-import { findRoles, roleOf, roleSpec, type FoundRole } from './roles';
+import {
+  hasPowerAction,
+  powerCall,
+  powerPlan,
+  type PowerCall,
+  type PowerPlan,
+  type RoomScripts,
+} from './power-action';
+import { findRoles, roleOf, roleSpec, type FoundRole, type RoomRole } from './roles';
 
 /** Halo of lamps, plugs and white lights. */
 export const AMBER: Rgb = [255, 193, 7];
@@ -22,6 +30,8 @@ export interface RoomEntities {
   /** Lamps and switches first (left of the halo), then LED strips. */
   lights: string[];
   power?: string;
+  /** Scripts of the room kept (on, off, toggle), for the power button. */
+  scripts: RoomScripts;
   /** Badges of the roles found and kept, in the order of the role table. */
   roleBadges: RoomBadgeConfig[];
   /** Every role found, excluded ones included (for the editor). */
@@ -54,6 +64,12 @@ export function roomEntities(
   const lights =
     config.lights ?? kept.filter((item) => feeds(item) === 'light').map((item) => item.entity);
   const power = config.power ?? kept.find((item) => feeds(item) === 'power')?.entity;
+  const script = (role: RoomRole) => kept.find((item) => item.role === role)?.entity;
+  const scripts: RoomScripts = {
+    on: script('scripts_on'),
+    off: script('scripts_off'),
+    toggle: script('scripts_toggle'),
+  };
   const badge = (tag: string | undefined, entity: string): RoomBadgeConfig[] =>
     tag && isDefined(tag) ? [{ type: `custom:${tag}`, entity }] : [];
   let roleBadges: RoomBadgeConfig[] = [];
@@ -71,11 +87,12 @@ export function roomEntities(
       if (feeds(item) === 'light') {
         return config.lights ? [] : badge(roleSpec(item.role).badge, item.entity);
       }
+      if (feeds(item) === 'action') return [];
       return badge(roleSpec(item.role).badge, item.entity);
     });
     roleBadges = [...lightBadges, ...roleBadges];
   }
-  return { lights, power, roleBadges, found };
+  return { lights, power, scripts, roleBadges, found };
 }
 
 /**
@@ -240,6 +257,10 @@ export interface RoomHeaderModel {
   found: (FoundRole & { excluded: boolean })[];
   /** Entity of the more-info a hold on the power button opens. */
   mainEntity?: string;
+  /** What a tap on the power button runs to turn the room on and off. */
+  plan: PowerPlan;
+  /** The room has a power button (scripts to run or lights to switch). */
+  hasPower: boolean;
   /** Entities read by the title, the subtitle and the halo (badges watch their own). */
   watched: string[];
 }
@@ -261,6 +282,7 @@ export function buildRoomHeaderModel(
         ? friendlyName(hass, entities.lights[0])
         : '');
   const mainEntity = config.entity ?? entities.lights[0];
+  const plan = powerPlan(config, entities.scripts);
   const watched = new Set<string>([...entities.lights, ...members]);
   if (entities.power) watched.add(entities.power);
   if (mainEntity) watched.add(mainEntity);
@@ -276,14 +298,17 @@ export function buildRoomHeaderModel(
     badges: mergeBadges(entities.roleBadges, config.badges),
     found: entities.found,
     mainEntity,
+    plan,
+    hasPower: hasPowerAction(plan, entities.lights),
     watched: [...watched],
   };
 }
 
-/** What a tap on the power button does: everything off when something is on. */
-export function powerAction(model: RoomHeaderModel): {
-  service: 'turn_on' | 'turn_off';
-  entities: string[];
-} {
-  return { service: model.on > 0 ? 'turn_off' : 'turn_on', entities: [...model.lights] };
+/**
+ * What a tap on the power button does: everything off when something is on.
+ * It runs the room's scripts (or the config's) when there are, else switches
+ * the lights.
+ */
+export function powerAction(model: RoomHeaderModel): PowerCall | undefined {
+  return powerCall(model.plan, model.lights, model.on > 0);
 }

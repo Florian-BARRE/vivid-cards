@@ -18,10 +18,16 @@ export type RoomRole =
   | 'temperature'
   | 'humidite'
   | 'pression'
-  | 'co2';
+  | 'co2'
+  | 'scripts_on'
+  | 'scripts_off'
+  | 'scripts_toggle';
 
-/** What a role feeds: the lights (count, power button, halo), the power, or a badge only. */
-export type RoleFeed = 'light' | 'power' | 'badge';
+/**
+ * What a role feeds: the lights (count, power button, halo), the power, the
+ * action of the power button (the room's own scripts), or a badge only.
+ */
+export type RoleFeed = 'light' | 'power' | 'action' | 'badge';
 
 export interface RoleSpec {
   role: RoomRole;
@@ -34,7 +40,7 @@ export interface RoleSpec {
   badge?: string;
 }
 
-/** Every role, in the order of the badges. Battery is not a room role. */
+/** Every role, in the order of the badges (scripts last). Battery is not a room role. */
 export const ROOM_ROLES: readonly RoleSpec[] = [
   {
     role: 'lampes',
@@ -113,6 +119,26 @@ export const ROOM_ROLES: readonly RoleSpec[] = [
     domains: ['sensor'],
     feeds: 'badge',
     badge: 'vivid-air-quality-badge',
+  },
+  // Scripts of the room ("salon-scripts-on"): the power button runs them
+  // instead of switching the lights itself, so they can restore a scene.
+  {
+    role: 'scripts_on',
+    aliases: ['scripts_on', 'script_on'],
+    domains: ['script'],
+    feeds: 'action',
+  },
+  {
+    role: 'scripts_off',
+    aliases: ['scripts_off', 'script_off'],
+    domains: ['script'],
+    feeds: 'action',
+  },
+  {
+    role: 'scripts_toggle',
+    aliases: ['scripts_toggle', 'script_toggle'],
+    domains: ['script'],
+    feeds: 'action',
   },
 ];
 

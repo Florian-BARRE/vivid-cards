@@ -1,6 +1,7 @@
 import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import type { LovelaceCardConfig } from '../../core/hass-types';
+import { POWER_ACTION_DOMAINS, isPowerActionEntity } from './power-action';
 import { ROOM_ROLES, nameKey, roleOf, type RoomRole } from './roles';
 
 export const ROOM_HEADER_CARD = 'vivid-room-header';
@@ -30,6 +31,14 @@ export interface RoomHeaderCardConfig extends LovelaceCardConfig {
   /** Entity whose more-info a hold on the power button opens; the first light when unset. */
   entity?: string;
   /**
+   * Script, scene, automation or button a tap on the power button runs to turn
+   * the room on; the room's "<room>-scripts-on" (or -toggle) script when
+   * unset, else the lights are turned on.
+   */
+  turn_on?: string;
+  /** Same, to turn the room off ("<room>-scripts-off" or -toggle when unset). */
+  turn_off?: string;
+  /**
    * Vivid badges added after the discovered ones; one on a discovered entity
    * replaces its discovered badge (to change its options).
    */
@@ -57,6 +66,8 @@ export interface ResolvedRoomHeaderConfig {
   lights?: string[];
   power?: string;
   entity?: string;
+  turnOn?: string;
+  turnOff?: string;
   badges?: RoomBadgeConfig[];
   showSubtitle: boolean;
   showBadges: boolean;
@@ -78,6 +89,16 @@ function bool(value: unknown, field: string, fallback: boolean): boolean {
   if (value === undefined || value === null) return fallback;
   if (typeof value !== 'boolean') fail(`"${field}" must be true or false.`);
   return value;
+}
+
+function powerActionEntity(value: unknown, field: string): string | undefined {
+  const entity = text(value, field);
+  if (entity && !isPowerActionEntity(entity)) {
+    fail(
+      `"${field}" must be one of: ${POWER_ACTION_DOMAINS.join(', ')} (e.g. script.salon_scripts_on).`,
+    );
+  }
+  return entity;
 }
 
 function entityList(value: unknown, field: string): string[] | undefined {
@@ -165,6 +186,8 @@ export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig 
     lights: lights?.length ? lights : undefined,
     power,
     entity: text(config.entity, 'entity'),
+    turnOn: powerActionEntity(config.turn_on, 'turn_on'),
+    turnOff: powerActionEntity(config.turn_off, 'turn_off'),
     badges: badgeList(config.badges),
     showSubtitle: bool(config.show_subtitle, 'show_subtitle', true),
     showBadges: bool(config.show_badges, 'show_badges', true),

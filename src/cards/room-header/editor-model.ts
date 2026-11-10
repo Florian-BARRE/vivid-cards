@@ -1,9 +1,9 @@
-import type { RoomHeaderCardConfig } from './config';
+import type { RoomBadgeConfig, RoomHeaderCardConfig } from './config';
 import { roleOf, type FoundRole } from './roles';
 
 type FormData = Record<string, unknown>;
 
-const TEXT_KEYS = ['room', 'name', 'power', 'entity'] as const;
+const TEXT_KEYS = ['room', 'name', 'power', 'entity', 'turn_on', 'turn_off'] as const;
 const BOOL_KEYS = ['show_subtitle', 'show_badges'] as const;
 
 /** The form's values as the editor shows them (defaults filled in). */
@@ -15,6 +15,8 @@ export function roomHeaderFormData(config: RoomHeaderCardConfig): FormData {
     lights: Array.isArray(config.lights) ? config.lights : [],
     power: config.power ?? '',
     entity: config.entity ?? '',
+    turn_on: config.turn_on ?? '',
+    turn_off: config.turn_off ?? '',
     show_subtitle: config.show_subtitle !== false,
     show_badges: config.show_badges !== false,
     glow: typeof config.glow === 'number' ? config.glow : 100,
@@ -23,7 +25,7 @@ export function roomHeaderFormData(config: RoomHeaderCardConfig): FormData {
 
 /**
  * Applies the form's values to the config, leaving defaults out so the YAML
- * stays short. `badges` (YAML only) is kept as it is.
+ * stays short. `badges` and `exclude` are kept as they are (they have their own controls).
  */
 export function applyRoomHeaderForm(
   config: RoomHeaderCardConfig,
@@ -78,4 +80,55 @@ export function setRoleIncluded(
   if (exclude.length) next.exclude = exclude;
   else delete next.exclude;
   return next as RoomHeaderCardConfig;
+}
+
+/* ============================== Added badges ============================== */
+
+/** The badges added to the room (the `badges` list), valid entries only. */
+export function addedBadges(config: RoomHeaderCardConfig): RoomBadgeConfig[] {
+  return Array.isArray(config.badges)
+    ? config.badges.filter(
+        (item): item is RoomBadgeConfig =>
+          typeof item === 'object' && item !== null && typeof item.type === 'string',
+      )
+    : [];
+}
+
+function withBadges(config: RoomHeaderCardConfig, badges: RoomBadgeConfig[]): RoomHeaderCardConfig {
+  const next: Record<string, unknown> = { ...config };
+  if (badges.length) next.badges = badges;
+  else delete next.badges;
+  return next as RoomHeaderCardConfig;
+}
+
+/** Adds a badge of `type` (`vivid-door-badge` or `custom:vivid-door-badge`) at the end. */
+export function addBadge(
+  config: RoomHeaderCardConfig,
+  type: string,
+  entity?: string,
+): RoomHeaderCardConfig {
+  const tag = type.startsWith('custom:') ? type : `custom:${type}`;
+  const badge: RoomBadgeConfig = entity ? { type: tag, entity } : { type: tag };
+  return withBadges(config, [...addedBadges(config), badge]);
+}
+
+/** Removes the added badge at `index` (in the `badges` list). */
+export function removeBadge(config: RoomHeaderCardConfig, index: number): RoomHeaderCardConfig {
+  return withBadges(
+    config,
+    addedBadges(config).filter((_, position) => position !== index),
+  );
+}
+
+/** Moves the added badge at `index` one place earlier (-1) or later (+1). */
+export function moveBadge(
+  config: RoomHeaderCardConfig,
+  index: number,
+  offset: -1 | 1,
+): RoomHeaderCardConfig {
+  const badges = addedBadges(config);
+  const target = index + offset;
+  if (index < 0 || index >= badges.length || target < 0 || target >= badges.length) return config;
+  [badges[index], badges[target]] = [badges[target]!, badges[index]!];
+  return withBadges(config, badges);
 }
