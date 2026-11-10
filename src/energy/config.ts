@@ -3,6 +3,7 @@
  * and the tariff.
  */
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../core/glow';
+import { parseSlot, type ParsedSlot, type SlotValue } from '../core/slots';
 import { resolveTariff, type Tariff, type TariffConfig } from './tariff';
 
 export interface EnergyBaseConfig {
@@ -11,6 +12,11 @@ export interface EnergyBaseConfig {
   /** Statistic of its cost; the Energy dashboard's when `energy` is unset. */
   cost?: string;
   tariff?: TariffConfig;
+  /**
+   * Devices (statistic ids): the Energy dashboard's when unset, `{ exclude,
+   * add }` to adjust them, a list instead.
+   */
+  devices?: SlotValue;
   name?: string;
   /** Halo strength in percent (100 = default). */
   glow?: GlowSetting;
@@ -21,6 +27,7 @@ export interface ResolvedEnergyBase {
   energy?: string;
   cost?: string;
   tariff: Tariff;
+  devices: ParsedSlot;
   name?: string;
   glow: number;
 }
@@ -64,8 +71,17 @@ export function resolveEnergyBase(tag: string, raw: unknown): ResolvedEnergyBase
     energy: statistic(config.energy, 'energy', fail),
     cost: statistic(config.cost, 'cost', fail),
     tariff: resolveTariff(config.tariff, fail),
+    devices: slotOrFail(config.devices, fail),
     name: typeof name === 'string' && name.trim() ? name.trim() : undefined,
   };
+}
+
+function slotOrFail(value: unknown, fail: (message: string) => never): ParsedSlot {
+  try {
+    return parseSlot(value, 'devices');
+  } catch (error) {
+    return fail((error as Error).message);
+  }
 }
 
 /** Reads a choice among `values`. */

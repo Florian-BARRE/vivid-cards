@@ -24,6 +24,15 @@ export interface FormField {
 
 export interface FormEditorSpec {
   fields: FormField[];
+  /**
+   * More parts under the form (a card's device entities…): gets the config
+   * and a callback that applies a changed config.
+   */
+  extra?(
+    hass: HomeAssistant,
+    config: Record<string, unknown>,
+    apply: (config: Record<string, unknown>) => void,
+  ): unknown;
   /** Throws when the config is invalid (the message shows under the form). */
   validate?(config: Record<string, unknown>): void;
 }
@@ -71,6 +80,7 @@ export class VividFormEditor extends LitElement {
 
   private changed(value: FormData): void {
     const next: Record<string, unknown> = { ...(this._config ?? {}), ...value };
+    for (const [key, item] of Object.entries(next)) if (item === undefined) delete next[key];
     for (const field of this.spec?.fields ?? []) {
       const current = next[field.name];
       const empty =
@@ -130,6 +140,7 @@ export class VividFormEditor extends LitElement {
           this.changed(event.detail.value);
         }}
       ></ha-form>
+      ${this.spec?.extra?.(this.hass, this._config, (config) => this.changed(config)) ?? nothing}
       ${this._error ? html`<div class="error">${this._error}</div>` : nothing}`;
   }
 }

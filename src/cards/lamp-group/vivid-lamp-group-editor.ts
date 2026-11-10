@@ -1,4 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
+import '../../components/editor/vivid-slot-editor';
+import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import type { SlotValue } from '../../core/slots';
 import { classMap } from 'lit/directives/class-map.js';
 import { fireEvent } from '../../core/actions';
 import { GLOW_SLIDER, glowPercent } from '../../core/glow';
@@ -633,7 +636,21 @@ export class VividLampGroupEditor extends LitElement {
                 'mdi:lamps',
                 this.t('lamps_section'),
                 `${lamps.length} · ${this.t('lamps_hint')}`,
-                () => lamps.map((lamp) => this.renderLamp(lamp, config)),
+                () =>
+                  html`<vivid-slot-editor
+                      open
+                      .hass=${hass}
+                      .label=${this.t('lamps_section')}
+                      icon="mdi:lamps"
+                      .multiple=${true}
+                      .domains=${['light', 'switch', 'group', 'input_boolean']}
+                      .modes=${['auto', 'manual'] as const}
+                      .value=${membersValue(config)}
+                      .resolved=${membersSlot(hass, config)}
+                      @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
+                        this.commit(applyMembers(config, event.detail.value))}
+                    ></vivid-slot-editor>
+                    ${lamps.map((lamp) => this.renderLamp(lamp, config))}`,
               )}
               ${this.section(
                 'scenes',

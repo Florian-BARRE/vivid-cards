@@ -1,108 +1,79 @@
 /* ====== Code Summary ======
- * What the power button of a room header triggers. A room may have its own
- * scripts ("sdb-scripts-on", "sdb-scripts-off", "sdb-scripts-toggle") that
- * remember the last state of its lights; the button runs them when they exist
- * (or the scripts, scenes, automations or buttons set in the config), and
- * only falls back to switching the lights itself when nothing else is set.
- * Pure functions, no DOM: tested in tests/room-header.test.ts.
+ * What the power button of a room header does. Each way (turn on when
+ * everything is off, turn off when a light is on) runs, first match wins:
+ * the action set in the editor; the room's script for that way (or its
+ * toggle script); else the room's lights are switched. Every way is a Home
+ * Assistant action, run like any other card action.
  */
 
+import type { ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
+import type { ResolvedRoomHeaderConfig } from './config';
+import type { RoomSlots } from './room-slots';
 
-/* ============================== Types ============================== */
+/** Where a way of the button comes from. */
+export type PowerSource = 'config' | 'script' | 'lights' | 'none';
 
-/** Domains the power button can run, and the service that runs each. */
-export const POWER_ACTION_SERVICES: Readonly<Record<string, string>> = {
-  script: 'turn_on',
-  scene: 'turn_on',
-  automation: 'trigger',
-  button: 'press',
-  input_button: 'press',
-};
-
-export const POWER_ACTION_DOMAINS = Object.keys(POWER_ACTION_SERVICES);
-
-/** Where an action of the power button comes from. */
-export type PowerSource = 'config' | 'room';
-
-export interface PowerStep {
-  entity: string;
+export interface PowerWay {
+  action?: ActionConfig;
   source: PowerSource;
-}
-
-/** What the button runs to turn the room on and off; missing steps switch the lights. */
-export interface PowerPlan {
-  on?: PowerStep;
-  off?: PowerStep;
-}
-
-/** One Home Assistant service call. */
-export interface PowerCall {
-  domain: string;
-  service: string;
+  /** The script or the lights it runs on, for the editor. */
   entities: string[];
 }
 
-/** Scripts of the room found by their names. */
-export interface RoomScripts {
-  on?: string;
-  off?: string;
-  toggle?: string;
+export interface PowerPlan {
+  on: PowerWay;
+  off: PowerWay;
 }
 
-/* ============================== Plan ============================== */
+/** Service that runs an entity: a script, a scene, an automation or a button. */
+const RUN_SERVICES: Record<string, string> = {
+  script: 'script.turn_on',
+  scene: 'scene.turn_on',
+  automation: 'automation.trigger',
+  button: 'button.press',
+  input_button: 'input_button.press',
+};
 
-/** True when the power button can run this entity (script, scene, automation, button). */
-export function isPowerActionEntity(entityId: string): boolean {
-  return POWER_ACTION_DOMAINS.includes(domainOf(entityId));
-}
-
-/**
- * The plan of the button: the config's `turn_on` / `turn_off` first, then the
- * room's own on / off scripts, then its toggle script for both ways.
- */
-export function powerPlan(
-  config: { turnOn?: string; turnOff?: string },
-  scripts: RoomScripts,
-): PowerPlan {
-  const step = (configured: string | undefined, ...found: (string | undefined)[]) => {
-    if (configured) return { entity: configured, source: 'config' as const };
-    const entity = found.find((item): item is string => !!item);
-    return entity ? { entity, source: 'room' as const } : undefined;
-  };
+/** The action that runs an entity (`script.salon_scripts_on`). */
+export function runEntityAction(entity: string): ActionConfig {
   return {
-    on: step(config.turnOn, scripts.on, scripts.toggle),
-    off: step(config.turnOff, scripts.off, scripts.toggle),
+    action: 'perform-action',
+    perform_action: RUN_SERVICES[domainOf(entity)] ?? 'homeassistant.turn_on',
+    target: { entity_id: entity },
   };
 }
 
-/** True when the button does something: a step of the plan, or lights to switch. */
-export function hasPowerAction(plan: PowerPlan, lights: readonly string[]): boolean {
-  return !!plan.on || !!plan.off || lights.length > 0;
-}
-
-/* ============================== Call ============================== */
-
-/**
- * The call a tap makes: everything off when something is on, on otherwise.
- * A step of the plan runs its entity; without one the lights are switched.
- * `undefined` when there is nothing to call.
- */
-export function powerCall(
-  plan: PowerPlan,
+function way(
+  configured: ActionConfig | undefined,
+  script: string | undefined,
   lights: readonly string[],
-  anyOn: boolean,
-): PowerCall | undefined {
-  const step = anyOn ? plan.off : plan.on;
-  if (step) {
-    const domain = domainOf(step.entity);
-    const service = POWER_ACTION_SERVICES[domain];
-    if (service) return { domain, service, entities: [step.entity] };
+  service: 'turn_on' | 'turn_off',
+): PowerWay {
+  if (configured) return { action: configured, source: 'config', entities: [] };
+  if (script) return { action: runEntityAction(script), source: 'script', entities: [script] };
+  if (lights.length) {
+    return {
+      action: {
+        action: 'perform-action',
+        perform_action: `homeassistant.${service}`,
+        target: { entity_id: [...lights] },
+      },
+      source: 'lights',
+      entities: [...lights],
+    };
   }
-  if (!lights.length) return undefined;
+  return { source: 'none', entities: [] };
+}
+
+export function powerPlan(
+  config: Pick<ResolvedRoomHeaderConfig, 'onAction' | 'offAction'>,
+  slots: Pick<RoomSlots, 'scripts_on' | 'scripts_off' | 'scripts_toggle'>,
+  lights: readonly string[],
+): PowerPlan {
+  const toggle = slots.scripts_toggle.entities[0];
   return {
-    domain: 'homeassistant',
-    service: anyOn ? 'turn_off' : 'turn_on',
-    entities: [...lights],
+    on: way(config.onAction, slots.scripts_on.entities[0] ?? toggle, lights, 'turn_on'),
+    off: way(config.offAction, slots.scripts_off.entities[0] ?? toggle, lights, 'turn_off'),
   };
 }

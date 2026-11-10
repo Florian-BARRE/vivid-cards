@@ -162,7 +162,8 @@ export interface AmbilightCardConfig extends LovelaceCardConfig {
   /** Turning the Pi off asks for a second tap (it is a hard power cut). */
   confirm_pi_off?: boolean;
   /** Entities that do not follow the prefix. */
-  entities?: Partial<Record<EntityKey, string>>;
+  /** Per key: another entity, or false for none. */
+  entities?: Partial<Record<EntityKey, string | false>>;
   layout?: AmbilightLayout;
   /** The input menu: icon and name, icon only, name only. */
   source_display?: SourceDisplay;
@@ -249,8 +250,10 @@ export function resolveAmbilightConfig(
   const overrides: Partial<Record<EntityKey, string>> = {};
   if (config.entities && typeof config.entities === 'object') {
     for (const [key, value] of Object.entries(config.entities)) {
-      const entity = optionalEntity(value);
-      if (entity && key in ENTITY_SUFFIXES) overrides[key as EntityKey] = entity;
+      if (!(key in ENTITY_SUFFIXES)) continue;
+      // false: that part of the card is left out (no entity).
+      const entity = value === false ? '' : optionalEntity(value);
+      if (entity !== undefined) overrides[key as EntityKey] = entity;
     }
   }
   return {

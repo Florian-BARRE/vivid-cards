@@ -1,11 +1,16 @@
-import { domainOf, objectIdOf } from '../../core/entities';
-import type { HomeAssistant } from '../../core/hass-types';
-
-/**
- * Roles of a room in the owner's naming convention: group helpers titled
- * `<room>-<role>` ("salon-présence"), whose entity ids become
- * `<domain>.<room>_<role>` without accents (`binary_sensor.salon_presence`).
+/* ====== Code Summary ======
+ * The slots of a room header, one per role: its lights, its power sensor,
+ * each badge sensor and the room's scripts. Each role has its names (French
+ * and English, for the name pattern), the domains and device classes it
+ * accepts (for the area), what it feeds, and its badge.
  */
+
+import { nameKey, type RoleQuery } from '../../core/slots';
+
+export { nameKey };
+
+/* ============================== Types ============================== */
+
 export type RoomRole =
   | 'lampes'
   | 'leds'
@@ -23,122 +28,184 @@ export type RoomRole =
   | 'scripts_off'
   | 'scripts_toggle';
 
-/**
- * What a role feeds: the lights (count, power button, halo), the power, the
- * action of the power button (the room's own scripts), or a badge only.
- */
+/** What a role feeds: the lights, the power, the power button's scripts, or a badge. */
 export type RoleFeed = 'light' | 'power' | 'action' | 'badge';
 
-export interface RoleSpec {
+export interface RoleSpec extends RoleQuery {
   role: RoomRole;
-  /** French and English names accepted after the room (and in `exclude`). */
-  aliases: readonly string[];
-  /** Domains the entity may have, preferred first. */
-  domains: readonly string[];
   feeds: RoleFeed;
-  /** Badge tag shown for it; none for the power (it is in the subtitle). */
+  /** A list of entities (lights) or one. */
+  multiple: boolean;
+  /** Found in the room's area too (off where an area holds many unrelated ones). */
+  inArea: boolean;
+  /** Badge tag shown for it (lights: one per entity). */
   badge?: string;
+  /** Icon of the slot in the editor. */
+  icon: string;
 }
+
+/* ============================== Table ============================== */
+
+const LIGHT_DOMAINS = ['switch', 'light', 'group', 'input_boolean'];
 
 /** Every role, in the order of the badges (scripts last). Battery is not a room role. */
 export const ROOM_ROLES: readonly RoleSpec[] = [
   {
     role: 'lampes',
     aliases: ['lampes', 'lamps', 'lampe', 'lamp'],
-    domains: ['switch', 'light', 'group'],
+    domains: LIGHT_DOMAINS,
+    deviceClasses: ['outlet'],
     feeds: 'light',
+    multiple: true,
+    inArea: true,
     badge: 'vivid-lamp-badge',
+    icon: 'mdi:lamp',
   },
   {
     role: 'leds',
     aliases: ['leds', 'led'],
     domains: ['light', 'group'],
     feeds: 'light',
+    multiple: true,
+    inArea: true,
     badge: 'vivid-led-badge',
+    icon: 'mdi:led-strip-variant',
   },
   {
     role: 'interrupteurs',
     aliases: ['interrupteurs', 'switches', 'interrupteur', 'switch'],
-    domains: ['switch', 'light', 'group'],
+    domains: LIGHT_DOMAINS,
     feeds: 'light',
+    multiple: true,
+    inArea: false,
     badge: 'vivid-light-badge',
+    icon: 'mdi:light-switch',
   },
-  { role: 'puissance', aliases: ['puissance', 'power'], domains: ['sensor'], feeds: 'power' },
+  {
+    role: 'puissance',
+    aliases: ['puissance', 'power'],
+    domains: ['sensor'],
+    feeds: 'power',
+    multiple: false,
+    inArea: false,
+    icon: 'mdi:flash',
+  },
   {
     role: 'eclairement',
     aliases: ['eclairement', 'illuminance', 'luminosite', 'lux'],
     domains: ['sensor'],
+    deviceClasses: ['illuminance'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-illuminance-badge',
+    icon: 'mdi:brightness-5',
   },
   {
     role: 'presence',
     aliases: ['presence', 'occupancy', 'mouvement', 'motion'],
     domains: ['binary_sensor'],
+    deviceClasses: ['occupancy', 'motion', 'presence'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-presence-badge',
+    icon: 'mdi:motion-sensor',
   },
   {
     role: 'fenetres',
     aliases: ['fenetres', 'windows', 'fenetre', 'window'],
     domains: ['binary_sensor'],
+    deviceClasses: ['window'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-window-badge',
+    icon: 'mdi:window-closed-variant',
   },
   {
     role: 'portes',
     aliases: ['portes', 'doors', 'porte', 'door'],
     domains: ['binary_sensor'],
+    deviceClasses: ['door', 'garage_door'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-door-badge',
+    icon: 'mdi:door',
   },
   {
     role: 'temperature',
     aliases: ['temperature'],
     domains: ['sensor'],
+    deviceClasses: ['temperature'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-temperature-badge',
+    icon: 'mdi:thermometer',
   },
   {
     role: 'humidite',
     aliases: ['humidite', 'humidity'],
     domains: ['sensor'],
+    deviceClasses: ['humidity'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-humidity-badge',
+    icon: 'mdi:water-percent',
   },
   {
     role: 'pression',
     aliases: ['pression', 'pressure'],
     domains: ['sensor'],
+    deviceClasses: ['atmospheric_pressure', 'pressure'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-pressure-badge',
+    icon: 'mdi:gauge',
   },
   {
     role: 'co2',
     aliases: ['co2', 'air'],
     domains: ['sensor'],
+    deviceClasses: ['carbon_dioxide'],
     feeds: 'badge',
+    multiple: false,
+    inArea: true,
     badge: 'vivid-air-quality-badge',
+    icon: 'mdi:molecule-co2',
   },
-  // Scripts of the room ("salon-scripts-on"): the power button runs them
+  // The room's scripts ("salon-scripts-on"): the power button runs them
   // instead of switching the lights itself, so they can restore a scene.
   {
     role: 'scripts_on',
     aliases: ['scripts_on', 'script_on'],
     domains: ['script'],
     feeds: 'action',
+    multiple: false,
+    inArea: false,
+    icon: 'mdi:script-text-play-outline',
   },
   {
     role: 'scripts_off',
     aliases: ['scripts_off', 'script_off'],
     domains: ['script'],
     feeds: 'action',
+    multiple: false,
+    inArea: false,
+    icon: 'mdi:script-text-outline',
   },
   {
     role: 'scripts_toggle',
     aliases: ['scripts_toggle', 'script_toggle'],
     domains: ['script'],
     feeds: 'action',
+    multiple: false,
+    inArea: false,
+    icon: 'mdi:script-outline',
   },
 ];
 
@@ -148,87 +215,17 @@ export function roleSpec(role: RoomRole): RoleSpec {
   return BY_ROLE.get(role)!;
 }
 
-/**
- * Lower case, accents removed, every run of other characters as one `_`:
- * "Salon-Présence" and `salon_presence` both give `salon_presence`.
- */
-export function nameKey(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+export function isRoomRole(value: string): value is RoomRole {
+  return BY_ROLE.has(value as RoomRole);
 }
 
 const ALIAS_INDEX = new Map<string, RoomRole>();
 for (const spec of ROOM_ROLES) {
+  ALIAS_INDEX.set(spec.role, spec.role);
   for (const alias of spec.aliases) ALIAS_INDEX.set(nameKey(alias), spec.role);
 }
 
 /** The role an alias names ("lamps", "présence"), or `undefined`. */
 export function roleOf(alias: string): RoomRole | undefined {
   return ALIAS_INDEX.get(nameKey(alias));
-}
-
-/** One role found for a room. */
-export interface FoundRole {
-  role: RoomRole;
-  entity: string;
-  /** Found by its entity id, or by its name (`<room>-<role>`). */
-  via: 'id' | 'name';
-}
-
-/**
- * Finds the entity of each role for `room`, by entity id
- * (`<domain>.<room>_<role>`) or by name (friendly or registry name
- * `<room>-<role>`), accents, case and separators ignored. When several
- * entities fit a role, a match by id wins over one by name, then the
- * preferred domain, then the entity id order. Results follow the role table.
- */
-export function findRoles(hass: HomeAssistant, room: string): FoundRole[] {
-  const roomKey = nameKey(room);
-  if (!roomKey) return [];
-  const prefix = `${roomKey}_`;
-  const best = new Map<RoomRole, { found: FoundRole; rank: [number, number, string] }>();
-  const consider = (entity: string, key: string, via: 'id' | 'name'): void => {
-    if (!key.startsWith(prefix)) return;
-    const role = ALIAS_INDEX.get(key.slice(prefix.length));
-    if (!role) return;
-    const domainRank = roleSpec(role).domains.indexOf(domainOf(entity));
-    if (domainRank === -1) return;
-    const rank: [number, number, string] = [via === 'id' ? 0 : 1, domainRank, entity];
-    const current = best.get(role);
-    if (!current || compareRank(rank, current.rank) < 0) {
-      best.set(role, { found: { role, entity, via }, rank });
-    }
-  };
-  for (const [entity, state] of Object.entries(hass.states)) {
-    consider(entity, nameKey(objectIdOf(entity)), 'id');
-    const friendly = state.attributes.friendly_name;
-    if (typeof friendly === 'string') consider(entity, cachedKey(friendly), 'name');
-    const registry = hass.entities?.[entity]?.name;
-    if (typeof registry === 'string') consider(entity, cachedKey(registry), 'name');
-  }
-  return ROOM_ROLES.flatMap((spec) => {
-    const found = best.get(spec.role);
-    return found ? [found.found] : [];
-  });
-}
-
-function compareRank(a: [number, number, string], b: [number, number, string]): number {
-  return a[0] - b[0] || a[1] - b[1] || a[2].localeCompare(b[2]);
-}
-
-/** Names are normalized on every update: remember the last ones. */
-const keyCache = new Map<string, string>();
-
-function cachedKey(name: string): string {
-  let key = keyCache.get(name);
-  if (key === undefined) {
-    if (keyCache.size > 5000) keyCache.clear();
-    key = nameKey(name);
-    keyCache.set(name, key);
-  }
-  return key;
 }

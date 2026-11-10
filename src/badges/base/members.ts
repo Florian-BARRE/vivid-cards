@@ -14,17 +14,18 @@ export interface Member {
 
 /**
  * Entities behind a badge: `entities` when listed, else the members of the
- * `entity` group (or the entity itself), else `fallback` (auto discovery).
+ * `entity` group (or the entity itself), else `fallback` (auto discovery);
+ * then `exclude` left out and `add` added.
  */
 export function memberIds(
   hass: HomeAssistant,
-  config: Pick<ResolvedBaseBadge, 'entity' | 'entities'>,
+  config: Pick<ResolvedBaseBadge, 'entity' | 'entities'> & { exclude?: string[]; add?: string[] },
   fallback: () => string[] = () => [],
 ): string[] {
   const roots = config.entities ?? (config.entity ? [config.entity] : undefined);
-  if (!roots) return fallback();
-  const ids = roots.flatMap((id) => expandGroup(hass, id));
-  return [...new Set(ids)];
+  const found = roots ? roots.flatMap((id) => expandGroup(hass, id)) : fallback();
+  const exclude = new Set(config.exclude ?? []);
+  return [...new Set([...found, ...(config.add ?? [])])].filter((id) => !exclude.has(id));
 }
 
 export function members(hass: HomeAssistant, ids: readonly string[]): Member[] {

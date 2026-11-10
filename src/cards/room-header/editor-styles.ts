@@ -189,6 +189,35 @@ export const roomEditorStyles = css`
   .icon-button.danger:hover {
     color: var(--error-color, #db4437);
   }
+  .badge-item {
+    border-radius: 10px;
+    background: rgba(var(--vivid-rgb-text), 0.04);
+  }
+  .badge-item > .row {
+    background: none;
+  }
+  .plain {
+    appearance: none;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    padding: 0;
+    cursor: pointer;
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .options {
+    padding: 0 10px 10px;
+  }
+  .slots {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
   .add {
     display: flex;
     flex-direction: column;

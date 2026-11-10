@@ -1,4 +1,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
+import '../../components/editor/vivid-slot-editor';
+import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import type { SlotValue } from '../../core/slots';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { SIMPLE_ACTIONS, type ActionName } from '../../core/action-handler';
@@ -1244,6 +1247,19 @@ export class VividLedGroupEditor extends LitElement {
       this.t('members_title'),
       summary,
       () => html`
+        <vivid-slot-editor
+          open
+          .hass=${this.hass}
+          .label=${this.t('members_title')}
+          icon="mdi:lightbulb-group"
+          .multiple=${true}
+          .domains=${['light']}
+          .modes=${['auto'] as const}
+          .value=${membersValue(this._config ?? {})}
+          .resolved=${this.hass ? membersSlot(this.hass, this._config ?? {}, ['light']) : undefined}
+          @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
+            this._config && this.commit(applyMembers(this._config, event.detail.value))}
+        ></vivid-slot-editor>
         <div class="hint">${this.t('members_tap_hint')}</div>
         ${model.detected.map((strip) => this.renderMember(strip, resolved, true))}
       `,

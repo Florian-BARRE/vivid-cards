@@ -1,231 +1,23 @@
-import { WARM_WHITE, clamp, lightColor } from '../../core/color';
-import {
-  domainOf,
-  expandGroup,
-  friendlyName,
-  isAvailable,
-  objectIdOf,
-  parseNumericState,
-} from '../../core/entities';
-import type { HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
-import type { ResolvedRoomHeaderConfig, RoomBadgeConfig } from './config';
-import {
-  hasPowerAction,
-  powerCall,
-  powerPlan,
-  type PowerCall,
-  type PowerPlan,
-  type RoomScripts,
-} from './power-action';
-import { findRoles, roleOf, roleSpec, type FoundRole, type RoomRole } from './roles';
-
-/** Halo of lamps, plugs and white lights. */
-export const AMBER: Rgb = [255, 193, 7];
-
-/** Color modes of a light that can show a color of its own (LED strips). */
-const COLOR_MODES = new Set(['hs', 'rgb', 'rgbw', 'rgbww', 'xy']);
-
-/** What the room shows: its lights, its power sensor and its badges before the manual ones. */
-export interface RoomEntities {
-  /** Lamps and switches first (left of the halo), then LED strips. */
-  lights: string[];
-  power?: string;
-  /** Scripts of the room kept (on, off, toggle), for the power button. */
-  scripts: RoomScripts;
-  /** Badges of the roles found and kept, in the order of the role table. */
-  roleBadges: RoomBadgeConfig[];
-  /** Every role found, excluded ones included (for the editor). */
-  found: (FoundRole & { excluded: boolean })[];
-}
-
-/** The roles found for a room, by entity id or by name. */
-export function discoverRoom(hass: HomeAssistant, room: string): FoundRole[] {
-  return findRoles(hass, room);
-}
-
-/**
- * Discovered roles minus the exclusions, with the config's `lights` and
- * `power` taking over theirs. Without discovery, only `lights` and `power`.
+/* ====== Code Summary ======
+ * What a room header shows, from its resolved config and Home Assistant:
+ * its slots, its lights (the lamps, LEDs and switches slots), the lights on,
+ * the power, the halo, the power button's two ways, the badges.
  */
-export function roomEntities(
-  hass: HomeAssistant,
-  config: ResolvedRoomHeaderConfig,
-  isDefined: (tag: string) => boolean = () => true,
-): RoomEntities {
-  const found = (config.discover && config.room ? findRoles(hass, config.room) : []).map(
-    (item) => ({
-      ...item,
-      excluded:
-        config.excludeRoles.includes(item.role) || config.excludeEntities.includes(item.entity),
-    }),
-  );
-  const kept = found.filter((item) => !item.excluded);
-  const feeds = (item: FoundRole) => roleSpec(item.role).feeds;
-  const lights =
-    config.lights ?? kept.filter((item) => feeds(item) === 'light').map((item) => item.entity);
-  const power = config.power ?? kept.find((item) => feeds(item) === 'power')?.entity;
-  const script = (role: RoomRole) => kept.find((item) => item.role === role)?.entity;
-  const scripts: RoomScripts = {
-    on: script('scripts_on'),
-    off: script('scripts_off'),
-    toggle: script('scripts_toggle'),
-  };
-  const badge = (tag: string | undefined, entity: string): RoomBadgeConfig[] =>
-    tag && isDefined(tag) ? [{ type: `custom:${tag}`, entity }] : [];
-  let roleBadges: RoomBadgeConfig[] = [];
-  if (config.discover) {
-    const lightBadges = config.lights
-      ? config.lights.flatMap((entity) => {
-          const role = found.find((item) => item.entity === entity)?.role;
-          return badge(
-            role ? roleSpec(role).badge : lightBadgeType(entity).replace(/^custom:/, ''),
-            entity,
-          );
-        })
-      : [];
-    roleBadges = kept.flatMap((item) => {
-      if (feeds(item) === 'light') {
-        return config.lights ? [] : badge(roleSpec(item.role).badge, item.entity);
-      }
-      if (feeds(item) === 'action') return [];
-      return badge(roleSpec(item.role).badge, item.entity);
-    });
-    roleBadges = [...lightBadges, ...roleBadges];
-  }
-  return { lights, power, scripts, roleBadges, found };
-}
 
-/**
- * Manual badges after the discovered ones; a manual badge on the entity of a
- * discovered badge takes its place.
- */
-export function mergeBadges(
-  discovered: RoomBadgeConfig[],
-  manual: RoomBadgeConfig[] = [],
-): RoomBadgeConfig[] {
-  const rest = [...manual];
-  const merged = discovered.map((item) => {
-    const index = rest.findIndex(
-      (badge) => typeof badge.entity === 'string' && badge.entity === item.entity,
-    );
-    return index === -1 ? item : rest.splice(index, 1)[0]!;
-  });
-  return [...merged, ...rest];
-}
+import { expandGroup, friendlyName, isAvailable, parseNumericState } from '../../core/entities';
+import type { HomeAssistant } from '../../core/hass-types';
+import { isVisible, roomBadges, type ShownBadge } from './badges';
+import type { ResolvedRoomHeaderConfig } from './config';
+import { haloSources, isOn, type HaloSource } from './halo';
+import { powerPlan, type PowerPlan } from './power-action';
+import { roomSlots, type RoomSlots } from './room-slots';
+
+export { AMBER, haloSources, type HaloSource } from './halo';
 
 /** `salon` → `Salon`, `salle_de_bain` → `Salle de bain`, `séjour` → `Séjour`. */
 export function roomTitle(room: string): string {
   const words = room.replace(/[_-]+/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** Badge type of a light that no role names: lamps, LED strips, or any light. */
-export function lightBadgeType(entityId: string): string {
-  const object = objectIdOf(entityId);
-  const role = roleOf(object.split('_').pop() ?? '');
-  if (role === 'lampes' || role === 'leds' || role === 'interrupteurs') {
-    return `custom:${roleSpec(role).badge!}`;
-  }
-  if (domainOf(entityId) === 'switch') return 'custom:vivid-lamp-badge';
-  return 'custom:vivid-light-badge';
-}
-
-/** One glow behind the title. Positions and sizes are percentages of the card. */
-export interface HaloSource {
-  /** The group (lamps) or the strip it stands for; stable across updates. */
-  id: string;
-  rgb: Rgb;
-  /** 0–1, from the brightness; 0 when off. */
-  strength: number;
-  on: boolean;
-  x: number;
-  y: number;
-  /** Radii of the glow. */
-  rx: number;
-  ry: number;
-}
-
-function brightnessShare(hass: HomeAssistant, entityId: string): number {
-  const state = hass.states[entityId];
-  if (domainOf(entityId) !== 'light') return 1;
-  const brightness = (state?.attributes as LightAttributes | undefined)?.brightness;
-  return typeof brightness === 'number' ? clamp(brightness / 255, 0, 1) : 1;
-}
-
-function isOn(hass: HomeAssistant, entityId: string): boolean {
-  return hass.states[entityId]?.state === 'on';
-}
-
-/** A light able to show a color of its own: it gets a glow of its own color. */
-function isColorLight(hass: HomeAssistant, entityId: string): boolean {
-  if (domainOf(entityId) !== 'light') return false;
-  const modes = (hass.states[entityId]?.attributes as LightAttributes | undefined)
-    ?.supported_color_modes;
-  return Array.isArray(modes) && modes.some((mode) => COLOR_MODES.has(mode));
-}
-
-/**
- * Glows behind the title: one amber glow per group of lamps or switches (its
- * strength is the mean brightness of the lamps on), one per color light in
- * its current color. Glows that are on are spread from left to right (lamps
- * first); the others stay in the middle, invisible, so they fade in place.
- */
-export function haloSources(hass: HomeAssistant, lights: readonly string[]): HaloSource[] {
-  const lamps: HaloSource[] = [];
-  const colored: HaloSource[] = [];
-  const seen = new Set<string>();
-  for (const group of lights) {
-    const plain: string[] = [];
-    for (const member of expandGroup(hass, group)) {
-      if (seen.has(member)) continue;
-      seen.add(member);
-      if (!isColorLight(hass, member)) {
-        plain.push(member);
-        continue;
-      }
-      const on = isOn(hass, member);
-      colored.push(
-        source(
-          member,
-          on ? (lightColor(hass.states[member]) ?? WARM_WHITE) : WARM_WHITE,
-          on ? brightnessShare(hass, member) : 0,
-        ),
-      );
-    }
-    if (plain.length === 0) continue;
-    const lit = plain.filter((member) => isOn(hass, member));
-    const strength = lit.length
-      ? lit.reduce((sum, member) => sum + brightnessShare(hass, member), 0) / lit.length
-      : 0;
-    lamps.push(source(group, AMBER, strength, lit.length > 0));
-  }
-  const sources = [...lamps, ...colored];
-  const lit = sources.filter((item) => item.on);
-  const count = lit.length;
-  lit.forEach((item, index) => {
-    if (count === 1) {
-      Object.assign(item, { x: 50, y: 25, rx: 45, ry: 70 });
-      return;
-    }
-    const span = Math.min(48, 24 * (count - 1));
-    item.x = round1(50 - span / 2 + (span * index) / (count - 1));
-    item.y = index % 2 === 0 ? 22 : 30;
-    item.rx = clamp(46 - 4 * count, 24, 45);
-    item.ry = 60;
-  });
-  return sources;
-}
-
-function source(id: string, rgb: Rgb, strength: number, on = strength > 0): HaloSource {
-  return { id, rgb, strength: round2(strength), on, x: 50, y: 25, rx: 45, ry: 70 };
-}
-
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 /** Watts of a power sensor (kW converted); `undefined` when it cannot be read. */
@@ -240,27 +32,25 @@ export function powerWatts(hass: HomeAssistant, entityId: string | undefined): n
 
 export interface RoomHeaderModel {
   name: string;
+  slots: RoomSlots;
+  /** Lamps, LED strips, then switches (groups as configured). */
   lights: string[];
   /** Leaf lights and switches of the light groups, each counted once. */
   members: string[];
-  /** Members on. */
   on: number;
-  /** Members that can be read. */
   total: number;
   /** No light could be read (all unavailable). */
   unavailable: boolean;
   /** Watts. */
   power?: number;
   sources: HaloSource[];
-  badges: RoomBadgeConfig[];
-  /** Roles found for the room, excluded ones included. */
-  found: (FoundRole & { excluded: boolean })[];
-  /** Entity of the more-info a hold on the power button opens. */
-  mainEntity?: string;
-  /** What a tap on the power button runs to turn the room on and off. */
   plan: PowerPlan;
-  /** The room has a power button (scripts to run or lights to switch). */
+  /** The power button shows. */
   hasPower: boolean;
+  /** Badges to show now (their conditions hold). */
+  badges: ShownBadge[];
+  /** Entity of the more-info a hold opens by default. */
+  mainEntity?: string;
   /** Entities read by the title, the subtitle and the halo (badges watch their own). */
   watched: string[];
 }
@@ -270,45 +60,50 @@ export function buildRoomHeaderModel(
   config: ResolvedRoomHeaderConfig,
   isDefined: (tag: string) => boolean = () => true,
 ): RoomHeaderModel {
-  const entities = roomEntities(hass, config, isDefined);
-  const members = [...new Set(entities.lights.flatMap((id) => expandGroup(hass, id)))];
+  const slots = roomSlots(hass, config);
+  const lights = [
+    ...slots.lampes.entities,
+    ...slots.leds.entities,
+    ...slots.interrupteurs.entities,
+  ];
+  const members = [...new Set(lights.flatMap((id) => expandGroup(hass, id)))];
   const readable = members.filter((id) => isAvailable(hass.states[id]));
-  const on = readable.filter((id) => isOn(hass, id)).length;
+  const power = slots.puissance.entities[0];
+  const plan = powerPlan(config, slots, lights);
   const name =
     config.name ??
     (config.roomLabel
       ? roomTitle(config.roomLabel)
-      : entities.lights[0]
-        ? friendlyName(hass, entities.lights[0])
+      : lights[0]
+        ? friendlyName(hass, lights[0])
         : '');
-  const mainEntity = config.entity ?? entities.lights[0];
-  const plan = powerPlan(config, entities.scripts);
-  const watched = new Set<string>([...entities.lights, ...members]);
-  if (entities.power) watched.add(entities.power);
+  const mainEntity = config.entity ?? lights[0];
+  const hasAction = plan.on.source !== 'none' || plan.off.source !== 'none';
+  const watched = new Set<string>([...lights, ...members]);
+  if (power) watched.add(power);
   if (mainEntity) watched.add(mainEntity);
+  const badges = roomBadges(slots, config.badges, isDefined);
+  for (const badge of badges)
+    for (const condition of badge.visibility ?? []) watched.add(condition.entity);
   return {
     name,
-    lights: entities.lights,
+    slots,
+    lights,
     members,
-    on,
+    on: readable.filter((id) => isOn(hass, id)).length,
     total: readable.length,
     unavailable: members.length > 0 && readable.length === 0,
-    power: powerWatts(hass, entities.power),
-    sources: haloSources(hass, entities.lights),
-    badges: mergeBadges(entities.roleBadges, config.badges),
-    found: entities.found,
-    mainEntity,
+    power: powerWatts(hass, power),
+    sources: haloSources(hass, lights),
     plan,
-    hasPower: hasPowerAction(plan, entities.lights),
+    hasPower: config.powerShow === 'always' || (config.powerShow === 'auto' && hasAction),
+    badges: badges.filter((badge) => isVisible(hass, badge.visibility)),
+    mainEntity,
     watched: [...watched],
   };
 }
 
-/**
- * What a tap on the power button does: everything off when something is on.
- * It runs the room's scripts (or the config's) when there are, else switches
- * the lights.
- */
-export function powerAction(model: RoomHeaderModel): PowerCall | undefined {
-  return powerCall(model.plan, model.lights, model.on > 0);
+/** The action a tap on the power button runs now (off when a light is on). */
+export function powerTap(model: RoomHeaderModel) {
+  return (model.on > 0 ? model.plan.off : model.plan.on).action;
 }
