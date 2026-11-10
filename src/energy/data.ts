@@ -3,6 +3,7 @@
  * dashboard and the long-term statistics. Results are cached a few minutes so
  * several cards on a page share their requests.
  */
+import { resolveSlot, type ParsedSlot } from '../core/slots';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { HomeAssistant } from '../core/hass-types';
 import { addDays, buildDays, dateKey, dateStart, type Change, type DayRecord } from './days';
@@ -156,6 +157,23 @@ export interface EnergyInputs {
   cost?: string;
   tariff: Tariff;
   needs: EnergyNeeds;
+  /** The devices slot (the Energy dashboard's devices, adjusted). */
+  devices?: ParsedSlot;
+}
+
+/** The devices to read: the Energy dashboard's, left out, added, or listed. */
+export function pickDevices(
+  sources: EnergySources['devices'],
+  slot: ParsedSlot | undefined,
+): EnergySources['devices'] {
+  if (!slot) return sources;
+  const found = sources.map((device) => ({
+    entity: device.stat,
+    source: 'energy' as const,
+    via: '',
+  }));
+  const ids = resolveSlot(slot, found, true).entities;
+  return ids.map((stat) => sources.find((device) => device.stat === stat) ?? { stat });
 }
 
 /** Reads everything a card needs, from the Energy dashboard and the statistics. */
@@ -185,16 +203,17 @@ export async function loadEnergy(inputs: EnergyInputs, now = Date.now()): Promis
     ? buildDays(daily[energyId] ?? [], costId ? daily[costId] : undefined, hourlyEnergy, tariff)
     : [];
   let devices: DeviceEnergy[] = [];
-  if (needs.devices && sources.devices.length) {
+  const picked = pickDevices(sources.devices, inputs.devices);
+  if (needs.devices && picked.length) {
     const from = dateStart(addDays(today, -((needs.deviceDays ?? needs.days) - 1)));
     const changes = await fetchChanges(
       hass,
-      sources.devices.map((device) => device.stat),
+      picked.map((device) => device.stat),
       from,
       tomorrow,
       'day',
     );
-    devices = sources.devices.map((device) => {
+    devices = picked.map((device) => {
       const daily = changes[device.stat] ?? [];
       return {
         ...device,
@@ -244,6 +263,7 @@ export class EnergyController implements ReactiveController {
       inputs.cost,
       inputs.needs,
       inputs.tariff.offPeakRanges,
+      inputs.devices,
     ]);
     if (key === this.key) return;
     this.key = key;

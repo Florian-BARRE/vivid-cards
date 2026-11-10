@@ -67,10 +67,17 @@ export interface ServiceTarget {
   entity_id?: string | string[];
 }
 
+export interface AreaRegistryEntry {
+  area_id: string;
+  name: string;
+}
+
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
   entities: Record<string, EntityRegistryDisplayEntry>;
   devices: Record<string, DeviceRegistryEntry>;
+  /** Area registry (2023.8+); missing in older frontends and in tests. */
+  areas?: Record<string, AreaRegistryEntry>;
   language: string;
   locale?: { language: string };
   themes?: { darkMode?: boolean };

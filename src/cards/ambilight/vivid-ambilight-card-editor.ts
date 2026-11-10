@@ -17,6 +17,7 @@ import {
   INPUT_COUNT,
   LAYOUTS,
   SOURCE_DISPLAYS,
+  entityMap,
   resolveAmbilightConfig,
   type AmbilightCardConfig,
   type AmbilightInputConfig,
@@ -25,6 +26,18 @@ import { HYPERHDR_INTEGRATION, hubIcon } from '../hyperhdr/model';
 import { buildAmbilightModel, hyperhdrLink, type HyperHdrLink } from './model';
 import { AMBER, GREEN, GREY, RED, celsius, linkView, sourceLabels } from './view';
 import { MANAGER_INTEGRATION, coverage, lookupDevices } from './devices';
+import '../../components/editor/vivid-device-entities-editor';
+
+/** The config with its `entities` map replaced (left out when empty). */
+function withEntities(
+  config: AmbilightCardConfig,
+  entities?: Record<string, unknown>,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...config };
+  if (entities) next.entities = entities;
+  else delete next.entities;
+  return next;
+}
 
 type FormData = Record<string, unknown>;
 type Schema = Record<string, unknown>[];
@@ -485,7 +498,18 @@ export class VividAmbilightCardEditor extends LitElement {
         boxFacts,
         this.picker(config, 'device'),
       )}
-      ${missingLine} ${this.renderLink(link)}
+      ${missingLine}
+      <vivid-device-entities-editor
+        .hass=${hass}
+        .keys=${Object.entries(
+          entityMap(config.prefix || lookupDevices(hass, config).prefix || DEFAULT_PREFIX),
+        ).map(([key, entity]) => ({ key, entity }))}
+        .entities=${config.entities as Record<string, unknown> | undefined}
+        .device=${boxName ?? ''}
+        @entities-changed=${(event: CustomEvent<{ value?: Record<string, unknown> }>) =>
+          this.commit(withEntities(config, event.detail.value))}
+      ></vivid-device-entities-editor>
+      ${this.renderLink(link)}
       ${this.tile(
         hub ? hubIcon(hub) : 'mdi:raspberry-pi',
         hubRgb,

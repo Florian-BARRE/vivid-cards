@@ -48,6 +48,7 @@ export abstract class VividEnergyCard<C extends ResolvedEnergyBase> extends LitE
           energy: this._config.energy,
           cost: this._config.cost,
           tariff: this._config.tariff,
+          devices: this._config.devices,
           needs: this.needs(this._config, this.today()),
         }
       : undefined,

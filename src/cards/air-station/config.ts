@@ -79,7 +79,8 @@ export interface AirStationCardConfig extends LovelaceCardConfig {
   /** Entity id prefix of the station (the part after the domain); wins over `device`. */
   prefix?: string;
   /** Entities that do not follow the prefix. */
-  entities?: Partial<Record<EntityKey, string>>;
+  /** Per key: another entity, or false for none. */
+  entities?: Partial<Record<EntityKey, string | false>>;
   name?: string;
   /** Values next to the name. */
   info?: string[];
@@ -135,8 +136,10 @@ export function resolveAirStationConfig(
   const overrides: Partial<Record<EntityKey, string>> = {};
   if (config.entities && typeof config.entities === 'object') {
     for (const [key, value] of Object.entries(config.entities)) {
-      const entity = optionalEntity(value);
-      if (entity && key in ENTITY_SUFFIXES) overrides[key as EntityKey] = entity;
+      if (!(key in ENTITY_SUFFIXES)) continue;
+      // false: that part of the card is left out (no entity).
+      const entity = value === false ? '' : optionalEntity(value);
+      if (entity !== undefined) overrides[key as EntityKey] = entity;
     }
   }
   return {

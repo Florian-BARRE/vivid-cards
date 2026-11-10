@@ -3,6 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo } from '../../core/actions';
+import { runAction } from '../../core/action-handler';
 import { rgbCss } from '../../core/color';
 import { glowVars } from '../../core/glow';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
@@ -14,16 +15,12 @@ import {
   ROOM_HEADER_CARD,
   resolveRoomHeaderConfig,
   type ResolvedRoomHeaderConfig,
-  type RoomBadgeConfig,
   type RoomHeaderCardConfig,
 } from './config';
-import {
-  buildRoomHeaderModel,
-  discoverRoom,
-  powerAction,
-  type HaloSource,
-  type RoomHeaderModel,
-} from './model';
+import type { ShownBadge } from './badges';
+import { buildRoomHeaderModel, powerTap, type HaloSource, type RoomHeaderModel } from './model';
+import { NamingSource } from '../../core/slots';
+import { roleSpec } from './roles';
 import './vivid-room-header-editor';
 
 const HOLD_MS = 500;
@@ -71,7 +68,10 @@ export class VividRoomHeader extends LitElement {
 
   static getStubConfig(hass?: HomeAssistant): Partial<RoomHeaderCardConfig> {
     const rooms = ['salon', 'chambre', 'bureau', 'cuisine', 'sdb'];
-    const room = hass ? rooms.find((id) => discoverRoom(hass, id).length > 0) : undefined;
+    const lights = roleSpec('lampes');
+    const room = hass
+      ? rooms.find((id) => new NamingSource(id).find(hass, lights).length > 0)
+      : undefined;
     return { room: room ?? 'salon' };
   }
 
@@ -261,14 +261,14 @@ export class VividRoomHeader extends LitElement {
   }
 
   /** Builds the badge elements again when their configs change. */
-  private syncBadges(configs: RoomBadgeConfig[]): void {
-    const key = JSON.stringify(configs);
+  private syncBadges(badges: ShownBadge[]): void {
+    const key = JSON.stringify(badges.map((badge) => [badge.key, badge.config]));
     if (key === this.slotsKey) return;
     this.slotsKey = key;
-    this.slots = configs.map((config, index) => this.createBadge(config, `${index}:${key}`));
+    this.slots = badges.map((badge) => this.createBadge(badge.config, `${badge.key}:${key}`));
   }
 
-  private createBadge(config: RoomBadgeConfig, key: string): BadgeSlot {
+  private createBadge(config: ShownBadge['config'], key: string): BadgeSlot {
     const tag = config.type.replace(/^custom:/, '');
     const slot: BadgeSlot = { key };
     const element = document.createElement(tag) as BadgeElement;
@@ -297,10 +297,10 @@ export class VividRoomHeader extends LitElement {
   private callPower(): void {
     const hass = this.hass;
     const model = this.model;
-    if (!hass || !model || model.lights.length === 0) return;
-    const { service, entities } = powerAction(model);
-    haptic(this, service === 'turn_off' ? 'medium' : 'light');
-    void hass.callService('homeassistant', service, {}, { entity_id: entities });
+    const action = model ? powerTap(model) : undefined;
+    if (!hass || !model || !action) return;
+    haptic(this, model.on > 0 ? 'medium' : 'light');
+    runAction(action, { node: this, hass, entityId: model.mainEntity ?? '' });
   }
 
   private cancelHold(): void {
@@ -317,7 +317,11 @@ export class VividRoomHeader extends LitElement {
       this.holdTimer = undefined;
       this.held = true;
       const entity = this.model?.mainEntity;
-      if (entity) {
+      const hold = this._config?.holdAction;
+      if (hold && this.hass) {
+        haptic(this, 'heavy');
+        runAction(hold, { node: this, hass: this.hass, entityId: entity ?? '' });
+      } else if (entity) {
         haptic(this, 'heavy');
         openMoreInfo(this, entity);
       }
@@ -402,13 +406,13 @@ export class VividRoomHeader extends LitElement {
           <div class="title-row">
             <h2 class="title">${model.name}</h2>
             ${
-              model.lights.length
+              model.hasPower
                 ? html`<button
                     class=${classMap({ reset: true, power: true, on: anyOn })}
                     aria-label=${label}
                     title=${label}
                     aria-pressed=${anyOn ? 'true' : 'false'}
-                    ?disabled=${model.unavailable}
+                    ?disabled=${model.unavailable && model.plan.on.source === 'lights' && model.plan.off.source === 'lights'}
                     @pointerdown=${this.onDown}
                     @pointermove=${this.onMove}
                     @pointerup=${this.onUp}

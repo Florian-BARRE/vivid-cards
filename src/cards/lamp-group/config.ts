@@ -47,6 +47,10 @@ export interface LampSceneConfig {
 export interface LampGroupCardConfig extends LovelaceCardConfig {
   entity?: string;
   entities?: string[];
+  /** Members of the group left out of the card. */
+  exclude?: string[];
+  /** Lamps added to the group's members. */
+  add?: string[];
   name?: string;
   icon?: string;
   layout?: LampLayout;
@@ -105,6 +109,8 @@ export interface ResolvedLampGroupConfig {
   type: string;
   entity?: string;
   entities?: string[];
+  exclude?: string[];
+  add?: string[];
   name?: string;
   icon?: string;
   layout: LampLayout;
@@ -238,6 +244,15 @@ function resolveColumns(value: unknown): number | undefined {
   return columns;
 }
 
+function entityIds(value: unknown, field: string): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    fail(`"${field}" must be a list of entity ids.`);
+  }
+  const ids = (value as string[]).map((item) => item.trim()).filter(Boolean);
+  return ids.length ? ids : undefined;
+}
+
 export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = raw as LampGroupCardConfig;
@@ -268,6 +283,8 @@ export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
     type: String(config.type ?? ''),
     entity,
     entities: entities?.length ? entities : undefined,
+    exclude: entityIds(config.exclude, 'exclude'),
+    add: entityIds(config.add, 'add'),
     name: text(config.name, 'name'),
     icon: text(config.icon, 'icon'),
     layout: config.layout ?? 'ambiance',

@@ -39,6 +39,11 @@ export function createRoomMock(
     climate?: boolean;
     /** Entity id of the presence helper (still titled "salon-présence"). */
     presenceId?: string;
+    /**
+     * Adds the room scripts "salon-scripts-on" / "salon-scripts-off": off
+     * remembers which lights were on, on brings back exactly those.
+     */
+    scripts?: boolean;
   } = {},
 ): RoomMock {
   const states: Record<string, HassEntity> = {};
@@ -134,6 +139,18 @@ export function createRoomMock(
     }
   }
 
+  // A sensor outside the naming convention, as a Zigbee device names it.
+  put(
+    entity('sensor.0x403802fffe69d11e_illumination', 'bright', {
+      friendly_name: 'Capteur présence Illumination',
+    }),
+  );
+  if (options.scripts) {
+    for (const way of ['on', 'off']) {
+      put(entity(`script.salon_scripts_${way}`, 'off', { friendly_name: `salon-scripts-${way}` }));
+    }
+  }
+
   const listeners = new Set<(hass: HomeAssistant) => void>();
   const calls: RoomMock['calls'] = [];
 
@@ -154,6 +171,36 @@ export function createRoomMock(
     states['sensor.salon_puissance'] = { ...power, state: String(watts) };
   };
 
+  /** Lights left on by the last "salon-scripts-off", brought back by "salon-scripts-on". */
+  let snapshot: string[] | undefined;
+  const runScript = (id: string): void => {
+    const lights = [...lampIds, ...stripIds];
+    if (id === 'script.salon_scripts_off') {
+      snapshot = lights.filter((light) => states[light]?.state === 'on');
+      setLights(lights, false);
+    } else if (id === 'script.salon_scripts_on') {
+      setLights(snapshot?.length ? snapshot : lights, true);
+    }
+  };
+  const setLights = (ids: string[], on: boolean): void => {
+    for (const id of ids) {
+      const item = states[id]!;
+      const strip = STRIPS.find((spec) => id === `light.salon_leds_${spec.key}`);
+      states[id] = {
+        ...item,
+        state: on ? 'on' : 'off',
+        attributes: strip
+          ? {
+              ...item.attributes,
+              rgb_color: on ? strip.rgb : null,
+              brightness: on ? strip.brightness : null,
+              color_mode: on ? 'rgb' : null,
+            }
+          : item.attributes,
+      };
+    }
+  };
+
   const mock: RoomMock = {
     states: { ...states },
     entities: {},
@@ -168,24 +215,15 @@ export function createRoomMock(
       calls.push({ domain, service, target });
       const ids = target?.entity_id;
       const list = (Array.isArray(ids) ? ids : ids ? [ids] : []).flatMap(leaves);
-      for (const id of list) {
-        const item = states[id];
-        if (!item) continue;
-        const on =
-          service === 'turn_on' ? true : service === 'turn_off' ? false : item.state !== 'on';
-        const strip = STRIPS.find((spec) => id === `light.salon_leds_${spec.key}`);
-        states[id] = {
-          ...item,
-          state: on ? 'on' : 'off',
-          attributes: strip
-            ? {
-                ...item.attributes,
-                rgb_color: on ? strip.rgb : null,
-                brightness: on ? strip.brightness : null,
-                color_mode: on ? 'rgb' : null,
-              }
-            : item.attributes,
-        };
+      if (domain === 'script') list.forEach(runScript);
+      else {
+        for (const id of list) {
+          const item = states[id];
+          if (!item) continue;
+          const on =
+            service === 'turn_on' ? true : service === 'turn_off' ? false : item.state !== 'on';
+          setLights([id], on);
+        }
       }
       refresh();
       const next = { ...mock, states: { ...states } };

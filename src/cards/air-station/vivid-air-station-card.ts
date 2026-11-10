@@ -17,6 +17,7 @@ import {
   AIR_TABS,
   DEFAULT_PREFIX,
   ENTITY_SUFFIXES,
+  entityMap,
   resolveAirStationConfig,
   type AirStationCardConfig,
   type ResolvedAirStationConfig,
@@ -24,6 +25,7 @@ import {
 import { buildAirStationModel, type AirStationModel } from './model';
 import { lineColor, lineIcon, rgbCss, statusLine, valueViews } from './view';
 import './vivid-air-station-details';
+import '../../components/editor/vivid-device-entities-editor';
 
 /**
  * An ESPHome air station (CO₂, temperature, humidity, an LED frame and a
@@ -85,6 +87,24 @@ export class VividAirStationCard extends LitElement {
         },
       ],
       validate: (config) => resolveAirStationConfig(config as AirStationCardConfig),
+      extra: (hass, config, apply) => {
+        const station = config as AirStationCardConfig;
+        const device = typeof station.device === 'string' ? station.device : undefined;
+        const prefix =
+          (typeof station.prefix === 'string' && station.prefix) ||
+          (device ? devicePrefixFor(hass, device, Object.values(ENTITY_SUFFIXES)) : undefined) ||
+          DEFAULT_PREFIX;
+        const defaults = entityMap(prefix);
+        const entry = device ? hass.devices?.[device] : undefined;
+        return html`<vivid-device-entities-editor
+          .hass=${hass}
+          .keys=${Object.entries(defaults).map(([key, entity]) => ({ key, entity }))}
+          .entities=${station.entities as Record<string, unknown> | undefined}
+          .device=${entry?.name_by_user ?? entry?.name ?? prefix}
+          @entities-changed=${(event: CustomEvent<{ value?: Record<string, unknown> }>) =>
+            apply({ ...config, entities: event.detail.value })}
+        ></vivid-device-entities-editor>`;
+      },
     });
   }
 

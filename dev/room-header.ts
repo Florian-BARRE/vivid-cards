@@ -75,6 +75,12 @@ const SCENARIOS: {
       badges: [{ type: 'custom:vivid-led-badge', entity: 'light.salon_leds' }],
     },
   },
+  {
+    title: 'Scripts · the power button runs salon-scripts-off / -on (restores what was on)',
+    scenario: 'lamps',
+    config: { room: 'salon' },
+    mock: { scripts: true },
+  },
   { title: 'Grenier · nothing discovered', scenario: 'off', config: { room: 'grenier' } },
 ];
 
@@ -103,11 +109,23 @@ function mount(): void {
     const wrap = document.createElement('div');
     wrap.className = 'editor';
     const editor = document.createElement('vivid-room-header-editor') as CardElement;
-    editor.hass = createRoomMock('all', { language, climate: true });
-    editor.setConfig({ type: 'custom:vivid-room-header', room: 'salon', exclude: ['presence'] });
-    editor.addEventListener('config-changed', (event) =>
-      console.info('config', JSON.stringify((event as CustomEvent).detail.config)),
-    );
+    editor.hass = createRoomMock('all', { language, climate: true, scripts: true });
+    editor.setConfig({
+      type: 'custom:vivid-room-header',
+      room: 'salon',
+      exclude: ['presence'],
+      badges: [
+        {
+          type: 'custom:vivid-illuminance-badge',
+          entity: 'sensor.0x403802fffe69d11e_illumination',
+        },
+      ],
+    });
+    editor.addEventListener('config-changed', (event) => {
+      const config = (event as CustomEvent).detail.config as Record<string, unknown>;
+      console.info('config', JSON.stringify(config));
+      editor.setConfig(config);
+    });
     wrap.append(editor);
     stage.append(heading, wrap);
   }

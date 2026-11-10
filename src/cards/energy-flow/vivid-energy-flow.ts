@@ -71,6 +71,7 @@ export class VividEnergyFlow extends VividEnergyCard<ResolvedPeriodCard> {
 
   static getConfigElement(): HTMLElement {
     return energyEditor({
+      devices: true,
       fields: [
         {
           name: 'period',

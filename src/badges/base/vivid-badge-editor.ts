@@ -1,4 +1,8 @@
 import { LitElement, css, html, nothing } from 'lit';
+import '../../components/editor/vivid-slot-editor';
+import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import type { SlotValue } from '../../core/slots';
+import { slotText } from '../../i18n/slots';
 import { SIMPLE_ACTIONS, type ActionName } from '../../core/action-handler';
 import { fireEvent } from '../../core/actions';
 import { GLOW_SLIDER, glowPercent } from '../../core/glow';
@@ -85,6 +89,9 @@ export class VividBadgeEditor extends LitElement {
     css`
       :host {
         display: block;
+      }
+      .members {
+        margin-top: 12px;
       }
       .error {
         margin-top: 8px;
@@ -260,7 +267,30 @@ export class VividBadgeEditor extends LitElement {
           this.onChange(fields, event.detail.value);
         }}
       ></ha-form>
-      ${error ? html`<div class="error">${error}</div>` : nothing}`;
+      ${this.renderMembers(config)} ${error ? html`<div class="error">${error}</div>` : nothing}`;
+  }
+
+  /** On a group: its members, any of them left out, others added. */
+  private renderMembers(config: Record<string, unknown>) {
+    const hass = this.hass;
+    const entity = typeof config.entity === 'string' ? config.entity : undefined;
+    const members = entity ? hass?.states[entity]?.attributes.entity_id : undefined;
+    if (!hass || !Array.isArray(members)) return nothing;
+    return html`<vivid-slot-editor
+      class="members"
+      .hass=${hass}
+      .label=${slotText(hass, 'group_members')}
+      icon="mdi:format-list-group"
+      .multiple=${true}
+      .modes=${['auto'] as const}
+      .value=${membersValue(config)}
+      .resolved=${membersSlot(hass, config)}
+      @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) => {
+        const next = applyMembers({ ...config }, event.detail.value);
+        this._config = next;
+        fireEvent(this, 'config-changed', { config: next });
+      }}
+    ></vivid-slot-editor>`;
   }
 }
 

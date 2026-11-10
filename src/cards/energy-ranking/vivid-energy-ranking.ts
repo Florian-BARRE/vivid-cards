@@ -29,6 +29,7 @@ const RANKING_PERIODS = ENERGY_PERIODS;
 export class VividEnergyRanking extends VividEnergyFlow {
   static override getConfigElement(): HTMLElement {
     return energyEditor({
+      devices: true,
       fields: [
         {
           name: 'period',

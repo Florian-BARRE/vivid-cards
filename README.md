@@ -177,6 +177,7 @@ tariff:
 
 Each card has its own page, with its options, examples and screenshots:
 **[the documentation](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/README.md)**. Also there:
+[discovery: auto, adjusted, manual](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/discovery.md),
 [troubleshooting](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/troubleshooting.md),
 [halos and theming](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/theming.md),
 [development](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/development.md).

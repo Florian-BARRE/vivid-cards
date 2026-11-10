@@ -1,81 +1,199 @@
-import type { RoomHeaderCardConfig } from './config';
-import { roleOf, type FoundRole } from './roles';
+/* ====== Code Summary ======
+ * The room header editor's changes to the config, as pure functions: the
+ * 0.14–0.17 options moved to the slots once (so everything shows in the
+ * editor), a slot's value, the discovery settings, the power button, and the
+ * badges list (add, move, remove, options). Each writes the shortest config:
+ * a default is left out.
+ */
 
-type FormData = Record<string, unknown>;
+import type { HomeAssistant } from '../../core/hass-types';
+import { readSlot, writeSlot, type SlotValue } from '../../core/slots';
+import {
+  resolveRoomHeaderConfig,
+  type PowerButtonConfig,
+  type RoomBadgeConfig,
+  type RoomHeaderCardConfig,
+} from './config';
+import { lightRoleOf } from './light-roles';
+import { roomSlots } from './room-slots';
+import { ROOM_ROLES, roleOf, roleSpec, type RoomRole } from './roles';
 
-const TEXT_KEYS = ['room', 'name', 'power', 'entity'] as const;
-const BOOL_KEYS = ['show_subtitle', 'show_badges'] as const;
+type Config = RoomHeaderCardConfig;
 
-/** The form's values as the editor shows them (defaults filled in). */
-export function roomHeaderFormData(config: RoomHeaderCardConfig): FormData {
-  return {
-    room: config.room ?? '',
-    discover: config.discover !== false,
-    name: config.name ?? '',
-    lights: Array.isArray(config.lights) ? config.lights : [],
-    power: config.power ?? '',
-    entity: config.entity ?? '',
-    show_subtitle: config.show_subtitle !== false,
-    show_badges: config.show_badges !== false,
-    glow: typeof config.glow === 'number' ? config.glow : 100,
-  };
-}
+/* ============================== 0.14–0.17 options ============================== */
 
 /**
- * Applies the form's values to the config, leaving defaults out so the YAML
- * stays short. `badges` (YAML only) is kept as it is.
+ * Moves `exclude`, `lights`, `power` and badges without `slot` into the slots
+ * and the badges list, so the editor shows all of it. Entity ids left out go
+ * to the slot that finds them (needs `hass`; kept as they are without it).
  */
-export function applyRoomHeaderForm(
-  config: RoomHeaderCardConfig,
-  value: FormData,
-): RoomHeaderCardConfig {
+export function migrateRoomHeaderConfig(config: Config, hass?: HomeAssistant): Config {
   const next: Record<string, unknown> = { ...config };
-  for (const key of TEXT_KEYS) {
-    const text = typeof value[key] === 'string' ? (value[key] as string).trim() : '';
-    if (text) next[key] = text;
-    else delete next[key];
-  }
-  const lights = Array.isArray(value.lights)
-    ? (value.lights as unknown[]).filter((id): id is string => typeof id === 'string' && !!id)
+  const entities: Partial<Record<RoomRole, SlotValue>> = { ...(config.entities ?? {}) };
+  const exclude = Array.isArray(config.exclude)
+    ? config.exclude.filter((item) => typeof item === 'string')
     : [];
-  if (lights.length) next.lights = lights;
-  else delete next.lights;
-  if (value.discover === false) next.discover = false;
-  else delete next.discover;
-  for (const key of BOOL_KEYS) {
-    if (value[key] === false) next[key] = false;
-    else delete next[key];
+  const keptExclusions: string[] = [];
+  for (const item of exclude) {
+    if (item.includes('.')) continue;
+    const role = roleOf(item);
+    if (role && entities[role] === undefined) entities[role] = false;
   }
-  if (typeof value.glow === 'number' && value.glow !== 100) next.glow = value.glow;
-  else if (typeof value.glow === 'number') delete next.glow;
-  return next as RoomHeaderCardConfig;
-}
-
-function excludeList(config: RoomHeaderCardConfig): string[] {
-  return Array.isArray(config.exclude)
-    ? config.exclude.filter((item): item is string => typeof item === 'string')
-    : [];
-}
-
-/** A found role is left out by its role (any alias) or by its entity id. */
-export function isRoleExcluded(config: RoomHeaderCardConfig, found: FoundRole): boolean {
-  return excludeList(config).some(
-    (item) => item.trim() === found.entity || roleOf(item) === found.role,
-  );
-}
-
-/** Turns a found role on (removes what excludes it) or off (adds its role to `exclude`). */
-export function setRoleIncluded(
-  config: RoomHeaderCardConfig,
-  found: FoundRole,
-  included: boolean,
-): RoomHeaderCardConfig {
-  const rest = excludeList(config).filter(
-    (item) => item.trim() !== found.entity && roleOf(item) !== found.role,
-  );
-  const exclude = included ? rest : [...rest, found.role];
-  const next: Record<string, unknown> = { ...config };
-  if (exclude.length) next.exclude = exclude;
+  const ids = exclude.filter((item) => item.includes('.'));
+  if (ids.length) {
+    let slots: ReturnType<typeof roomSlots> | undefined;
+    try {
+      slots = hass
+        ? roomSlots(hass, resolveRoomHeaderConfig({ ...config, exclude: [] }))
+        : undefined;
+    } catch {
+      slots = undefined;
+    }
+    for (const id of ids) {
+      const role = slots
+        ? ROOM_ROLES.find((spec) => slots![spec.role].entries.some((entry) => entry.entity === id))
+            ?.role
+        : undefined;
+      if (!role) {
+        keptExclusions.push(id);
+        continue;
+      }
+      const slot = readSlot(entities[role]);
+      if (slot.mode !== 'auto') continue;
+      entities[role] = writeSlot(
+        { ...slot, exclude: [...slot.exclude, id] },
+        roleSpec(role).multiple,
+      );
+    }
+  }
+  if (Array.isArray(config.lights) && config.lights.length) {
+    const lists: Partial<Record<RoomRole, string[]>> = {};
+    for (const id of config.lights) (lists[lightRoleOf(id)] ??= []).push(id);
+    for (const role of ['lampes', 'leds', 'interrupteurs'] as const)
+      entities[role] = lists[role] ?? false;
+  }
+  if (typeof config.power === 'string' && config.power) entities.puissance = config.power;
+  if (
+    Array.isArray(config.badges) &&
+    config.badges.length &&
+    !config.badges.some((item) => item.slot !== undefined)
+  ) {
+    next.badges = [{ slot: '*' }, ...config.badges];
+  }
+  delete next.lights;
+  delete next.power;
+  if (keptExclusions.length) next.exclude = keptExclusions;
   else delete next.exclude;
-  return next as RoomHeaderCardConfig;
+  return withEntities(next as Config, entities);
+}
+
+function withEntities(config: Config, entities: Partial<Record<RoomRole, SlotValue>>): Config {
+  const next: Record<string, unknown> = { ...config };
+  const kept = Object.fromEntries(
+    Object.entries(entities).filter(([, value]) => value !== undefined),
+  );
+  if (Object.keys(kept).length) next.entities = kept;
+  else delete next.entities;
+  return next as Config;
+}
+
+/* ============================== Slots and discovery ============================== */
+
+/** Writes one role's slot (`undefined` = back to auto). */
+export function setSlot(config: Config, role: RoomRole, value: SlotValue): Config {
+  return withEntities(config, { ...(config.entities ?? {}), [role]: value });
+}
+
+/** Sets a top-level option, leaving it out when it is the default. */
+export function setOption(
+  config: Config,
+  key: keyof Config,
+  value: unknown,
+  fallback?: unknown,
+): Config {
+  const next: Record<string, unknown> = { ...config };
+  const empty = value === undefined || value === '' || value === null;
+  if (empty || value === fallback) delete next[key as string];
+  else next[key as string] = value;
+  return next as Config;
+}
+
+/** Sets the name pattern (the default one is left out). */
+export function setPattern(config: Config, pattern: string): Config {
+  const next: Record<string, unknown> = { ...config };
+  const value = pattern.trim();
+  if (!value || value === '{room}-{role}') delete next.naming;
+  else next.naming = { ...(config.naming ?? {}), pattern: value };
+  return next as Config;
+}
+
+/* ============================== Power button ============================== */
+
+export function setPowerButton(
+  config: Config,
+  key: keyof PowerButtonConfig,
+  value: unknown,
+): Config {
+  const button: Record<string, unknown> = { ...(config.power_button ?? {}) };
+  if (value === undefined || value === null || (key === 'show' && value === 'auto'))
+    delete button[key];
+  else button[key] = value;
+  const next: Record<string, unknown> = { ...config };
+  if (Object.keys(button).length) next.power_button = button;
+  else delete next.power_button;
+  return next as Config;
+}
+
+/* ============================== Badges ============================== */
+
+/** The badges list as the editor shows it (`[{ slot: "*" }]` when unset). */
+export function badgeItems(config: Config): RoomBadgeConfig[] {
+  return Array.isArray(config.badges) && config.badges.length ? config.badges : [{ slot: '*' }];
+}
+
+function withBadges(config: Config, badges: RoomBadgeConfig[]): Config {
+  const next: Record<string, unknown> = { ...config };
+  const isDefault =
+    badges.length === 1 && badges[0]?.slot === '*' && Object.keys(badges[0]).length === 1;
+  if (isDefault) delete next.badges;
+  else next.badges = badges;
+  return next as Config;
+}
+
+export function addBadgeItem(config: Config, item: RoomBadgeConfig): Config {
+  return withBadges(config, [...badgeItems(config), item]);
+}
+
+export function removeBadgeItem(config: Config, index: number): Config {
+  return withBadges(
+    config,
+    badgeItems(config).filter((_, position) => position !== index),
+  );
+}
+
+export function moveBadgeItem(config: Config, index: number, offset: -1 | 1): Config {
+  const items = [...badgeItems(config)];
+  const target = index + offset;
+  if (index < 0 || target < 0 || index >= items.length || target >= items.length) return config;
+  [items[index], items[target]] = [items[target]!, items[index]!];
+  return withBadges(config, items);
+}
+
+/** Sets options of a badge (an empty value removes the option). */
+export function setBadgeOptions(
+  config: Config,
+  index: number,
+  options: Record<string, unknown>,
+): Config {
+  const items = badgeItems(config).map((item, position) => {
+    if (position !== index) return item;
+    const next: Record<string, unknown> = { ...item };
+    for (const [key, value] of Object.entries(options)) {
+      const empty = value === undefined || value === '' || (Array.isArray(value) && !value.length);
+      if (empty) delete next[key];
+      else next[key] = value;
+    }
+    return next as RoomBadgeConfig;
+  });
+  return withBadges(config, items);
 }

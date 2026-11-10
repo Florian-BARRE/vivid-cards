@@ -1,4 +1,10 @@
 import { LitElement, css, html, nothing } from 'lit';
+import '../components/editor/vivid-slot-editor';
+import { parseSlot, readSlot, resolveSlot, type SlotValue } from '../core/slots';
+import { slotText } from '../i18n/slots';
+import { energySources, type DeviceSource } from './data';
+import '../components/editor/vivid-invoices-editor';
+import type { InvoiceConfig } from '../components/editor/vivid-invoices-editor';
 import { fireEvent } from '../core/actions';
 import { ensureHaForm } from '../core/ha-elements';
 import type { HomeAssistant } from '../core/hass-types';
@@ -22,6 +28,8 @@ export interface EnergyEditorField {
 
 export interface EnergyEditorSpec {
   fields: EnergyEditorField[];
+  /** The card lists devices: show which, adjustable. */
+  devices?: boolean;
   /** Throws when the config is invalid (the message shows under the form). */
   validate(config: Record<string, unknown>): void;
 }
@@ -44,18 +52,24 @@ export class VividEnergyEditor extends LitElement {
     spec: { attribute: false },
     _config: { state: true },
     _error: { state: true },
+    _devices: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare spec?: EnergyEditorSpec;
   declare _config?: Record<string, unknown>;
   declare _error?: string;
+  /** Devices of the Energy dashboard, once read. */
+  declare _devices?: DeviceSource[];
 
   static override styles = [
     tokens,
     css`
       :host {
         display: block;
+      }
+      .devices {
+        margin-top: 12px;
       }
       .hint {
         margin: 8px 0 0;
@@ -77,6 +91,48 @@ export class VividEnergyEditor extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     void ensureHaForm().then(() => this.requestUpdate());
+  }
+
+  protected override willUpdate(): void {
+    if (this.spec?.devices && this.hass && !this._devices) {
+      this._devices = [];
+      void energySources(this.hass).then((sources) => (this._devices = sources.devices));
+    }
+  }
+
+  /** The devices slot: the Energy dashboard's devices, adjusted. */
+  private renderDevices() {
+    if (!this.spec?.devices || !this.hass || !this._config) return nothing;
+    const value = this._config.devices;
+    let slot = readSlot(value);
+    try {
+      slot = parseSlot(value, 'devices');
+    } catch {
+      // Shown as auto; the error shows under the form.
+    }
+    const found = (this._devices ?? []).map((device) => ({
+      entity: device.stat,
+      source: 'energy' as const,
+      via: device.name ?? '',
+    }));
+    return html`<vivid-slot-editor
+      class="devices"
+      .hass=${this.hass}
+      .label=${slotText(this.hass, 'energy_devices')}
+      icon="mdi:devices"
+      .multiple=${true}
+      .domains=${['sensor']}
+      .modes=${['auto', 'manual'] as const}
+      .value=${value}
+      .resolved=${resolveSlot(slot, found, true)}
+      @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) => {
+        const next = { ...(this._config ?? {}) };
+        if (event.detail.value === undefined) delete next.devices;
+        else next.devices = event.detail.value;
+        this._config = next;
+        fireEvent(this, 'config-changed', { config: next });
+      }}
+    ></vivid-slot-editor>`;
   }
 
   private t(key: EditorStringKey): string {
@@ -169,7 +225,7 @@ export class VividEnergyEditor extends LitElement {
         .filter(Boolean);
       tariff.off_peak_hours = ranges.length ? ranges : undefined;
     }
-    // Keep the invoices written in YAML.
+    // Keep the invoices (edited in their own list).
     const previous = this._config?.tariff as Record<string, unknown> | undefined;
     if (previous?.invoices) tariff.invoices = previous.invoices;
     for (const key of Object.keys(tariff)) {
@@ -191,6 +247,23 @@ export class VividEnergyEditor extends LitElement {
     }
     this._config = next;
     fireEvent(this, 'config-changed', { config: next });
+  }
+
+  /** Replaces the invoices of the tariff (left out when there are none). */
+  private setInvoices(list: InvoiceConfig[]): void {
+    const config = { ...(this._config ?? {}) };
+    const tariff = { ...((config.tariff as Record<string, unknown> | undefined) ?? {}) };
+    if (list.length) tariff.invoices = list;
+    else delete tariff.invoices;
+    config.tariff = tariff;
+    try {
+      this.spec?.validate(config);
+      this._error = undefined;
+    } catch (error) {
+      this._error = (error as Error).message;
+    }
+    this._config = config;
+    fireEvent(this, 'config-changed', { config });
   }
 
   protected override render() {
@@ -226,7 +299,12 @@ export class VividEnergyEditor extends LitElement {
           this.changed(event.detail.value);
         }}
       ></ha-form>
-      <p class="hint">${this.t('energy_invoices_hint')}</p>
+      ${this.renderDevices()}
+      <vivid-invoices-editor
+        .hass=${this.hass}
+        .invoices=${((this._config.tariff as { invoices?: InvoiceConfig[] } | undefined)?.invoices ?? []) as InvoiceConfig[]}
+        @invoices-changed=${(event: CustomEvent<{ value: InvoiceConfig[] }>) => this.setInvoices(event.detail.value)}
+      ></vivid-invoices-editor>
       ${this._error ? html`<div class="error">${this._error}</div>` : nothing}`;
   }
 }

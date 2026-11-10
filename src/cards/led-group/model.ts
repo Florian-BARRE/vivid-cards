@@ -149,7 +149,10 @@ export function buildLedGroupModel(
   config: ResolvedLedGroupConfig,
 ): LedGroupModel {
   const groupState = hass.states[config.entity];
-  const memberIds = expandGroup(hass, config.entity);
+  const excluded = new Set(config.exclude ?? []);
+  const memberIds = [
+    ...new Set([...expandGroup(hass, config.entity), ...(config.add ?? [])]),
+  ].filter((id) => !excluded.has(id));
   const isGroup = Array.isArray(groupState?.attributes.entity_id) && memberIds.length > 0;
   const autoNames = shortenSiblingNames(memberIds.map((id) => friendlyName(hass, id)));
   const watched = new Set<string>([config.entity, ...memberIds]);

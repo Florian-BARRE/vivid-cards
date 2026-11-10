@@ -21,6 +21,10 @@ export interface BaseBadgeConfig extends LovelaceCardConfig {
   entity?: string;
   /** Several entities, instead of a group. */
   entities?: string[];
+  /** Members of the group left out. */
+  exclude?: string[];
+  /** Entities added to the group's members. */
+  add?: string[];
   /** Title of the details. */
   name?: string;
   icon?: string;
@@ -37,6 +41,8 @@ export interface ResolvedBaseBadge {
   type: string;
   entity?: string;
   entities?: string[];
+  exclude?: string[];
+  add?: string[];
   name?: string;
   icon?: string;
   iconOff?: string;
@@ -150,10 +156,21 @@ export function resolveBase(reader: ConfigReader, options: BaseOptions): Resolve
     }
   }
   const details: ActionConfig = { action: 'details' };
+  const list = (field: 'exclude' | 'add'): string[] | undefined => {
+    const value = reader.config[field];
+    if (value === undefined || value === null) return undefined;
+    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+      reader.fail(`"${field}" must be a list of entity ids.`);
+    }
+    const ids = (value as string[]).map((item) => item.trim()).filter(Boolean);
+    return ids.length ? ids : undefined;
+  };
   return {
     type: String(reader.config.type ?? ''),
     entity,
     entities: entities?.length ? entities : undefined,
+    exclude: list('exclude'),
+    add: list('add'),
     name: reader.text('name'),
     icon: reader.text('icon'),
     iconOff: reader.text('icon_off'),

@@ -46,3 +46,52 @@ export const buttonReset = css`
     outline-offset: 2px;
   }
 `;
+
+/**
+ * Folding sections of the visual editors (`<details class="section">` with a
+ * summary: icon, title, hint, chevron), as in the lamp and LED group editors.
+ */
+export const editorSections = css`
+  .section {
+    border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .section > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .section > summary::-webkit-details-marker {
+    display: none;
+  }
+  .section-title {
+    font-weight: 500;
+    flex: none;
+  }
+  .section > summary .hint {
+    flex: 1;
+    min-width: 0;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .section > summary .chevron {
+    margin-left: auto;
+    transition: transform 0.2s ease;
+  }
+  .section[open] > summary .chevron {
+    transform: rotate(180deg);
+  }
+  .section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 14px 14px;
+  }
+`;

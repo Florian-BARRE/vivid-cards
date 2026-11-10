@@ -56,6 +56,10 @@ export interface LedGroupMemberConfig {
 
 export interface LedGroupCardConfig extends LovelaceCardConfig {
   entity: string;
+  /** Members of the group left out of the card. */
+  exclude?: string[];
+  /** Lights added to the group's members. */
+  add?: string[];
   name?: string;
   icon?: string;
   layout?: CardLayout;
@@ -206,6 +210,10 @@ export interface ResolvedLedGroupConfig {
     order: string[];
   };
   members: Map<string, LedGroupMemberConfig>;
+  /** Members of the group left out of the card. */
+  exclude?: string[];
+  /** Lights added to the group's members. */
+  add?: string[];
 }
 
 export const DEFAULT_ICON = 'mdi:led-strip-variant';
@@ -477,6 +485,15 @@ function resolveInputs(value: unknown): ResolvedLedGroupConfig['ambilight']['inp
   });
 }
 
+function entityIds(value: unknown, field: string): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    fail(`"${field}" must be a list of entity ids.`);
+  }
+  const ids = (value as string[]).map((item) => item.trim()).filter(Boolean);
+  return ids.length ? ids : undefined;
+}
+
 export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = migrateConfig(raw as LedGroupCardConfig);
@@ -495,6 +512,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
   return {
     type: config.type,
     entity,
+    exclude: entityIds(config.exclude, 'exclude'),
+    add: entityIds(config.add, 'add'),
     name: optionalString(config.name, 'name'),
     icon: optionalString(config.icon, 'icon'),
     layout: optionalChoice(config.layout, 'layout', CARD_LAYOUTS) ?? 'default',
