@@ -4,6 +4,37 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.18.0] - 2026-11-10
+
+### Added
+
+- Slots: everything a card expects (a room's lamps, its presence sensor, a
+  device's fan, a group's members, the Energy dashboard's devices) is found
+  automatically, and each can be adjusted (left out, added), chosen by hand
+  or turned off, in the visual editor. Each entity shows where it comes from:
+  found by its name, in an area, as a group member, from the device, from the
+  Energy dashboard, added, chosen. See `docs/guides/discovery.md`.
+- `vivid-room-header`: the name pattern (`{room}-{role}` by default) and the
+  Home Assistant area are set in the editor; the power button runs the room's
+  scripts (`<room>-scripts-on`, `-off`, `-toggle`) when there are, or any
+  Home Assistant action set in the editor, for each way and for a hold; it
+  shows automatically, always or never; the badges are listed in order (a
+  role's badge, the other badges found, free badges), each with its options,
+  its actions and "shown only when"; a free badge shows its own editor.
+- Air Station and Ambilight: every entity of the device listed in the editor,
+  to swap or turn off.
+- LED and lamp cards, and the badges on a group: group members left out or
+  added (`exclude`, `add`).
+- Energy ranking and flow: the devices adjusted or listed (`devices`).
+- Energy cards and badges: invoices added, edited and removed in the editor.
+
+### Changed
+
+- `vivid-room-header`: a tap on the power button used to switch the lights
+  directly and so ignored the room's scripts (they restore the last state of
+  the lights); it now runs them. Configs of 0.14–0.17 (`exclude`, `lights`,
+  `power`, `badges`) keep working and show in the new editor.
+
 ## [0.17.0] - 2026-11-04
 
 ### Added
