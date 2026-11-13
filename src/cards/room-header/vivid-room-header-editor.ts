@@ -24,6 +24,7 @@ import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { pilotNodeLabel } from '../../i18n/pilot';
 import { tokens } from '../../components/shared-styles';
 import '../../components/editor/vivid-action-field';
+import { sourceSection } from '../../components/editor/source-section';
 import '../../components/editor/vivid-editor-section';
 import '../../components/editor/vivid-slot-editor';
 import {
@@ -153,52 +154,41 @@ export class VividRoomHeaderEditor extends LitElement {
       { value: HOME_NODE, label: this.rh('rh_room_home') },
       ...rooms.map((room) => ({ value: room.area, label: room.name })),
     ];
-    const schema: Form[] = [
-      {
-        name: 'source',
-        selector: {
-          select: {
-            mode: 'box',
-            options: [
-              { value: 'pilot', label: this.rh('rh_source_pilot') },
-              { value: 'manual', label: this.rh('rh_source_manual') },
-            ],
-          },
-        },
+    const picker =
+      source === 'pilot'
+        ? this.form(
+            [{ name: 'pilot', selector: { select: { mode: 'dropdown', options: roomOptions } } }],
+            { pilot: config.pilot ?? '' },
+            { pilot: this.rh('src_pilot_room') },
+            {},
+            (value) => setOption(config, 'pilot', value.pilot),
+          )
+        : nothing;
+    return sourceSection({
+      hass: this.hass,
+      choices: ['pilot', 'manual'],
+      source,
+      hint:
+        source === 'pilot' && config.pilot && this.hass
+          ? pilotNodeLabel(this.hass, config.pilot)
+          : undefined,
+      onSource: (next) => {
+        const choice: HeaderSource = next === 'pilot' ? 'pilot' : 'manual';
+        this._source = choice;
+        this.commit(setSource(config, choice));
       },
-    ];
-    if (source === 'pilot') {
-      schema.push({
-        name: 'pilot',
-        selector: { select: { mode: 'dropdown', options: roomOptions } },
-      });
-    }
-    return html`${this.form(
-      schema,
-      { source, pilot: config.pilot ?? '' },
-      { source: this.rh('rh_source'), pilot: this.rh('rh_pilot') },
-      {
-        source: this.rh(source === 'pilot' ? 'rh_source_helper_pilot' : 'rh_source_helper_manual'),
-      },
-      (value) => {
-        const next = (value.source as HeaderSource | undefined) ?? source;
-        if (next !== source) {
-          this._source = next;
-          return setSource(config, next);
-        }
-        return setOption(config, 'pilot', value.pilot);
-      },
-    )}
-    ${
-      source === 'pilot' && !rooms.length
-        ? html`<div class="error">${this.rh('rh_pilot_missing')}</div>`
-        : nothing
-    }
-    ${
-      state.error && !(source === 'pilot' && !config.pilot)
-        ? html`<div class="error">${state.error}</div>`
-        : nothing
-    }`;
+      content: html`${picker}
+      ${
+        source === 'pilot' && !rooms.length
+          ? html`<div class="error">${this.rh('rh_pilot_missing')}</div>`
+          : nothing
+      }
+      ${
+        state.error && !(source === 'pilot' && !config.pilot)
+          ? html`<div class="error">${state.error}</div>`
+          : nothing
+      }`,
+    });
   }
 
   /* ------------------------------ slots ------------------------------ */
@@ -383,13 +373,7 @@ export class VividRoomHeaderEditor extends LitElement {
     const title = config.name ?? room;
     const shown = shownBadges(config, state.slots).length;
     return html`<div class="editor">
-      <vivid-editor-section
-        open
-        icon=${source === 'pilot' ? 'mdi:steering' : 'mdi:hand-back-right-outline'}
-        .heading=${this.rh('rh_section_source')}
-        .hint=${source === 'pilot' ? room || this.rh('rh_source_pilot') : this.rh('rh_source_manual')}
-        >${this.renderSource(config, source, state)}</vivid-editor-section
-      >
+      ${this.renderSource(config, source, state)}
       <vivid-editor-section
         icon="mdi:format-title"
         .heading=${this.rh('rh_section_title')}

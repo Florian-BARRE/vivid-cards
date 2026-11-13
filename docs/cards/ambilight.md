@@ -91,21 +91,25 @@ are shown as the firmware writes them.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ambilight-editor.png" alt="Visual editor of the Ambilight card" width="300" />
 </p>
 
-Two tiles joined by their link: the **Ambilight box** (the ESPHome device:
-online, how many entities found and which are missing) and the **HyperHDR
-server** (connected, CPU temperature; the only one is used when none is
-picked). The link between them says whether the fan follows the Pi's CPU. When
-HyperHDR is connected but the firmware still follows the box, the firmware does
-not read the server's entities: the editor writes the `substitutions` to put in
-the ESPHome YAML, with the server's real entity ids (the details' Maintenance
-tab shows them too). It also warns when the server has no Power off button
-(SSH not set up in HA-HyperHDR), as the Pi would then be cut without shutting
-down.
+Every card editor is built the same way: **Source** first, then one folding
+section per part of the card, from top to bottom.
 
-Then the HDMI inputs, as on the card: tap one to name it, pick its icon or
-hide it from the menu. Display: layout, input menu, the values next to the
-name as numbered chips (tap to add or remove, arrows to reorder), the line
-under the name, the Pi button, name, confirmation, halo, send counter.
+| Section            | What it sets                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| **Source**         | Automatic (the box found by its ESPHome device) or manual (device, prefix or entities) |
+| **Header**         | Name, layout, status line, values next to the name                                     |
+| **HDMI inputs**    | Input menu; per input: name, icon, hidden from the menu                                |
+| **Raspberry Pi**   | Pi button and its confirmation, HyperHDR server and the link to the fan                |
+| **Details window** | Send counter                                                                           |
+| **Appearance**     | Halo                                                                                   |
+
+The Source tile shows the box (online, entities found, missing ones). The
+Raspberry Pi section shows the HyperHDR server (connected, CPU temperature; the
+only one is used when none is picked) and whether the fan follows the Pi's CPU.
+When HyperHDR is connected but the firmware still follows the box, the editor
+writes the `substitutions` to put in the ESPHome YAML, with the server's real
+entity ids. It also warns when the server has no Power off button (SSH not set
+up in HA-HyperHDR), as the Pi would then be cut without shutting down.
 
 ## Recipes
 
