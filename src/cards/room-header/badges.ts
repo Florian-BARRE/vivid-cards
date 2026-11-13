@@ -1,6 +1,8 @@
 /* ====== Code Summary ======
  * The badges a room header shows, from its badges list: the badge of a role
- * (one per light for the light roles) with its options, "the rest" (`*`:
+ * (one per light for the light roles) with its options — a badge whose
+ * entity comes straight from Vivid Pilot gets the node instead (`pilot:`),
+ * so a home-level badge lists the rooms — "the rest" (`*`:
  * every role's badge not listed elsewhere, in the order of the roles), and
  * free badges. A free badge on the entity of a found badge takes its place.
  * Each badge can carry state conditions (shown only when…).
@@ -19,6 +21,8 @@ export interface ShownBadge {
   config: { type: string; entity?: string; [key: string]: unknown };
   /** The role it shows, or none for a free badge. */
   role?: RoomRole;
+  /** The entity it shows (a role's, even when its config names the Pilot node). */
+  entity?: string;
   visibility?: StateCondition[];
 }
 
@@ -33,12 +37,18 @@ function roleBadges(
   const tag = typeof options.type === 'string' ? options.type.replace(/^custom:/, '') : spec.badge;
   if (!tag || !isDefined(tag)) return [];
   const { slot: _slot, visibility, type: _type, ...rest } = options;
-  return slots[role].entities.map((entity) => ({
-    key: `${key}:${entity}`,
-    config: { ...rest, type: `custom:${tag}`, entity },
-    role,
-    visibility: visibility as StateCondition[] | undefined,
-  }));
+  const slot = slots[role];
+  return slot.entities.map((entity) => {
+    const found = slot.entries.find((entry) => entry.entity === entity)?.found;
+    const target = found?.source === 'pilot' ? { pilot: found.via } : { entity };
+    return {
+      key: `${key}:${entity}`,
+      config: { ...spec.badgeOptions, ...rest, type: `custom:${tag}`, ...target },
+      role,
+      entity,
+      visibility: visibility as StateCondition[] | undefined,
+    };
+  });
 }
 
 /** Badges in the order of the list, `*` expanded. */
@@ -57,7 +67,7 @@ export function roomBadges(
     if (item.slot === '*') {
       return ROOM_ROLES.filter((spec) => spec.badge && !listed.has(spec.role)).flatMap((spec) =>
         roleBadges(slots, spec.role, {}, `*:${spec.role}`, isDefined).filter(
-          (badge) => !freeEntities.has(badge.config.entity ?? ''),
+          (badge) => !freeEntities.has(badge.entity ?? ''),
         ),
       );
     }

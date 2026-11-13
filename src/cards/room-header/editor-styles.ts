@@ -242,4 +242,16 @@ export const roomEditorStyles = css`
     opacity: 0.4;
     cursor: default;
   }
+
+  .badge-item.hidden .row {
+    opacity: 0.6;
+  }
+  .badge-item ha-checkbox {
+    flex: none;
+    margin: -8px 0 -8px -8px;
+  }
+  .badge-slot {
+    display: block;
+    margin: 8px 0 0 32px;
+  }
 `;

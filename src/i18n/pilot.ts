@@ -11,7 +11,7 @@ type CategoryNames = Record<PilotCategory, string> & { home: string };
 
 const en: CategoryNames = {
   home: 'Home',
-  light: 'Lights',
+  light: 'Lamps',
   led: 'LEDs',
   switch: 'Switches',
   door: 'Doors',
@@ -28,7 +28,7 @@ const en: CategoryNames = {
 
 const fr: CategoryNames = {
   home: 'Maison',
-  light: 'Lumières',
+  light: 'Lampes',
   led: 'LEDs',
   switch: 'Interrupteurs',
   door: 'Portes',

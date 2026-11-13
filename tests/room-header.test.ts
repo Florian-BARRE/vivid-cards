@@ -10,7 +10,13 @@ import {
 import {
   addBadgeItem,
   badgeItems,
+  headerSource,
+  listShownBadges,
   moveBadgeItem,
+  moveShownBadge,
+  setRoleBadge,
+  setSource,
+  shownBadges,
   removeBadgeItem,
   setBadgeOptions,
   setPowerButton,
@@ -179,7 +185,7 @@ describe('room badges', () => {
     }).badges;
     expect(badges[0]?.config).toEqual({
       type: 'custom:vivid-presence-badge',
-      entity: PILOT.presence,
+      pilot: 'salon__presence',
       icon: 'mdi:eye',
       tap_action: { action: 'more-info' },
     });
@@ -346,5 +352,79 @@ describe('room header editor model', () => {
     expect(badgeKindOf('custom:vivid-illuminance-badge')?.key).toBe('illuminance');
     expect(badgeKindOf('custom:vivid-bill-badge')).toBeUndefined();
     expect(new Set(BADGE_KINDS.map((kind) => kind.tag)).size).toBe(BADGE_KINDS.length);
+  });
+});
+
+describe('room header, whole home and power modes', () => {
+  it('reads the whole home with pilot: all', () => {
+    const hass = createRoomMock('all');
+    hass.states['light.vivid_pilot_all_light'] = {
+      ...hass.states[PILOT.lights]!,
+      entity_id: 'light.vivid_pilot_all_light',
+      attributes: { ...hass.states[PILOT.lights]!.attributes, vivid_pilot_node: 'all__light' },
+    };
+    const m = model(hass, { pilot: 'all' });
+    expect(m.slots.light.entities).toEqual(['light.vivid_pilot_all_light']);
+    expect(m.name).toBe('Home');
+  });
+
+  it('turns the lights on instead of restoring the memory when asked', () => {
+    const hass = createRoomMock('off', { memory: true });
+    expect(model(hass).plan.on.source).toBe('scene');
+    expect(model(hass, { power_button: { on: 'lights' } }).plan.on.source).toBe('lights');
+  });
+
+  it('shows switches as a toggle', () => {
+    const hass = createRoomMock('all');
+    hass.states['light.vivid_pilot_salon_switch'] = {
+      ...hass.states[PILOT.lights]!,
+      entity_id: 'light.vivid_pilot_salon_switch',
+      attributes: { ...hass.states[PILOT.lights]!.attributes, vivid_pilot_node: 'salon__switch' },
+    };
+    const badge = model(hass).badges.find((item) => item.role === 'switch');
+    expect(badge?.config).toMatchObject({
+      icon: 'mdi:toggle-switch',
+      icon_off: 'mdi:toggle-switch-off-outline',
+      pilot: 'salon__switch',
+    });
+  });
+});
+
+describe('room header editor, source and badges', () => {
+  it("tells the source and switches it, dropping the other one's entities", () => {
+    expect(headerSource(raw())).toBe('pilot');
+    expect(headerSource({ type: 'x', entities: { led: ['light.a'] } })).toBe('manual');
+    const manual = setSource(raw({ entities: { presence: false } }), 'manual');
+    expect(manual).toEqual({ type: 'custom:vivid-room-header' });
+    expect(setSource(manual, 'pilot', 'salon').pilot).toBe('salon');
+  });
+
+  it('lists the shown badges, shows, hides and moves them', () => {
+    const hass = createRoomMock('all', { climate: true });
+    const slots = roomSlots(hass, config());
+    const roles = (c: RoomHeaderCardConfig) => shownBadges(c, slots).map((item) => item.slot);
+    expect(roles(raw())).toEqual([
+      'light',
+      'led',
+      'illuminance',
+      'presence',
+      'window',
+      'door',
+      'temperature',
+      'humidity',
+      'pressure',
+      'co2',
+      'battery',
+    ]);
+    let next = setRoleBadge(raw(), slots, 'presence', false);
+    expect(roles(next)).not.toContain('presence');
+    next = setRoleBadge(next, slots, 'presence', true);
+    expect(roles(next).at(-1)).toBe('presence');
+    next = moveShownBadge(next, slots, roles(next).length - 1, -1);
+    expect(roles(next).at(-2)).toBe('presence');
+    expect(setRoleBadge(raw({ badges: [{ slot: 'led' }] }), slots, 'led', false).badges).toEqual(
+      [],
+    );
+    expect(listShownBadges(raw(), slots).badges).toHaveLength(11);
   });
 });

@@ -8,6 +8,7 @@
 import { expandGroup, friendlyName, isAvailable, parseNumericState } from '../../core/entities';
 import type { HomeAssistant } from '../../core/hass-types';
 import { PilotIndex } from '../../core/pilot';
+import { pilotNodeLabel } from '../../i18n/pilot';
 import { isVisible, roomBadges, type ShownBadge } from './badges';
 import type { ResolvedRoomHeaderConfig } from './config';
 import { haloSources, isOn, type HaloSource } from './halo';
@@ -69,11 +70,12 @@ export function buildRoomHeaderModel(
   const members = [...new Set(lights.flatMap((id) => expandGroup(hass, id)))];
   const readable = members.filter((id) => isAvailable(hass.states[id]));
   const power = slots.power.entities[0];
-  const plan = powerPlan(config, memoryScene(hass, config.pilot), lights);
+  const scene = config.powerOn === 'memory' ? memoryScene(hass, config.pilot) : undefined;
+  const plan = powerPlan(config, scene, lights);
   const name =
     config.name ??
     (config.pilot
-      ? PilotIndex.of(hass).areaName(config.pilot)
+      ? pilotNodeLabel(hass, config.pilot)
       : lights[0]
         ? friendlyName(hass, lights[0])
         : '');

@@ -36,7 +36,13 @@ export interface RoomBadgeConfig {
   [key: string]: unknown;
 }
 
+/** What the button does with everything off, in Vivid Pilot mode. */
+export const POWER_ON = ['memory', 'lights'] as const;
+export type PowerOn = (typeof POWER_ON)[number];
+
 export interface PowerButtonConfig {
+  /** `memory`: the room's last lighting (Vivid Pilot scene); `lights`: turn the lights on. */
+  on?: PowerOn;
   on_action?: unknown;
   off_action?: unknown;
   hold_action?: unknown;
@@ -44,7 +50,7 @@ export interface PowerButtonConfig {
 }
 
 export interface RoomHeaderCardConfig extends LovelaceCardConfig {
-  /** The Vivid Pilot room: its area id (`salon`). */
+  /** The Vivid Pilot room: its area id (`salon`), or `all` for the whole home. */
   pilot?: string;
   name?: string;
   /** One slot per role. */
@@ -67,6 +73,7 @@ export interface ResolvedRoomHeaderConfig {
   entity?: string;
   onAction?: ActionConfig;
   offAction?: ActionConfig;
+  powerOn: PowerOn;
   holdAction?: ActionConfig;
   powerShow: PowerShow;
   badges: RoomBadgeConfig[];
@@ -198,6 +205,7 @@ export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig 
     entity: text(config.entity, 'entity'),
     onAction: action(button.on_action, 'power_button.on_action'),
     offAction: action(button.off_action, 'power_button.off_action'),
+    powerOn: choice(button.on, 'power_button.on', POWER_ON, 'memory'),
     holdAction: action(button.hold_action, 'power_button.hold_action'),
     powerShow: choice(button.show, 'power_button.show', POWER_SHOW, 'auto'),
     badges: badgeList(config.badges),

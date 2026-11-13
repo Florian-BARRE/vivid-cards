@@ -27,27 +27,26 @@ Vivid Pilot sorted into it. Nothing is looked up by entity name.
 
 ## Set up in the editor
 
-Everything is set in the visual editor, in five sections (YAML is optional):
+The editor follows the card from top to bottom (YAML is optional):
 
-- **Room**: the Vivid Pilot room. Without Vivid Pilot, leave it empty and
-  pick every entity by hand.
-- **Lights and power**: one row per light role (lights, LEDs, switches) and the
-  power. Each row shows what Vivid Pilot gives the room, with the
-  [modes](../guides/discovery.md): Pilot, Pilot adjusted (untick, add),
-  manual, off.
-- **Power button**: when it shows, and what a tap does when everything is
-  off and when a light is on, and a hold. By default a tap with everything
-  off restores the room's last lighting (its Vivid Pilot memory scene; the
-  lights when nothing is stored yet), and a tap with a light on turns the
-  room's groups off. Any Home Assistant action can replace either way. The
-  section says in plain words what a tap runs now.
-- **Badges**: the badges in order: the badge of a role, "the other badges
-  found" (every role not listed, so a role Vivid Pilot adds later shows up
-  there), and free badges (a kind and any entity). Each moves, goes away,
-  and unfolds to its options: name, icon, tap and hold actions, "shown only
-  when" an entity is (or is not) in a state; a free badge shows its own full
-  editor. Then one row per badge role, to choose what each shows.
-- **Look**: title, subtitle, halo.
+- **Source**: Vivid Pilot or manual. With Vivid Pilot, pick a room, or
+  **Home** (`pilot: all`) for a header of the whole home; everything below
+  then comes from what Vivid Pilot sorted into it, and stays adjustable.
+  Manual asks for every entity in the same sections.
+- **Title**: the title (the room's name unless you write one), the subtitle,
+  and the lamps, LEDs, switches and power it counts — the power button and
+  the halo use the same lights.
+- **Power button**: when it shows, and what a tap does. With Vivid Pilot, a
+  tap with everything off restores the room's last lighting (its memory
+  scene) or turns the lamps and LEDs on (`power_button.on: lights`); a tap
+  with a light on turns them off. Any Home Assistant action can replace
+  either way, and the hold.
+- **Badges**: every badge the room can show, ticked when shown, in their
+  order (arrows), the hidden ones below. A row unfolds to where its entity
+  comes from (Vivid Pilot, adjustable, or picked by hand) and its options:
+  name, icon, tap and hold actions, "shown only when". Free badges (a kind
+  on any entity) can be added.
+- **Look**: halo.
 
 ## Roles
 
@@ -96,14 +95,14 @@ badges:
 
 ## Options
 
-| Option          | Default         | Description                                                                                                               |
-| --------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `pilot`         |                 | Vivid Pilot room: its area id (`salon`).                                                                                  |
-| `name`          | the area's name | Title.                                                                                                                    |
-| `entities`      |                 | One slot per role: absent (Pilot), `{exclude, add}`, an entity or a list (manual), `false` (off).                         |
-| `entity`        | first light     | Entity whose more-info a hold opens by default.                                                                           |
-| `power_button`  |                 | `on_action`, `off_action`, `hold_action` (Home Assistant actions), `show` (`auto`, `always`, `never`).                    |
-| `badges`        | `[{slot: "*"}]` | Badges in order: `{slot: role}`, `{slot: "*"}`, or a free badge `{type, entity}`; each with its options and `visibility`. |
-| `show_subtitle` | `true`          | Lights on and consumption under the title.                                                                                |
-| `show_badges`   | `true`          | Badge row.                                                                                                                |
-| `glow`          | `100`           | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`.                                                   |
+| Option          | Default         | Description                                                                                                                         |
+| --------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pilot`         |                 | Vivid Pilot room: its area id (`salon`), or `all` for the whole home.                                                               |
+| `name`          | the area's name | Title.                                                                                                                              |
+| `entities`      |                 | One slot per role: absent (Pilot), `{exclude, add}`, an entity or a list (manual), `false` (off).                                   |
+| `entity`        | first light     | Entity whose more-info a hold opens by default.                                                                                     |
+| `power_button`  |                 | `on` (`memory` or `lights`), `on_action`, `off_action`, `hold_action` (Home Assistant actions), `show` (`auto`, `always`, `never`). |
+| `badges`        | `[{slot: "*"}]` | Badges in order: `{slot: role}`, `{slot: "*"}`, or a free badge `{type, entity}`; each with its options and `visibility`.           |
+| `show_subtitle` | `true`          | Lights on and consumption under the title.                                                                                          |
+| `show_badges`   | `true`          | Badge row.                                                                                                                          |
+| `glow`          | `100`           | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`.                                                             |

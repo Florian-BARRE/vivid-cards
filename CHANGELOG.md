@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-13
+
+### Changed
+
+- `vivid-room-header` editor in the order of the card: Source (Vivid Pilot or
+  manual) first, then Title, Power button, Badges, Look. In manual mode the
+  same sections ask for every entity.
+- Badges of the room header: every badge listed, ticked when shown, in
+  order; where each takes its entity unfolds under it.
+- "Lights" are called lamps everywhere (lamps, LEDs, switches stay apart);
+  the switches' badge is a toggle, filled when on.
+
+### Added
+
+- A header of the whole home: `pilot: all`.
+- `power_button.on: lights` turns the lamps and LEDs on instead of restoring
+  the room's last lighting.
+- Room header badges taken from Vivid Pilot get the node, so a whole-home
+  badge lists the rooms.
+
 ## [1.0.0] - 2026-11-13
 
 Vivid Cards now run on [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot),
