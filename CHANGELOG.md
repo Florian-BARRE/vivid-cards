@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-11-13
+
+### Fixed
+
+- `vivid-led-group` editor: the Strips section uses the LED strip icon and
+  counts strips ("1 bandeau"), and the texts about the strips say strip instead
+  of light.
+
 ## [1.3.0] - 2026-11-13
 
 ### Changed
