@@ -60,9 +60,9 @@ describe('registry helpers', () => {
 
 describe('power sources', () => {
   const light = 'light.salon_buffet_wled';
-  const pattern = { sensorPattern: 'sensor.{object_id}_puissance' };
+  const pattern = {};
 
-  it('follows the auto priority: chosen sensor, pattern, device, estimate', () => {
+  it('follows the auto priority: chosen sensor, Vivid Pilot, device, estimate', () => {
     const { hass } = createMockHass();
     expect(
       resolvePowerSource(hass, light, pattern, { sensor: 'sensor.salon_canape_wled_puissance' }),
@@ -70,8 +70,9 @@ describe('power sources', () => {
     expect(resolvePowerSource(hass, light, pattern)).toEqual({
       kind: 'power',
       entityId: 'sensor.salon_buffet_wled_puissance',
-      origin: 'pattern',
+      origin: 'pilot',
     });
+    delete hass.states['sensor.salon_buffet_wled_puissance'];
     expect(resolvePowerSource(hass, light, { voltage: 5 })).toEqual({
       kind: 'current',
       entityId: 'sensor.salon_buffet_wled_estimated_current',
@@ -114,7 +115,7 @@ describe('power sources', () => {
       readWatts(mock.hass, {
         kind: 'power',
         entityId: 'sensor.salon_buffet_wled_puissance',
-        origin: 'pattern',
+        origin: 'sensor',
       }),
     ).toBe(250);
   });
@@ -123,10 +124,7 @@ describe('power sources', () => {
 describe('buildLedGroupModel', () => {
   it('describes the group and its strips', () => {
     const { hass } = createMockHass();
-    const model = buildLedGroupModel(
-      hass,
-      config({ power: { sensor_pattern: 'sensor.{object_id}_puissance' } }),
-    );
+    const model = buildLedGroupModel(hass, config({}));
 
     expect(model.name).toBe('Salon LEDs');
     expect(model.isOn).toBe(true);
@@ -252,10 +250,7 @@ describe('buildLedGroupModel', () => {
 
   it('watches every entity it reads', async () => {
     const mock = createMockHass();
-    const model = buildLedGroupModel(
-      mock.hass,
-      config({ power: { sensor_pattern: 'sensor.{object_id}_puissance' } }),
-    );
+    const model = buildLedGroupModel(mock.hass, config({}));
     expect(model.watched).toEqual(
       expect.arrayContaining([
         GROUP_ID,

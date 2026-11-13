@@ -1,5 +1,6 @@
-import { domainOf, objectIdOf, parseNumericState, siblingEntities } from '../core/entities';
+import { domainOf, parseNumericState, siblingEntities } from '../core/entities';
 import type { HomeAssistant } from '../core/hass-types';
+import { PilotIndex } from '../core/pilot';
 import { findWledEntities } from './wled';
 
 /** How the consumption of one light is measured. */
@@ -7,8 +8,6 @@ export type PowerMode = 'auto' | 'sensor' | 'voltage' | 'none';
 
 /** Card-wide defaults. */
 export interface PowerDefaults {
-  /** Entity id template, e.g. `sensor.{object_id}_power`. */
-  sensorPattern?: string;
   /** Strip voltage, used to turn WLED's estimated current into watts. */
   voltage?: number;
 }
@@ -21,7 +20,7 @@ export interface PowerChoice {
 }
 
 /** Where a reading comes from, as shown in the editor. */
-export type PowerOrigin = 'sensor' | 'pattern' | 'device' | 'estimated';
+export type PowerOrigin = 'sensor' | 'pilot' | 'device' | 'estimated';
 
 export type PowerSource =
   | { kind: 'power'; entityId: string; origin: Exclude<PowerOrigin, 'estimated'> }
@@ -36,11 +35,6 @@ function isPowerSensor(hass: HomeAssistant, entityId: string): boolean {
     attributes.unit_of_measurement === 'W' ||
     attributes.unit_of_measurement === 'kW'
   );
-}
-
-export function patternSensor(lightId: string, pattern: string | undefined): string | undefined {
-  if (!pattern) return undefined;
-  return pattern.replaceAll('{object_id}', objectIdOf(lightId)).replaceAll('{entity_id}', lightId);
 }
 
 function estimated(
@@ -59,8 +53,8 @@ function estimated(
  * - `sensor`: the chosen power sensor.
  * - `voltage`: WLED estimated current × voltage (the light's, or the card default).
  * - `none`: no consumption.
- * - `auto`: chosen sensor, entity id pattern, power sensor on the same device,
- *   then estimated current when a voltage is known.
+ * - `auto`: chosen sensor, the strip's power computed by Vivid Pilot, a power
+ *   sensor on the same device, then estimated current when a voltage is known.
  */
 export function resolvePowerSource(
   hass: HomeAssistant,
@@ -81,9 +75,9 @@ export function resolvePowerSource(
 
   if (mode === 'voltage') return estimated(hass, lightId, voltage);
 
-  const fromPattern = patternSensor(lightId, defaults.sensorPattern);
-  if (fromPattern && hass.states[fromPattern]) {
-    return { kind: 'power', entityId: fromPattern, origin: 'pattern' };
+  const fromPilot = PilotIndex.of(hass).stripPower(lightId);
+  if (fromPilot && hass.states[fromPilot]) {
+    return { kind: 'power', entityId: fromPilot, origin: 'pilot' };
   }
 
   const onDevice = siblingEntities(hass, lightId).find((id) => isPowerSensor(hass, id));

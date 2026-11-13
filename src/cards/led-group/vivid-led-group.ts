@@ -2,8 +2,8 @@ import { LitElement, css, html, nothing, type PropertyValues } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
 import { runAction, type ActionConfig } from '../../core/action-handler';
 import { haptic, openMoreInfo, selectOption, toggleEntity } from '../../core/actions';
-import { domainOf } from '../../core/entities';
 import { glowVars, lightTone, toggleTone } from '../../core/glow';
+import { PilotIndex, pilotStub } from '../../core/pilot';
 import type { HomeAssistant, LovelaceGridOptions, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
@@ -72,11 +72,7 @@ export class VividLedGroup extends LitElement {
   }
 
   static getStubConfig(hass?: HomeAssistant): Partial<LedGroupCardConfig> {
-    const lights = Object.values(hass?.states ?? {}).filter(
-      (state) => domainOf(state.entity_id) === 'light',
-    );
-    const group = lights.find((state) => Array.isArray(state.attributes.entity_id));
-    return { entity: (group ?? lights[0])?.entity_id ?? 'light.example' };
+    return pilotStub(hass, 'group', ['led']);
   }
 
   setConfig(config: LedGroupCardConfig): void {
@@ -194,13 +190,24 @@ export class VividLedGroup extends LitElement {
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
     if (!this.hass || !this._config) return changed.has('_config');
     if (changed.size === 1 && changed.has('hass')) {
-      return watchedChanged(changed.get('hass'), this.hass, this.model?.watched ?? []);
+      // Waiting for the Vivid Pilot group: any change may bring it.
+      if (!this.model) return true;
+      return watchedChanged(changed.get('hass'), this.hass, this.model.watched);
     }
     return true;
   }
 
   protected override willUpdate(): void {
     if (!this.hass || !this._config) return;
+    // Pilot mode: the group is the one Vivid Pilot generated for the node.
+    const pilot = this._config.pilot
+      ? PilotIndex.of(this.hass).entity(this._config.pilot, 'group')
+      : undefined;
+    if (pilot && pilot !== this._config.entity) this._config = { ...this._config, entity: pilot };
+    if (!this._config.entity) {
+      this.model = undefined;
+      return;
+    }
     const model = buildLedGroupModel(this.hass, this._config);
     this.side = buildAmbilightSide(this.hass, this._config, model);
     // The box and HyperHDR redraw the card too.
@@ -477,7 +484,9 @@ export class VividLedGroup extends LitElement {
     const model = this.model;
     if (!config || !this.hass) return nothing;
     if (!model || !this.hass.states[config.entity]) {
-      return html`<ha-card><div class="warning">Entity not found: ${config.entity}</div></ha-card>`;
+      return html`<ha-card
+        ><div class="warning">Entity not found: ${config.entity || config.pilot}</div></ha-card
+      >`;
     }
     const collapsible = config.layout === 'collapsible';
     const side = this.side;

@@ -343,10 +343,10 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
       entity_category: 'config',
       labels: [],
     };
-    // Template sensor created by the user: not attached to the WLED device.
+    // The strip's power computed by Vivid Pilot: not on the WLED device.
     entities[`sensor.${strip.key}_puissance`] = {
       entity_id: `sensor.${strip.key}_puissance`,
-      platform: 'template',
+      platform: 'vivid_pilot',
       labels: [],
     };
   }
@@ -618,6 +618,9 @@ export function createMockHass(language = 'en', options: { allOnline?: boolean }
           unit_of_measurement: 'W',
           device_class: 'power',
           state_class: 'measurement',
+          vivid_pilot_node: 'salon',
+          vivid_pilot_kind: 'strip_power',
+          light: `light.${strip.key}`,
         }),
       );
       const value = (state: string) => (strip.online ? state : 'unavailable');
