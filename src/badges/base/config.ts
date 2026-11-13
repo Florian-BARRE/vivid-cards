@@ -2,6 +2,7 @@ import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import type { LovelaceCardConfig } from '../../core/hass-types';
+import type { PilotKind } from '../../core/pilot';
 
 /** How the colors show while active: a disc behind the icon, or the whole badge filled. */
 export type BadgeLook = 'disc' | 'pill';
@@ -17,7 +18,9 @@ export const AGGREGATES: Aggregate[] = ['mean', 'median', 'min', 'max', 'sum'];
 
 /** Options every Vivid badge accepts. */
 export interface BaseBadgeConfig extends LovelaceCardConfig {
-  /** A group (light, switch, binary sensor or sensor group) or one entity. */
+  /** Vivid Pilot node the badge shows (`salon__presence`): Pilot mode. */
+  pilot?: string;
+  /** A group (light, switch, binary sensor or sensor group) or one entity: manual mode. */
   entity?: string;
   /** Several entities, instead of a group. */
   entities?: string[];
@@ -39,6 +42,10 @@ export interface BaseBadgeConfig extends LovelaceCardConfig {
 
 export interface ResolvedBaseBadge {
   type: string;
+  /** Vivid Pilot node, used when no entity is written. */
+  pilot?: string;
+  /** What the badge reads from its node. */
+  pilotKind: PilotKind;
   entity?: string;
   entities?: string[];
   exclude?: string[];
@@ -130,8 +137,12 @@ export class ConfigReader {
 export interface BaseOptions {
   /** Domains `entity` and `entities` may use. */
   domains: readonly string[];
-  /** The badge finds its entities alone when none is set (batteries). */
-  entityOptional?: boolean;
+  /** What the badge reads from its Vivid Pilot node (`mean`, `any`, `group`…). */
+  pilotKind: PilotKind;
+  /** Vivid Pilot node used when nothing is set (the home's batteries). */
+  defaultPilot?: string;
+  /** The badge reads no entity at all (energy statistics). */
+  targetOptional?: boolean;
   tapAction?: ActionConfig;
   holdAction?: ActionConfig;
 }
@@ -147,8 +158,13 @@ export function resolveBase(reader: ConfigReader, options: BaseOptions): Resolve
     }
     entities = (rawList as string[]).map((item) => item.trim()).filter(Boolean);
   }
-  if (!entity && !entities?.length && !options.entityOptional) {
-    reader.fail('set "entity" to a group or an entity, or list "entities".');
+  const pilot =
+    reader.text('pilot') ?? (entity || entities?.length ? undefined : options.defaultPilot);
+  if (pilot !== undefined && !/^[a-z0-9_]+$/.test(pilot)) {
+    reader.fail('"pilot" must be a Vivid Pilot node, such as salon__presence.');
+  }
+  if (!entity && !entities?.length && !pilot && !options.targetOptional) {
+    reader.fail('pick a Vivid Pilot node ("pilot"), or set "entity" or "entities".');
   }
   for (const id of [entity, ...(entities ?? [])]) {
     if (id && !options.domains.includes(domainOf(id))) {
@@ -167,6 +183,8 @@ export function resolveBase(reader: ConfigReader, options: BaseOptions): Resolve
   };
   return {
     type: String(reader.config.type ?? ''),
+    pilot,
+    pilotKind: options.pilotKind,
     entity,
     entities: entities?.length ? entities : undefined,
     exclude: list('exclude'),

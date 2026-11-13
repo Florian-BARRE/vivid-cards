@@ -99,8 +99,10 @@ export function buildLightBadgeModel(
   hass: HomeAssistant,
   config: ResolvedLightBadgeConfig,
 ): LightBadgeModel {
-  const state = hass.states[config.entity];
-  const ids = expandGroup(hass, config.entity);
+  // Pilot mode without its node yet (Vivid Pilot not loaded): an empty badge.
+  const entity = config.entity ?? '';
+  const state = hass.states[entity];
+  const ids = entity ? expandGroup(hass, entity) : [];
   const isGroup = Array.isArray(state?.attributes.entity_id) && ids.length > 0;
   const names = shortenSiblingNames(ids.map((id) => friendlyName(hass, id)));
   const lights: BadgeLight[] = ids.map((entityId, index) => {
@@ -137,7 +139,7 @@ export function buildLightBadgeModel(
     (typeof own === 'string' && own ? own : defaultBadgeIcon(isGroup, allWled));
   const knownOff = OFF_ICONS[icon];
   return {
-    name: config.name ?? friendlyName(hass, config.entity),
+    name: config.name ?? (entity ? friendlyName(hass, entity) : ''),
     isGroup,
     lights,
     on: lit.length,
@@ -150,6 +152,6 @@ export function buildLightBadgeModel(
     icon,
     iconOff: config.iconOff ?? knownOff ?? icon,
     strike: config.iconOff === undefined && knownOff === undefined,
-    watched: [config.entity, ...ids],
+    watched: entity ? [entity, ...ids] : ids,
   };
 }

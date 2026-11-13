@@ -18,7 +18,11 @@ export interface ResolvedEnergyBadge extends ResolvedBaseBadge {
 /** Options of an energy badge: the common badge ones, the source and the tariff. */
 export function resolveEnergyBadge(tag: string, raw: unknown): ResolvedEnergyBadge {
   const reader = new ConfigReader(tag, raw);
-  const base = resolveBase(reader, { domains: ['sensor'], entityOptional: true });
+  const base = resolveBase(reader, {
+    domains: ['sensor'],
+    pilotKind: 'energy',
+    targetOptional: true,
+  });
   const energy = resolveEnergyBase(tag, raw);
   return { ...base, energy: energy.energy, cost: energy.cost, tariff: energy.tariff };
 }

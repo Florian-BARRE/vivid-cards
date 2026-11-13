@@ -8,6 +8,8 @@ import { fireEvent } from '../../core/actions';
 import { GLOW_SLIDER, glowPercent } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
+import { withPilotEntity, type PilotCategory, type PilotKind } from '../../core/pilot';
+import { pilotNodeOptions } from '../../i18n/pilot';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
@@ -36,8 +38,10 @@ export interface BadgeEditorSpec {
   /** Entity selector filter. */
   domain: readonly string[];
   deviceClass?: readonly string[];
-  /** The badge finds its entities alone without one (batteries). */
-  entityOptional?: boolean;
+  /** What the badge reads from a Vivid Pilot node. */
+  pilotKind: PilotKind;
+  /** Node categories offered (none: the room or home node itself). */
+  pilotCategories?: readonly (PilotCategory | undefined)[];
   /** Offer an icon for the resting state. */
   iconOff?: boolean;
   fields: EditorField[];
@@ -47,6 +51,15 @@ export interface BadgeEditorSpec {
 
 const DEFAULT = 'default';
 const CUSTOM = 'custom';
+const SOURCES = ['pilot', 'manual'] as const;
+type Source = (typeof SOURCES)[number];
+
+/** Pilot mode unless an entity or a list is written by hand. */
+function sourceOf(config: Record<string, unknown>): Source {
+  return config.entity || (Array.isArray(config.entities) && config.entities.length)
+    ? 'manual'
+    : 'pilot';
+}
 
 const ACTION_LABELS: Record<string, EditorStringKey> = {
   toggle: 'action_toggle',
@@ -137,20 +150,45 @@ export class VividBadgeEditor extends LitElement {
     return { select: { mode: 'dropdown', options } };
   }
 
-  /** Common fields first, the badge's own after, gestures last. */
-  private fields(spec: BadgeEditorSpec, tap: string, hold: string): EditorField[] {
-    const entity: Selector = {
-      entity: {
-        domain: [...spec.domain],
-        ...(spec.deviceClass ? { device_class: [...spec.deviceClass] } : {}),
-      },
-    };
+  /** The source (Vivid Pilot or manual) and its target. */
+  private targetFields(spec: BadgeEditorSpec, source: Source): EditorField[] {
+    const target: EditorField =
+      source === 'pilot'
+        ? {
+            name: 'pilot',
+            label: 'badge_pilot',
+            helper: 'badge_pilot_helper',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: pilotNodeOptions(this.hass, spec.pilotKind, spec.pilotCategories),
+              },
+            },
+          }
+        : {
+            name: 'entity',
+            label: 'badge_group',
+            selector: {
+              entity: {
+                domain: [...spec.domain],
+                ...(spec.deviceClass ? { device_class: [...spec.deviceClass] } : {}),
+              },
+            },
+          };
     return [
       {
-        name: 'entity',
-        label: spec.entityOptional ? 'badge_group_auto' : 'badge_group',
-        selector: entity,
+        name: 'source',
+        label: 'badge_source',
+        choices: { values: SOURCES, labelPrefix: 'badge_source_' },
       },
+      target,
+    ];
+  }
+
+  /** Common fields first, the badge's own after, gestures last. */
+  private fields(spec: BadgeEditorSpec, source: Source, tap: string, hold: string): EditorField[] {
+    return [
+      ...this.targetFields(spec, source),
       { name: 'name', label: 'badge_details_title', selector: { text: {} } },
       {
         name: 'icon',
@@ -188,7 +226,7 @@ export class VividBadgeEditor extends LitElement {
     for (const field of fields) {
       const item = {
         name: field.name,
-        required: field.name === 'entity' && !this.spec?.entityOptional,
+        required: field.name === 'source',
         selector: field.choices
           ? this.choice(field.choices.values, field.choices.labelPrefix)
           : field.selector,
@@ -211,8 +249,17 @@ export class VividBadgeEditor extends LitElement {
   private onChange(fields: EditorField[], value: FormData): void {
     const previous = this._config ?? { type: this.spec?.type };
     const next: Record<string, unknown> = { ...previous };
+    const source = value.source as Source | undefined;
+    if (source && source !== sourceOf(previous)) {
+      // Switching source drops the other one's target and the member tweaks.
+      for (const key of ['pilot', 'entity', 'entities', 'exclude', 'add']) delete next[key];
+      this._config = next;
+      fireEvent(this, 'config-changed', { config: next });
+      return;
+    }
     for (const field of fields) {
       const raw = value[field.name];
+      if (field.name === 'source') continue;
       if (field.name === 'tap_action' || field.name === 'hold_action') {
         // A YAML-only action stays as written until another choice is picked.
         if (raw === CUSTOM) continue;
@@ -236,9 +283,11 @@ export class VividBadgeEditor extends LitElement {
     if (!this.hass || !spec || !config) return nothing;
     const tap = actionValue(config.tap_action);
     const hold = actionValue(config.hold_action);
-    const fields = this.fields(spec, tap, hold);
+    const source = sourceOf(config);
+    const fields = this.fields(spec, source, tap, hold);
     const data: FormData = {};
     for (const field of fields) data[field.name] = config[field.name] ?? field.default;
+    data.source = source;
     data.glow = glowPercent(config.glow ?? 100) ?? 100;
     data.tap_action = tap;
     data.hold_action = hold;
@@ -267,13 +316,15 @@ export class VividBadgeEditor extends LitElement {
           this.onChange(fields, event.detail.value);
         }}
       ></ha-form>
-      ${this.renderMembers(config)} ${error ? html`<div class="error">${error}</div>` : nothing}`;
+      ${this.renderMembers(config, spec)}
+      ${error ? html`<div class="error">${error}</div>` : nothing}`;
   }
 
-  /** On a group: its members, any of them left out, others added. */
-  private renderMembers(config: Record<string, unknown>) {
+  /** On a group (or a Vivid Pilot node): its members, any of them left out, others added. */
+  private renderMembers(config: Record<string, unknown>, spec: BadgeEditorSpec) {
     const hass = this.hass;
-    const entity = typeof config.entity === 'string' ? config.entity : undefined;
+    const target = hass ? withPilotEntity(hass, config, spec.pilotKind) : config;
+    const entity = typeof target.entity === 'string' ? target.entity : undefined;
     const members = entity ? hass?.states[entity]?.attributes.entity_id : undefined;
     if (!hass || !Array.isArray(members)) return nothing;
     return html`<vivid-slot-editor
@@ -283,8 +334,9 @@ export class VividBadgeEditor extends LitElement {
       icon="mdi:format-list-group"
       .multiple=${true}
       .modes=${['auto'] as const}
+      .pilot=${sourceOf(config) === 'pilot'}
       .value=${membersValue(config)}
-      .resolved=${membersSlot(hass, config)}
+      .resolved=${membersSlot(hass, { ...config, entity })}
       @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) => {
         const next = applyMembers({ ...config }, event.detail.value);
         this._config = next;

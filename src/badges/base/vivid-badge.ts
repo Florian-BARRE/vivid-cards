@@ -16,6 +16,7 @@ import type { HomeAssistant } from '../../core/hass-types';
 import { buttonReset, tokens } from '../../components/shared-styles';
 import { VividPopover } from '../../components/vivid-popover';
 import { watchedChanged } from '../../cards/led-group/model';
+import { withPilotEntity } from '../../core/pilot';
 import type { BadgeLook, IconColor, ResolvedBaseBadge } from './config';
 
 const HOLD_MS = 500;
@@ -338,8 +339,15 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
     return true;
   }
 
+  /** The config with its Vivid Pilot node turned into an entity (Pilot mode). */
+  protected get effectiveConfig(): C | undefined {
+    if (!this.hass || !this._config) return this._config;
+    return withPilotEntity(this.hass, this._config, this._config.pilotKind);
+  }
+
   protected override willUpdate(): void {
-    if (this.hass && this._config) this.view = this.buildView(this.hass, this._config);
+    const config = this.effectiveConfig;
+    if (this.hass && config) this.view = this.buildView(this.hass, config);
   }
 
   protected override updated(): void {
@@ -406,7 +414,7 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
   };
 
   private run(which: 'tap' | 'hold'): void {
-    const config = this._config;
+    const config = this.effectiveConfig;
     if (!config || !this.hass) return;
     const action: ActionConfig = which === 'tap' ? config.tapAction : config.holdAction;
     haptic(this, which === 'hold' ? 'medium' : 'light');

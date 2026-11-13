@@ -1,6 +1,7 @@
 import { html } from 'lit';
 import { domainOf } from '../../core/entities';
 import { lightTone, softLightTone } from '../../core/glow';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { localize } from '../../i18n';
@@ -41,11 +42,7 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
   }
 
   static getStubConfig(hass?: HomeAssistant): Partial<LightBadgeConfig> {
-    const lights = Object.values(hass?.states ?? {}).filter((state) =>
-      state.entity_id.startsWith('light.'),
-    );
-    const group = lights.find((state) => Array.isArray(state.attributes.entity_id));
-    return { entity: (group ?? lights[0])?.entity_id ?? 'light.example' };
+    return pilotStub(hass, 'group', ['light', 'led', 'switch']);
   }
 
   protected resolveConfig(raw: unknown): ResolvedLightBadgeConfig {
@@ -87,8 +84,8 @@ export class VividLightBadge extends VividBadge<ResolvedLightBadgeConfig> {
 
   /** Anything on: everything off. Everything off: everything on. */
   protected override toggle(): void {
-    const config = this._config;
-    if (!config || !this.hass || !this.model) return;
+    const config = this.effectiveConfig;
+    if (!config?.entity || !this.hass || !this.model) return;
     const service = this.model.on > 0 ? 'turn_off' : 'turn_on';
     const isLight = domainOf(config.entity) === 'light';
     // Switches and old-style groups have no transition.

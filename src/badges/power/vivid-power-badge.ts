@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import { powerColor, powerRatio, powerTone, tintTone } from '../../core/glow';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { localize, type StringKey } from '../../i18n';
@@ -35,11 +36,7 @@ export class VividPowerBadge extends VividBadge<ResolvedPowerBadge> {
   }
 
   static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
-    const states = Object.values(hass?.states ?? {}).filter(
-      (state) => state.entity_id.startsWith('sensor.') && state.attributes.device_class === 'power',
-    );
-    const group = states.find((state) => Array.isArray(state.attributes.entity_id));
-    return { entity: (group ?? states[0])?.entity_id ?? 'sensor.power' };
+    return pilotStub(hass, 'power', [undefined]);
   }
 
   protected resolveConfig(raw: unknown): ResolvedPowerBadge {
@@ -142,6 +139,7 @@ export class VividPowerBadge extends VividBadge<ResolvedPowerBadge> {
 export const POWER_EDITOR: BadgeEditorSpec = {
   type: `custom:${POWER_BADGE}`,
   domain: DOMAINS,
+  pilotKind: 'power',
   deviceClass: ['power'],
   iconOff: true,
   fields: [

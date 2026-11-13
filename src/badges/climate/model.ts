@@ -103,7 +103,7 @@ export function resolveClimateBadge(
   kind: ClimateKind = climateKindOf((raw as { type?: unknown } | null)?.type),
 ): ResolvedClimateBadge {
   const reader = new ConfigReader(CLIMATE_BADGES[kind], raw);
-  const base = resolveBase(reader, { domains: DOMAINS });
+  const base = resolveBase(reader, { domains: DOMAINS, pilotKind: 'mean' });
   const comfortRaw = reader.config.comfort;
   let comfort: ComfortRange | undefined;
   if (comfortRaw !== undefined && comfortRaw !== null && comfortRaw !== '') {

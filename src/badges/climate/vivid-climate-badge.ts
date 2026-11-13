@@ -1,6 +1,7 @@
 import { html } from 'lit';
 import { airIcon, pressureIcon, type ClimateKind } from '../../core/climate';
 import { rgbCss } from '../../core/color';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { fetchHistory, type HistorySeries } from '../../core/history';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
@@ -274,19 +275,14 @@ export class VividClimateBadge extends VividBadge<ResolvedClimateBadge> {
 
 /** First group (else first sensor) of the badge's device classes. */
 function climateStub(hass: HomeAssistant | undefined, kind: ClimateKind): Record<string, unknown> {
-  const classes = DEVICE_CLASSES[kind];
-  const states = Object.values(hass?.states ?? {}).filter(
-    (state) =>
-      state.entity_id.startsWith('sensor.') &&
-      classes.includes(String(state.attributes.device_class)),
-  );
-  const group = states.find((state) => Array.isArray(state.attributes.entity_id));
-  return { entity: (group ?? states[0])?.entity_id ?? `sensor.${kind}` };
+  return pilotStub(hass, 'mean', [kind]);
 }
 
 export const climateEditor = (kind: ClimateKind): BadgeEditorSpec => ({
   type: `custom:${CLIMATE_BADGES[kind]}`,
   domain: DOMAINS,
+  pilotKind: 'mean',
+  pilotCategories: [kind],
   deviceClass: DEVICE_CLASSES[kind],
   fields: [
     {

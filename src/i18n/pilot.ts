@@ -4,7 +4,7 @@
  */
 
 import type { HomeAssistant } from '../core/hass-types';
-import { PilotIndex, parseNodeKey, type PilotCategory } from '../core/pilot';
+import { PilotIndex, parseNodeKey, type PilotCategory, type PilotKind } from '../core/pilot';
 import { languageOf } from './index';
 
 type CategoryNames = Record<PilotCategory, string> & { home: string };
@@ -62,4 +62,19 @@ export function pilotNodeLabel(hass: HomeAssistant | undefined, key: string): st
   const { area, category } = parseNodeKey(key);
   const place = area ? (hass ? PilotIndex.of(hass).areaName(area) : area) : names(hass).home;
   return category ? `${place} › ${names(hass)[category]}` : place;
+}
+
+/** Options of a node picker: the nodes having an entity of `kind`, in the categories asked. */
+export function pilotNodeOptions(
+  hass: HomeAssistant | undefined,
+  kind: PilotKind,
+  categories?: readonly (PilotCategory | undefined)[],
+): { value: string; label: string }[] {
+  if (!hass) return [];
+  const index = PilotIndex.of(hass);
+  return index
+    .nodes()
+    .filter((node) => index.entity(node, kind))
+    .filter((node) => !categories || categories.includes(parseNodeKey(node).category))
+    .map((node) => ({ value: node, label: pilotNodeLabel(hass, node) }));
 }

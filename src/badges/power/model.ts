@@ -33,7 +33,7 @@ export interface ResolvedPowerBadge extends ResolvedBaseBadge {
 
 export function resolvePowerBadge(raw: unknown): ResolvedPowerBadge {
   const reader = new ConfigReader(POWER_BADGE, raw);
-  const base = resolveBase(reader, { domains: DOMAINS });
+  const base = resolveBase(reader, { domains: DOMAINS, pilotKind: 'power' });
   const idle = reader.number('idle', 5, 0);
   const max = reader.number('max', 3000, 1);
   if (max <= idle) reader.fail('"max" must be above "idle".');

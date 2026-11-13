@@ -284,7 +284,7 @@ describe('white icons on colored discs', () => {
 
   it('validates the option on every badge', () => {
     const base = (raw: Record<string, unknown>) =>
-      resolveBase(new ConfigReader('test-badge', raw), { domains: ['sensor'] });
+      resolveBase(new ConfigReader('test-badge', raw), { domains: ['sensor'], pilotKind: 'mean' });
     expect(base({ entity: 'sensor.a' }).iconColor).toBe('white');
     expect(base({ entity: 'sensor.a', icon_color: 'auto' }).iconColor).toBe('auto');
     expect(() => base({ entity: 'sensor.a', icon_color: 'black' })).toThrow(/icon_color/);

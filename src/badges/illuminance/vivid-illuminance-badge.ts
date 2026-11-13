@@ -1,6 +1,7 @@
 import { html } from 'lit';
 import { rgbCss } from '../../core/color';
 import { tintTone } from '../../core/glow';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { formatNumber, localize, type StringKey } from '../../i18n';
@@ -37,11 +38,7 @@ export class VividIlluminanceBadge extends VividBadge<ResolvedIlluminanceBadge> 
   }
 
   static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
-    const sensor = Object.values(hass?.states ?? {}).find(
-      (state) =>
-        state.entity_id.startsWith('sensor.') && state.attributes.device_class === 'illuminance',
-    );
-    return { entity: sensor?.entity_id ?? 'sensor.illuminance' };
+    return pilotStub(hass, 'mean', ['illuminance']);
   }
 
   protected resolveConfig(raw: unknown): ResolvedIlluminanceBadge {
@@ -181,6 +178,8 @@ export class VividIlluminanceBadge extends VividBadge<ResolvedIlluminanceBadge> 
 export const ILLUMINANCE_EDITOR: BadgeEditorSpec = {
   type: `custom:${ILLUMINANCE_BADGE}`,
   domain: DOMAINS,
+  pilotKind: 'mean',
+  pilotCategories: ['illuminance'],
   deviceClass: ['illuminance'],
   fields: [
     {

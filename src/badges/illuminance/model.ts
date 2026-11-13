@@ -27,7 +27,7 @@ export interface ResolvedIlluminanceBadge extends ResolvedBaseBadge {
 export function resolveIlluminanceBadge(raw: unknown): ResolvedIlluminanceBadge {
   const reader = new ConfigReader(ILLUMINANCE_BADGE, raw);
   return {
-    ...resolveBase(reader, { domains: DOMAINS }),
+    ...resolveBase(reader, { domains: DOMAINS, pilotKind: 'mean' }),
     aggregate: reader.choice('aggregate', AGGREGATES, 'mean'),
     max: reader.number('max', 2000, 2),
     gauge: reader.bool('gauge', true),

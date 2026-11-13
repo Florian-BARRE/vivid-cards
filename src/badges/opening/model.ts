@@ -45,7 +45,7 @@ export function resolveOpeningBadge(
   kind: OpeningKind = openingKindOf((raw as { type?: unknown } | null)?.type),
 ): ResolvedOpeningBadge {
   const reader = new ConfigReader(OPENING_TAGS[kind], raw);
-  const base = resolveBase(reader, { domains: DOMAINS });
+  const base = resolveBase(reader, { domains: DOMAINS, pilotKind: 'any' });
   const warnAfter = reader.number('warn_after', 15, 0);
   const alertAfter = reader.number('alert_after', 45, 0);
   if (alertAfter < warnAfter) reader.fail('"alert_after" must be at least "warn_after".');

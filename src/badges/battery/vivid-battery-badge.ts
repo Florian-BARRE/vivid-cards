@@ -116,7 +116,8 @@ export const BATTERY_EDITOR: BadgeEditorSpec = {
   type: `custom:${BATTERY_BADGE}`,
   domain: DOMAINS,
   deviceClass: ['battery'],
-  entityOptional: true,
+  pilotKind: 'battery',
+  pilotCategories: ['battery'],
   fields: [
     {
       name: 'display',
