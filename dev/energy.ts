@@ -4,7 +4,7 @@
  * `width` (stage width in px), `editor` (shows the bill card editor).
  */
 import { defineHaStubs } from './ha-stubs';
-import { FLO_TARIFF, withEnergy } from './energy-mock';
+import { ENERGY_AREAS, energyStates, FLO_TARIFF, withEnergy } from './energy-mock';
 import type { HomeAssistant } from '../src/core/hass-types';
 
 type CardElement = HTMLElement & {
@@ -25,6 +25,7 @@ const stage = document.getElementById('stage')!;
 function makeHass(options: Parameters<typeof withEnergy>[1] = {}): HomeAssistant {
   return {
     states: {
+      ...energyStates(options),
       'sensor.eclairage_puissance': {
         entity_id: 'sensor.eclairage_puissance',
         state: '21',
@@ -35,7 +36,7 @@ function makeHass(options: Parameters<typeof withEnergy>[1] = {}): HomeAssistant
     },
     entities: {},
     devices: {},
-    areas: {},
+    areas: ENERGY_AREAS,
     language,
     locale: { language },
     config: { currency: 'EUR' },

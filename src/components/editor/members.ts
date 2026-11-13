@@ -46,9 +46,7 @@ export function membersSlot(
   } catch {
     // Shown as auto; the card says what is wrong.
   }
-  const found = config.entity
-    ? new GroupSource(config.entity).find(hass, { aliases: [], domains })
-    : [];
+  const found = config.entity ? new GroupSource(config.entity).find(hass, { domains }) : [];
   return resolveSlot(slot, found, true);
 }
 

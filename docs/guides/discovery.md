@@ -1,56 +1,63 @@
-# Discovery: auto, adjusted, manual
+# Vivid Pilot and manual
 
-Every Vivid card finds what it shows on its own, tells you where each entity
-comes from, and lets you change any of it in the visual editor. Nothing has
-to be written in YAML.
+Vivid Cards no longer guess anything from entity names or areas.
+[Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot) sorts the home:
+each device in its room and its kind (lights, LEDs, switches, doors,
+windows, presence, climate, illuminance, batteries, power), with its groups,
+aggregates, power, energy and the memory of each room's last lighting. The
+cards read what it generated, through two attributes every Vivid Pilot
+entity carries: `vivid_pilot_node` (`salon`, `salon__light`, `all__battery`…)
+and `vivid_pilot_kind` (`group`, `mean`, `any`, `power`, `energy`…). Renaming
+an entity never breaks a card.
 
-## The four modes
+## Two sources
 
-Each thing a card expects (a room's lamps, its presence sensor, the fan of a
-device, the members of a group, the devices of the Energy dashboard) is a
-**slot**. Every slot has the same row in the editor, and one of four modes:
+Every card and badge has a **Source** at the top of its editor:
 
-| Mode           | What the card does                                                             |
-| -------------- | ------------------------------------------------------------------------------ |
-| Auto           | Uses what is found, live: a new entity named the right way shows up by itself. |
-| Auto, adjusted | Uses what is found, minus what you unticked, plus what you added.              |
-| Manual         | Only the entities you picked; discovery is ignored for this slot.              |
-| Off            | Nothing for this slot (no badge, no light, no part of the card).               |
+| Source      | What the card shows                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| Vivid Pilot | A room or a group picked in a list (`pilot: salon__light`); its members follow Vivid Pilot, live. |
+| Manual      | Only the entities you pick (`entity:` or `entities:`), for what Vivid Pilot does not cover.       |
 
-Unfolded, a slot row lists each entity with its origin: **found by its name
-"sdb-présence"**, **found in the area Salle de bain**, **member of
-light.salon_leds**, **from the device …**, **from the Energy dashboard**,
-**added**, **chosen**. A found entity has a box to keep or leave it out; an
-added or chosen one can be moved or removed. "Back to what is found" drops
-every adjustment.
+A home-level measure (`pilot: all__temperature`) lists the rooms in its
+details ("Salon", "Chambre"), each room's own mean, rather than raw sensors.
 
-## Where the discovery looks
+## Slots
 
-| Source           | Finds                                             | Used by                    |
-| ---------------- | ------------------------------------------------- | -------------------------- |
-| Name pattern     | entities whose id or name follows `{room}-{role}` | room header                |
-| Area             | entities placed in a Home Assistant area, by kind | room header                |
-| Group            | the members of a group                            | LED and lamp cards, badges |
-| Device           | the entities of an ESPHome device, by their names | Air Station, Ambilight     |
-| Energy dashboard | the devices of Home Assistant's Energy dashboard  | energy ranking and flow    |
+Each thing a card expects (a room's lights, its presence, the members of a
+group, the rooms of the energy cards) is a **slot**, with the same row in
+the editor and one of four modes:
 
-The name pattern is set in the room header's **Discovery** section. The
-default, `{room}-{role}`, finds `salon-lampes`, `salon-présence`,
-`salon-scripts-on`… (accents, case and separators ignored); write
-`{role} {room}` or anything else that matches your own naming. The area is
-used when the name finds nothing (or first, or alone: "Look" setting).
+| Mode            | What the card does                                                            |
+| --------------- | ----------------------------------------------------------------------------- |
+| Pilot           | Uses what Vivid Pilot gives: a device it adds to the room shows up by itself. |
+| Pilot, adjusted | What Vivid Pilot gives, minus what you unticked, plus what you added.         |
+| Manual          | Only the entities you picked.                                                 |
+| Off             | Nothing for this slot (no badge, no light, no part of the card).              |
+
+Unfolded, a slot row lists each entity with its origin: **Vivid Pilot ·
+Salon › Lumières**, **member of light.x**, **from the device …**, **added**,
+**chosen**. "Back to what is found" drops every adjustment.
+
+## What stays outside Vivid Pilot
+
+Device cards (Air Station, Ambilight, HyperHDR) find the entities of their
+own device; the energy cards read the grid meter and its cost from the
+Energy dashboard, and their tariff and invoices from their config. Those are
+not rooms, so they keep their own settings.
 
 ## In YAML, if you want to
 
-The editor writes the shortest config. The same four modes read like this:
+The editor writes the shortest config:
 
 ```yaml
+pilot: salon # the room (room header) or the node (cards and badges)
 entities:
   presence: false # off
-  leds: { exclude: [light.salon_leds_tv], add: [light.lampe_bureau] } # adjusted
-  puissance: sensor.salon_puissance # manual
-  # a slot not listed is auto
+  led: { exclude: [light.vivid_pilot_salon_led], add: [light.wled_tv] } # adjusted
+  power: sensor.salon_power # manual
+  # a slot not listed follows Vivid Pilot
 ```
 
-Group cards use `exclude:` and `add:` at the top of their config; device
-cards `entities: { co2: sensor.other, rssi: false }`; energy cards `devices:`.
+Group cards and badges use `exclude:` and `add:` at the top of their config,
+energy cards `devices:`.

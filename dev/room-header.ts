@@ -26,62 +26,35 @@ const SCENARIOS: {
   mock?: Parameters<typeof createRoomMock>[1];
 }[] = [
   {
-    title: 'Auto · salon all on (2 lamps, 2 strips, climate)',
+    title: 'Pilot · salon all on (2 lamps, 2 strips, climate)',
     scenario: 'all',
-    config: { room: 'salon' },
+    config: { pilot: 'salon' },
     mock: { climate: true },
   },
-  { title: 'Auto · lamps only', scenario: 'lamps', config: { room: 'salon' } },
-  { title: 'Auto · off', scenario: 'off', config: { room: 'salon' } },
+  { title: 'Pilot · lamps only', scenario: 'lamps', config: { pilot: 'salon' } },
   {
-    title: 'Auto · presence found by its name "salon-présence"',
-    scenario: 'all',
-    config: { room: 'Salon' },
-    mock: { presenceId: 'binary_sensor.capteur_mouvement_1' },
+    title: 'Pilot · off, a memory stored: the button restores it',
+    scenario: 'off',
+    config: { pilot: 'salon' },
+    mock: { memory: true },
   },
   {
-    title: 'Exclude · leds, windows, co2 (by role) and the doors (by id)',
+    title: 'Pilot adjusted · no LEDs, no windows, one lamp added by hand',
     scenario: 'all',
     config: {
-      room: 'salon',
-      exclude: ['leds', 'fenêtres', 'air', 'binary_sensor.salon_portes'],
+      pilot: 'salon',
+      entities: { led: false, window: false, light: { add: ['switch.0xa4c13865b4dce778'] } },
     },
     mock: { climate: true },
   },
   {
-    title: 'Manual added + override (door badge with icon_off, power badge)',
+    title: 'Manual · no Vivid Pilot room',
     scenario: 'all',
     config: {
-      room: 'salon',
-      badges: [
-        {
-          type: 'custom:vivid-door-badge',
-          entity: 'binary_sensor.salon_portes',
-          icon_off: 'mdi:door-sliding',
-        },
-        { type: 'custom:vivid-power-badge', entity: 'sensor.salon_puissance' },
-      ],
-    },
-  },
-  {
-    title: 'discover: false · fully manual',
-    scenario: 'all',
-    config: {
-      room: 'salon',
-      discover: false,
       name: 'Coin TV',
-      lights: ['light.salon_leds'],
-      power: 'sensor.salon_puissance',
-      badges: [{ type: 'custom:vivid-led-badge', entity: 'light.salon_leds' }],
+      entities: { led: ['light.wled_tv'], power: 'sensor.vivid_pilot_salon_power' },
     },
   },
-  {
-    title: 'Scripts · the power button runs salon-scripts-off / -on (restores what was on)',
-    scenario: 'lamps',
-    config: { room: 'salon' },
-    mock: { scripts: true },
-  },
-  { title: 'Grenier · nothing discovered', scenario: 'off', config: { room: 'grenier' } },
 ];
 
 function mount(): void {
@@ -109,17 +82,11 @@ function mount(): void {
     const wrap = document.createElement('div');
     wrap.className = 'editor';
     const editor = document.createElement('vivid-room-header-editor') as CardElement;
-    editor.hass = createRoomMock('all', { language, climate: true, scripts: true });
+    editor.hass = createRoomMock('all', { language, climate: true, memory: true });
     editor.setConfig({
       type: 'custom:vivid-room-header',
-      room: 'salon',
-      exclude: ['presence'],
-      badges: [
-        {
-          type: 'custom:vivid-illuminance-badge',
-          entity: 'sensor.0x403802fffe69d11e_illumination',
-        },
-      ],
+      pilot: 'salon',
+      entities: { presence: false },
     });
     editor.addEventListener('config-changed', (event) => {
       const config = (event as CustomEvent).detail.config as Record<string, unknown>;

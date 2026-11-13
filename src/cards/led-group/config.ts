@@ -55,7 +55,10 @@ export interface LedGroupMemberConfig {
 }
 
 export interface LedGroupCardConfig extends LovelaceCardConfig {
-  entity: string;
+  /** Vivid Pilot group (`salon__led`): its strips, Pilot mode. */
+  pilot?: string;
+  /** A light or a group of strips: manual mode. */
+  entity?: string;
   /** Members of the group left out of the card. */
   exclude?: string[];
   /** Lights added to the group's members. */
@@ -92,7 +95,6 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
   badges?: BadgeInput[];
   power?: {
     enabled?: boolean;
-    sensor_pattern?: string;
     voltage?: number;
     idle?: number;
     max?: number;
@@ -140,6 +142,9 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
 
 export interface ResolvedLedGroupConfig {
   type: string;
+  /** Vivid Pilot group; `entity` is filled from it once Home Assistant is known. */
+  pilot?: string;
+  /** The group shown ('' until a Pilot group is found). */
   entity: string;
   name?: string;
   /** Icon of every tile; `undefined` uses each light's own icon. */
@@ -498,8 +503,14 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = migrateConfig(raw as LedGroupCardConfig);
   const entity = optionalString(config.entity, 'entity');
-  if (!entity) fail('set "entity" to a light or a light group.');
-  if (domainOf(entity) !== 'light') fail(`"${entity}" is not a light entity.`);
+  const pilot = optionalString(config.pilot, 'pilot');
+  if (pilot && !/^[a-z0-9_]+$/.test(pilot)) {
+    fail('"pilot" must be a Vivid Pilot group, such as salon__led.');
+  }
+  if (!entity && !pilot) {
+    fail('pick a Vivid Pilot group ("pilot"), or set "entity" to a light or a light group.');
+  }
+  if (entity && domainOf(entity) !== 'light') fail(`"${entity}" is not a light entity.`);
 
   const tile = section(config.tile, 'tile');
   const power = section(config.power, 'power');
@@ -511,7 +522,8 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
 
   return {
     type: config.type,
-    entity,
+    pilot: entity ? undefined : pilot,
+    entity: entity ?? '',
     exclude: entityIds(config.exclude, 'exclude'),
     add: entityIds(config.add, 'add'),
     name: optionalString(config.name, 'name'),
@@ -545,7 +557,6 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
     badges: resolveBadges(config.badges),
     power: {
       enabled: optionalBoolean(power.enabled, 'power.enabled') ?? true,
-      sensorPattern: optionalString(power.sensor_pattern, 'power.sensor_pattern'),
       voltage: optionalNumber(power.voltage, 'power.voltage'),
       scale: resolveScale(power),
       autoMax: power.max === undefined || power.max === null || power.max === '',

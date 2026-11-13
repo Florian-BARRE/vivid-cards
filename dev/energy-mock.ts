@@ -1,10 +1,11 @@
 /**
  * Energy data for the preview page: a Linky meter (daily kWh and cost, hourly
- * kWh when asked), the devices of the Energy dashboard, and Flo's contract.
+ * kWh when asked), the energy sensors Vivid Pilot generates per room and per
+ * category, and Flo's contract.
  * Answers `energy/get_prefs` and `recorder/statistics_during_period` like Home
  * Assistant.
  */
-import type { HomeAssistant } from '../src/core/hass-types';
+import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
 
 export const ENERGY_STAT = 'linky:21497105635383';
 export const COST_STAT = 'linky:21497105635383_cost';
@@ -39,22 +40,61 @@ const SERIES = [
 ];
 const BLEND = 0.168;
 
-/** Devices of the Energy dashboard: name, kWh per day. */
+/** Energy sensors of Vivid Pilot: node, kWh per day. */
 const DEVICES = [
-  { stat: 'sensor.prise_ambilight_energy', name: 'Prise ambilight', kwh: 0.28 },
+  { stat: 'sensor.vivid_pilot_salon_energy', node: 'salon', name: 'Salon Énergie', kwh: 0.45 },
   {
-    stat: 'sensor.salon_ambilight_wled_energie',
-    name: 'LEDs ambilight',
-    kwh: 0.09,
-    included: 'sensor.prise_ambilight_energy',
+    stat: 'sensor.vivid_pilot_salon_light_energy',
+    node: 'salon__light',
+    name: 'Salon Énergie lumières',
+    kwh: 0.28,
   },
-  { stat: 'sensor.lampe_plafond_energy', name: 'Lampe plafond', kwh: 0.08 },
-  { stat: 'sensor.suspension_buffet_energy', name: 'Suspension buffet', kwh: 0.05 },
-  { stat: 'sensor.lampe_pied_buffet_energy', name: 'Lampe à pied buffet', kwh: 0.03 },
-  { stat: 'sensor.lampe_bonhomme_energy', name: 'Lampe bonhomme', kwh: 0.02 },
-  { stat: 'sensor.leds_canape_energie', name: 'LEDs canapé', kwh: 0.04 },
-  { stat: 'sensor.miroir_chambre_energie', name: 'Miroir chambre', kwh: 0.01 },
+  {
+    stat: 'sensor.vivid_pilot_salon_led_energy',
+    node: 'salon__led',
+    name: 'Salon Énergie LEDs',
+    kwh: 0.17,
+  },
+  {
+    stat: 'sensor.vivid_pilot_chambre_energy',
+    node: 'chambre',
+    name: 'Chambre Énergie',
+    kwh: 0.06,
+  },
+  { stat: 'sensor.vivid_pilot_sdb_energy', node: 'sdb', name: 'Salle de bain Énergie', kwh: 0.09 },
 ];
+
+/** The rooms of the energy sensors. */
+export const ENERGY_AREAS = {
+  salon: { area_id: 'salon', name: 'Salon' },
+  chambre: { area_id: 'chambre', name: 'Chambre' },
+  sdb: { area_id: 'sdb', name: 'Salle de bain' },
+};
+
+/** States of Vivid Pilot's energy sensors (none with `noDevices`). */
+export function energyStates(options: EnergyMockOptions = {}): Record<string, HassEntity> {
+  if (options.noDevices) return {};
+  const at = new Date().toISOString();
+  return Object.fromEntries(
+    DEVICES.map((device) => [
+      device.stat,
+      {
+        entity_id: device.stat,
+        state: String(device.kwh * 30),
+        attributes: {
+          friendly_name: device.name,
+          unit_of_measurement: 'kWh',
+          device_class: 'energy',
+          state_class: 'total_increasing',
+          vivid_pilot_node: device.node,
+          vivid_pilot_kind: 'energy',
+        },
+        last_changed: at,
+        last_updated: at,
+      },
+    ]),
+  );
+}
 
 /** Share of a day's energy in each hour: a standby, a water heater in off-peak hours and two evening peaks. */
 const PROFILE = (() => {
@@ -79,7 +119,7 @@ function midnight(daysAgo: number): number {
 export interface EnergyMockOptions {
   /** Hourly data for the last days (the Enedis hourly collection). */
   hourlyDays?: number;
-  /** No device in the Energy dashboard. */
+  /** No energy sensor from Vivid Pilot. */
   noDevices?: boolean;
   /** No grid source. */
   noSource?: boolean;
@@ -102,13 +142,6 @@ export function withEnergy(
                 flow_from: [{ stat_energy_from: ENERGY_STAT, stat_cost: COST_STAT }],
               },
             ],
-        device_consumption: options.noDevices
-          ? []
-          : DEVICES.map((device) => ({
-              stat_consumption: device.stat,
-              name: device.name,
-              included_in_stat: device.included,
-            })),
       } as T;
     }
     if (message.type === 'recorder/statistics_during_period') {

@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from 'lit';
+import { PilotIndex, pilotStub } from '../../core/pilot';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { formEditor } from '../../core/vivid-form-editor';
@@ -19,6 +20,11 @@ const POWER_RGB: Rgb = [255, 179, 0];
 export class VividPowerCard extends VividFocusCard<ResolvedPowerCard> {
   static getConfigElement(): HTMLElement {
     return formEditor({
+      pilot: {
+        kind: 'power',
+        categories: [undefined, 'light', 'led', 'switch'],
+        manual: ['entities', 'voltage'],
+      },
       fields: [
         {
           name: 'entities',
@@ -42,8 +48,8 @@ export class VividPowerCard extends VividFocusCard<ResolvedPowerCard> {
     });
   }
 
-  static getStubConfig(): Record<string, unknown> {
-    return { entities: [] };
+  static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
+    return pilotStub(hass, 'power', [undefined]);
   }
 
   override getCardSize(): number {
@@ -52,6 +58,14 @@ export class VividPowerCard extends VividFocusCard<ResolvedPowerCard> {
 
   protected resolveConfig(raw: unknown): ResolvedPowerCard {
     return resolvePowerCard(raw);
+  }
+
+  protected override withPilot(
+    config: ResolvedPowerCard,
+    hass: HomeAssistant,
+  ): ResolvedPowerCard | undefined {
+    const entity = config.pilot ? PilotIndex.of(hass).entity(config.pilot, 'power') : undefined;
+    return entity && entity !== config.entities[0] ? { ...config, entities: [entity] } : undefined;
   }
 
   protected watched(config: ResolvedPowerCard): string[] {

@@ -1,15 +1,18 @@
 /**
- * Reading the energy data of Home Assistant: the sources of its Energy
- * dashboard and the long-term statistics. Results are cached a few minutes so
- * several cards on a page share their requests.
+ * Reading the energy data of Home Assistant: the grid source of its Energy
+ * dashboard (the meter and its cost), the energy of each room and of its
+ * lights, LEDs and switches from Vivid Pilot, and the long-term statistics.
+ * Results are cached a few minutes so several cards on a page share their
+ * requests.
  */
+import { PilotIndex, parseNodeKey } from '../core/pilot';
 import { resolveSlot, type ParsedSlot } from '../core/slots';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { HomeAssistant } from '../core/hass-types';
 import { addDays, buildDays, dateKey, dateStart, type Change, type DayRecord } from './days';
 import type { Tariff } from './tariff';
 
-/** A device of the Energy dashboard. */
+/** A consumer: a room or one of its categories (Vivid Pilot), or a statistic picked by hand. */
 export interface DeviceSource {
   stat: string;
   name?: string;
@@ -21,7 +24,6 @@ export interface EnergySources {
   /** Energy drawn from the grid, and its cost. */
   energy?: string;
   cost?: string;
-  devices: DeviceSource[];
 }
 
 interface EnergyPrefs {
@@ -31,7 +33,6 @@ interface EnergyPrefs {
     stat_cost?: string | null;
     flow_from?: { stat_energy_from?: string | null; stat_cost?: string | null }[];
   }[];
-  device_consumption?: { stat_consumption?: string; name?: string; included_in_stat?: string }[];
 }
 
 interface StatisticPeriod {
@@ -58,29 +59,18 @@ export function clearEnergyCache(): void {
   cache.clear();
 }
 
-/** The grid source and the devices of Home Assistant's Energy dashboard. */
+/** The grid source of Home Assistant's Energy dashboard: the meter and its cost. */
 export function energySources(hass: HomeAssistant): Promise<EnergySources> {
-  if (!hass.callWS) return Promise.resolve({ devices: [] });
+  if (!hass.callWS) return Promise.resolve({});
   return cached('prefs', async () => {
     const prefs = (await hass.callWS!<EnergyPrefs>({ type: 'energy/get_prefs' })) ?? {};
-    const sources: EnergySources = { devices: [] };
+    const sources: EnergySources = {};
     for (const source of prefs.energy_sources ?? []) {
       if (source.type !== 'grid') continue;
       const flow = source.flow_from?.[0];
       sources.energy ??= source.stat_energy_from ?? flow?.stat_energy_from ?? undefined;
       sources.cost ??= source.stat_cost ?? flow?.stat_cost ?? undefined;
     }
-    sources.devices = (prefs.device_consumption ?? []).flatMap((device) =>
-      device.stat_consumption
-        ? [
-            {
-              stat: device.stat_consumption,
-              name: device.name || undefined,
-              includedIn: device.included_in_stat || undefined,
-            },
-          ]
-        : [],
-    );
     return sources;
   });
 }
@@ -126,12 +116,12 @@ export interface EnergyNeeds {
   days: number;
   /** Days of hourly data (peak / off-peak split, the day curve). */
   hourlyDays: number;
-  /** Devices of the Energy dashboard and their energy over `deviceDays`. */
+  /** The consumers (Vivid Pilot rooms and categories) and their energy over `deviceDays`. */
   devices?: boolean;
   deviceDays?: number;
 }
 
-/** Energy of a device of the Energy dashboard: per day, and over all the days read. */
+/** Energy of a consumer: per day, and over all the days read. */
 export interface DeviceEnergy extends DeviceSource {
   daily: Change[];
   kwh: number;
@@ -157,26 +147,47 @@ export interface EnergyInputs {
   cost?: string;
   tariff: Tariff;
   needs: EnergyNeeds;
-  /** The devices slot (the Energy dashboard's devices, adjusted). */
+  /** The devices slot (Vivid Pilot's rooms and categories, adjusted). */
   devices?: ParsedSlot;
 }
 
-/** The devices to read: the Energy dashboard's, left out, added, or listed. */
+/**
+ * The consumers Vivid Pilot measures: each room's energy, with the energy of
+ * its lights, LEDs and switches counted in the room's (shown under it).
+ */
+export function pilotDevices(hass: HomeAssistant): DeviceSource[] {
+  const index = PilotIndex.of(hass);
+  const devices: DeviceSource[] = [];
+  for (const room of index.rooms()) {
+    const stat = index.entity(room.area, 'energy');
+    if (!stat) continue;
+    devices.push({ stat, name: room.name });
+    for (const node of index.nodes()) {
+      const key = parseNodeKey(node);
+      const child =
+        key.area === room.area && key.category ? index.entity(node, 'energy') : undefined;
+      if (child) devices.push({ stat: child, includedIn: stat });
+    }
+  }
+  return devices;
+}
+
+/** The devices to read: Vivid Pilot's, left out, added, or listed. */
 export function pickDevices(
-  sources: EnergySources['devices'],
+  sources: readonly DeviceSource[],
   slot: ParsedSlot | undefined,
-): EnergySources['devices'] {
-  if (!slot) return sources;
+): DeviceSource[] {
+  if (!slot) return [...sources];
   const found = sources.map((device) => ({
     entity: device.stat,
-    source: 'energy' as const,
-    via: '',
+    source: 'pilot' as const,
+    via: device.name ?? '',
   }));
   const ids = resolveSlot(slot, found, true).entities;
   return ids.map((stat) => sources.find((device) => device.stat === stat) ?? { stat });
 }
 
-/** Reads everything a card needs, from the Energy dashboard and the statistics. */
+/** Reads everything a card needs: the grid source, Vivid Pilot's rooms and the statistics. */
 export async function loadEnergy(inputs: EnergyInputs, now = Date.now()): Promise<EnergyData> {
   const { hass, tariff, needs } = inputs;
   const sources = await energySources(hass);
@@ -203,7 +214,7 @@ export async function loadEnergy(inputs: EnergyInputs, now = Date.now()): Promis
     ? buildDays(daily[energyId] ?? [], costId ? daily[costId] : undefined, hourlyEnergy, tariff)
     : [];
   let devices: DeviceEnergy[] = [];
-  const picked = pickDevices(sources.devices, inputs.devices);
+  const picked = pickDevices(pilotDevices(hass), inputs.devices);
   if (needs.devices && picked.length) {
     const from = dateStart(addDays(today, -((needs.deviceDays ?? needs.days) - 1)));
     const changes = await fetchChanges(

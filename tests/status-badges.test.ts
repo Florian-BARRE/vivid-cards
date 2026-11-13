@@ -25,6 +25,7 @@ import {
 } from '../src/badges/power/model';
 import { buildPresenceModel, resolvePresenceBadge } from '../src/badges/presence/model';
 import { onSpans } from '../src/core/history';
+import { withPilotEntity } from '../src/core/pilot';
 import { shortDuration } from '../src/i18n';
 
 describe('badge base', () => {
@@ -37,7 +38,7 @@ describe('badge base', () => {
     expect(aggregate([], 'mean')).toBeUndefined();
   });
 
-  it('reads members from a group, a list or a fallback', () => {
+  it('reads members from a group or a list', () => {
     const { hass } = createMockHass();
     expect(memberIds(hass, { entity: DOORS_GROUP_ID })).toEqual([
       'binary_sensor.porte_entree',
@@ -47,19 +48,24 @@ describe('badge base', () => {
     expect(
       memberIds(hass, { entities: ['binary_sensor.porte_entree', 'binary_sensor.porte_entree'] }),
     ).toEqual(['binary_sensor.porte_entree']);
-    expect(memberIds(hass, {}, () => ['x'])).toEqual(['x']);
+    expect(memberIds(hass, {})).toEqual([]);
   });
 
   it('validates the common options', () => {
     const base = (raw: Record<string, unknown>) =>
-      resolveBase(new ConfigReader('test-badge', raw), { domains: ['binary_sensor'] });
+      resolveBase(new ConfigReader('test-badge', raw), {
+        domains: ['binary_sensor'],
+        pilotKind: 'any',
+      });
     expect(base({ entity: 'binary_sensor.a' })).toMatchObject({
       look: 'disc',
       glow: 100,
       tapAction: { action: 'details' },
       holdAction: { action: 'details' },
     });
-    expect(() => base({})).toThrow(/test-badge: set "entity"/);
+    expect(() => base({})).toThrow(/test-badge: pick a Vivid Pilot node/);
+    expect(base({ pilot: 'salon__door' }).pilot).toBe('salon__door');
+    expect(() => base({ pilot: 'Salon Portes' })).toThrow(/pilot/);
     expect(() => base({ entity: 'light.a' })).toThrow(/binary_sensor/);
     expect(() => base({ entities: 'binary_sensor.a' })).toThrow(/list/);
     expect(() => base({ entity: 'binary_sensor.a', look: 'neon' })).toThrow(/look/);
@@ -169,14 +175,31 @@ describe('power badge', () => {
 });
 
 describe('battery badge', () => {
-  it('finds every battery and shows the lowest', () => {
+  it("shows the lowest of the home's batteries, from Vivid Pilot", () => {
     const { hass } = createMockHass();
-    const model = buildBatteryModel(hass, resolveBatteryBadge({}));
+    const batteries = Object.values(hass.states)
+      .filter((state) => state.attributes.device_class === 'battery')
+      .map((state) => state.entity_id);
+    hass.states['sensor.vivid_pilot_all_battery'] = {
+      entity_id: 'sensor.vivid_pilot_all_battery',
+      state: '9',
+      attributes: {
+        vivid_pilot_node: 'all__battery',
+        vivid_pilot_kind: 'battery',
+        entity_id: batteries,
+      },
+      last_changed: '',
+      last_updated: '',
+    };
+    const config = resolveBatteryBadge({});
+    expect(config.pilot).toBe('all__battery');
+    const model = buildBatteryModel(hass, withPilotEntity(hass, config, config.pilotKind));
     expect(model.items).toHaveLength(8);
     expect(model.value).toBe(9);
     expect(model.lowCount).toBe(2);
     expect(model.severity).toBe(2);
-    const mean = buildBatteryModel(hass, resolveBatteryBadge({ aggregate: 'mean' }));
+    const meanConfig = resolveBatteryBadge({ aggregate: 'mean' });
+    const mean = buildBatteryModel(hass, withPilotEntity(hass, meanConfig, 'battery'));
     expect(mean.value).toBeCloseTo((9 + 14 + 27 + 82 + 64 + 71 + 88 + 96) / 8);
   });
 

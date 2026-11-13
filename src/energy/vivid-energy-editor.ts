@@ -2,7 +2,8 @@ import { LitElement, css, html, nothing } from 'lit';
 import '../components/editor/vivid-slot-editor';
 import { parseSlot, readSlot, resolveSlot, type SlotValue } from '../core/slots';
 import { slotText } from '../i18n/slots';
-import { energySources, type DeviceSource } from './data';
+import { PilotIndex } from '../core/pilot';
+import { pilotDevices } from './data';
 import '../components/editor/vivid-invoices-editor';
 import type { InvoiceConfig } from '../components/editor/vivid-invoices-editor';
 import { fireEvent } from '../core/actions';
@@ -52,15 +53,12 @@ export class VividEnergyEditor extends LitElement {
     spec: { attribute: false },
     _config: { state: true },
     _error: { state: true },
-    _devices: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare spec?: EnergyEditorSpec;
   declare _config?: Record<string, unknown>;
   declare _error?: string;
-  /** Devices of the Energy dashboard, once read. */
-  declare _devices?: DeviceSource[];
 
   static override styles = [
     tokens,
@@ -93,14 +91,7 @@ export class VividEnergyEditor extends LitElement {
     void ensureHaForm().then(() => this.requestUpdate());
   }
 
-  protected override willUpdate(): void {
-    if (this.spec?.devices && this.hass && !this._devices) {
-      this._devices = [];
-      void energySources(this.hass).then((sources) => (this._devices = sources.devices));
-    }
-  }
-
-  /** The devices slot: the Energy dashboard's devices, adjusted. */
+  /** The devices slot: Vivid Pilot's rooms and their categories, adjusted. */
   private renderDevices() {
     if (!this.spec?.devices || !this.hass || !this._config) return nothing;
     const value = this._config.devices;
@@ -110,10 +101,11 @@ export class VividEnergyEditor extends LitElement {
     } catch {
       // Shown as auto; the error shows under the form.
     }
-    const found = (this._devices ?? []).map((device) => ({
+    const index = PilotIndex.of(this.hass);
+    const found = pilotDevices(this.hass).map((device) => ({
       entity: device.stat,
-      source: 'energy' as const,
-      via: device.name ?? '',
+      source: 'pilot' as const,
+      via: index.locate(device.stat)?.node ?? '',
     }));
     return html`<vivid-slot-editor
       class="devices"
@@ -123,6 +115,7 @@ export class VividEnergyEditor extends LitElement {
       .multiple=${true}
       .domains=${['sensor']}
       .modes=${['auto', 'manual'] as const}
+      .pilot=${true}
       .value=${value}
       .resolved=${resolveSlot(slot, found, true)}
       @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) => {

@@ -35,8 +35,9 @@ device information.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
 </p>
 
-Pick a light or a group first: the editor shows what it detected and only
-offers what applies. The three switches on top turn the ambilight button, the
+Pick the source first: a Vivid Pilot LED group (`pilot: salon__led`, the
+room's strips, kept up to date by Vivid Pilot) or, by hand, a light or a
+group. The editor shows what it detected and only offers what applies. The three switches on top turn the ambilight button, the
 consumption badges and the details on or off. Everything else is folded into
 sections that summarize their settings:
 
@@ -45,7 +46,7 @@ sections that summarize their settings:
 | **Detected lights** | Per light: ambilight, how consumption is measured, name, icon, transition, shown in the details |
 | **Tile**            | Color bar, state text, effect picker, favorite colors, badges, brightness, transition           |
 | **Gestures**        | Tap, hold and double tap                                                                        |
-| **Consumption**     | Sensor pattern, strip voltage, price, glow scale                                                |
+| **Consumption**     | Strip voltage, price, glow scale                                                                |
 | **Details**         | Link (hash), order, color bar, what the details show                                            |
 | **Appearance**      | Glow, header, compact layout, gradient, shimmer                                                 |
 
@@ -74,13 +75,12 @@ Escape, a tap outside, or a swipe down on phones.
 
 ## Recipes
 
-**WLED strips with a power sensor each** (a template or a smart plug):
+**The LED strips of a room, from Vivid Pilot** (their power is the one
+Vivid Pilot computes):
 
 ```yaml
 type: custom:vivid-led-group
-entity: light.salon_leds
-power:
-  sensor_pattern: sensor.{object_id}_power
+pilot: salon__led
 ```
 
 **WLED strips without power sensors**: WLED estimates its current; give the
@@ -140,7 +140,6 @@ tile:
   favorites: ['#ff8a3d', '#8a2be2', { kelvin: 2700, brightness: 40 }]
   transition: 0.5
 power:
-  sensor_pattern: sensor.{object_id}_power
   voltage: 5
   price: 0.2516
 details:
@@ -161,7 +160,8 @@ members:
 
 | Option       | Default      | Description                                                                    |
 | ------------ | ------------ | ------------------------------------------------------------------------------ |
-| `entity`     | required     | A light group, or a single light.                                              |
+| `pilot`      | required\*   | A Vivid Pilot LED group (`salon__led`): the room's strips.                     |
+| `entity`     | none         | By hand: a light group, or a single light (\*one of the two is required).      |
 | `name`       | entity name  | Title of the card.                                                             |
 | `icon`       | each light's | Icon of the card and of every light. By default each light keeps its own icon. |
 | `tile`       | see below    | Brightness tile.                                                               |
@@ -196,18 +196,17 @@ their value, on/off entities light up while on.
 
 `power`:
 
-| Option           | Default | Description                                                                                                                                            |
-| ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `enabled`        | `true`  | Consumption badges and chart.                                                                                                                          |
-| `sensor_pattern` | none    | Power sensor of each light. `{object_id}` is replaced by the light's object id: `sensor.{object_id}_power` finds `sensor.desk_power` for `light.desk`. |
-| `voltage`        | none    | Strip voltage. Turns the WLED estimated current into watts.                                                                                            |
-| `price`          | none    | Price of a kWh: the details show what today and the period cost.                                                                                       |
-| `price_entity`   | none    | A `sensor` or `input_number` holding the price of a kWh (a tariff that changes). It wins over `price`, which stays the fallback.                       |
-| `currency`       | HA's    | Currency code of the price, e.g. `EUR`.                                                                                                                |
-| `idle`           | `3`     | Watts per light under which the badge stays neutral.                                                                                                   |
-| `max`            | auto    | Watts per light at which the glow is the brightest. Without it, WLED's current limit × voltage when known, else 40.                                    |
-| `steps`          | auto    | Watts per light where the glow turns from the first color to the second, then the third. They follow `max` unless set.                                 |
-| `colors`         | yellow… | Three colors of the glow, low to high.                                                                                                                 |
+| Option         | Default | Description                                                                                                                      |
+| -------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`      | `true`  | Consumption badges and chart.                                                                                                    |
+| `voltage`      | none    | Strip voltage. Turns the WLED estimated current into watts.                                                                      |
+| `price`        | none    | Price of a kWh: the details show what today and the period cost.                                                                 |
+| `price_entity` | none    | A `sensor` or `input_number` holding the price of a kWh (a tariff that changes). It wins over `price`, which stays the fallback. |
+| `currency`     | HA's    | Currency code of the price, e.g. `EUR`.                                                                                          |
+| `idle`         | `3`     | Watts per light under which the badge stays neutral.                                                                             |
+| `max`          | auto    | Watts per light at which the glow is the brightest. Without it, WLED's current limit × voltage when known, else 40.              |
+| `steps`        | auto    | Watts per light where the glow turns from the first color to the second, then the third. They follow `max` unless set.           |
+| `colors`       | yellow… | Three colors of the glow, low to high.                                                                                           |
 
 `ambilight`:
 
@@ -262,7 +261,8 @@ their value, on/off entities light up while on.
 With `power_mode: auto`, the first source found wins:
 
 1. `members[].power_sensor`
-2. `power.sensor_pattern`
+2. The strip's power computed by Vivid Pilot (estimated current × the
+   voltage set in Vivid Pilot)
 3. A power sensor attached to the same device (a smart bulb or plug that
    measures itself)
 4. WLED estimated current × voltage (`members[].voltage`, else `power.voltage`)

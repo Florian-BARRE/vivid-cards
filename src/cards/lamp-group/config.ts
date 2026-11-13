@@ -45,6 +45,9 @@ export interface LampSceneConfig {
 }
 
 export interface LampGroupCardConfig extends LovelaceCardConfig {
+  /** Vivid Pilot group (`salon__light`): its lamps, Pilot mode. */
+  pilot?: string;
+  /** A group of lamps: manual mode. */
   entity?: string;
   entities?: string[];
   /** Members of the group left out of the card. */
@@ -107,6 +110,8 @@ export interface ResolvedLampScene {
 
 export interface ResolvedLampGroupConfig {
   type: string;
+  /** Vivid Pilot group, used when no entity is written. */
+  pilot?: string;
   entity?: string;
   entities?: string[];
   exclude?: string[];
@@ -258,7 +263,15 @@ export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
   const config = raw as LampGroupCardConfig;
   const entity = text(config.entity, 'entity');
   const entities = entityList(config.entities, 'entities');
-  if (!entity && !entities?.length) fail('set "entity" to a group of lamps, or list "entities".');
+  const pilot = text(config.pilot, 'pilot');
+  if (pilot && !/^[a-z0-9_]+$/.test(pilot)) {
+    fail('"pilot" must be a Vivid Pilot group, such as salon__light.');
+  }
+  if (!entity && !entities?.length && !pilot) {
+    fail(
+      'pick a Vivid Pilot group ("pilot"), or set "entity" to a group of lamps, or list "entities".',
+    );
+  }
   for (const id of [entity, ...(entities ?? [])]) {
     if (id && !LAMP_DOMAINS.includes(domainOf(id))) {
       fail(`"${id}" must be a light, a switch or a group of them.`);
@@ -281,6 +294,7 @@ export function resolveLampConfig(raw: unknown): ResolvedLampGroupConfig {
   }
   return {
     type: String(config.type ?? ''),
+    pilot,
     entity,
     entities: entities?.length ? entities : undefined,
     exclude: entityIds(config.exclude, 'exclude'),

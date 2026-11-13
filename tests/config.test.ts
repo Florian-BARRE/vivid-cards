@@ -40,7 +40,6 @@ describe('resolveConfig', () => {
       ...base,
       tile: { state: 'none', color_bar: 'temperature', hold_action: 'more-info' },
       power: {
-        sensor_pattern: 'sensor.{object_id}_puissance',
         voltage: 5,
         max: 30,
         steps: [8, 20],
@@ -64,7 +63,6 @@ describe('resolveConfig', () => {
     });
     expect(config.power).toMatchObject({
       enabled: true,
-      sensorPattern: 'sensor.{object_id}_puissance',
       voltage: 5,
       scale: { idle: 3, max: 30, steps: [8, 20] },
       autoMax: false,
@@ -121,12 +119,12 @@ describe('migrateConfig', () => {
         show_effects: false,
         show_hue: false,
         details_hash: 'salon-leds-details',
-        power: { sensor_pattern: 'sensor.{object_id}_puissance' },
+        power: { voltage: 12 },
       }),
     ).toEqual({
       ...base,
       tile: { effects: false, color_bar: 'none' },
-      power: { enabled: false, sensor_pattern: 'sensor.{object_id}_puissance' },
+      power: { enabled: false, voltage: 12 },
       ambilight: { enabled: false },
       details: { hash: 'salon-leds-details' },
     });

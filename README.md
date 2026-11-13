@@ -31,9 +31,11 @@
 - **It glows with what it shows.** A power button lit with the real color of
   your LEDs, a window badge that warms up the longer it stays open, a bill badge that
   turns red when it runs ahead of the last one.
-- **No templating.** Point a card at a group, a device or nothing at all:
-  members, WLED entities, power sensors, HyperHDR and your meter are found in
-  the Home Assistant registries.
+- **Built on [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot).**
+  Vivid Pilot sorts your home (each device in its room and its kind, groups,
+  aggregates, power, energy, the last lighting of each room); a card just
+  picks a room or a group. No templating, nothing found by entity name, and
+  every card can still be set by hand.
 - **A visual editor for everything,** that only shows what applies to what you
   picked. YAML stays possible and short.
 - **One file, no dependency.** Light and dark themes, English and French.
@@ -148,17 +150,24 @@ show up in HACS like any other download.
 
 ## Quick start
 
-Open a dashboard, **⋮ → Edit dashboard → Add card**, and search for **Vivid**:
-every card has a preview and a visual editor. Pick a light group for
+Install [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot) first and
+let it sort your rooms. Then open a dashboard, **⋮ → Edit dashboard → Add
+card**, and search for **Vivid**: every card has a preview and a visual
+editor. Pick a room for **Vivid room header**, a Vivid Pilot LED group for
 **Vivid LED group**; the electricity cards read the grid of your Energy
-dashboard and only ask for your tariff; the Ambilight cards find the box and
-HyperHDR on their own.
+dashboard, the rooms from Vivid Pilot, and only ask for your tariff; the
+Ambilight cards find the box and HyperHDR on their own.
 
 The same in YAML:
 
 ```yaml
+type: custom:vivid-room-header
+pilot: salon
+```
+
+```yaml
 type: custom:vivid-led-group
-entity: light.living_room_leds
+pilot: salon__led
 ```
 
 ```yaml
@@ -177,7 +186,7 @@ tariff:
 
 Each card has its own page, with its options, examples and screenshots:
 **[the documentation](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/README.md)**. Also there:
-[discovery: auto, adjusted, manual](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/discovery.md),
+[Vivid Pilot and manual](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/discovery.md),
 [troubleshooting](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/troubleshooting.md),
 [halos and theming](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/theming.md),
 [development](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/development.md).

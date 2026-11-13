@@ -1,11 +1,13 @@
 /* ====== Code Summary ======
  * What a room header shows, from its resolved config and Home Assistant:
- * its slots, its lights (the lamps, LEDs and switches slots), the lights on,
- * the power, the halo, the power button's two ways, the badges.
+ * its slots, its lights (the light, LED and switch slots), the lights on,
+ * the power, the halo, the power button's two ways (the room's Vivid Pilot
+ * memory scene first), the badges.
  */
 
 import { expandGroup, friendlyName, isAvailable, parseNumericState } from '../../core/entities';
 import type { HomeAssistant } from '../../core/hass-types';
+import { PilotIndex } from '../../core/pilot';
 import { isVisible, roomBadges, type ShownBadge } from './badges';
 import type { ResolvedRoomHeaderConfig } from './config';
 import { haloSources, isOn, type HaloSource } from './halo';
@@ -14,10 +16,12 @@ import { roomSlots, type RoomSlots } from './room-slots';
 
 export { AMBER, haloSources, type HaloSource } from './halo';
 
-/** `salon` → `Salon`, `salle_de_bain` → `Salle de bain`, `séjour` → `Séjour`. */
-export function roomTitle(room: string): string {
-  const words = room.replace(/[_-]+/g, ' ').trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+/** The room's memory scene when it can restore something now. */
+export function memoryScene(hass: HomeAssistant, room: string | undefined): string | undefined {
+  if (!room) return undefined;
+  const scene = PilotIndex.of(hass).entity(room, 'state');
+  const state = scene ? hass.states[scene] : undefined;
+  return state && isAvailable(state) && state.attributes.saved_at ? scene : undefined;
 }
 
 /** Watts of a power sensor (kW converted); `undefined` when it cannot be read. */
@@ -61,19 +65,15 @@ export function buildRoomHeaderModel(
   isDefined: (tag: string) => boolean = () => true,
 ): RoomHeaderModel {
   const slots = roomSlots(hass, config);
-  const lights = [
-    ...slots.lampes.entities,
-    ...slots.leds.entities,
-    ...slots.interrupteurs.entities,
-  ];
+  const lights = [...slots.light.entities, ...slots.led.entities, ...slots.switch.entities];
   const members = [...new Set(lights.flatMap((id) => expandGroup(hass, id)))];
   const readable = members.filter((id) => isAvailable(hass.states[id]));
-  const power = slots.puissance.entities[0];
-  const plan = powerPlan(config, slots, lights);
+  const power = slots.power.entities[0];
+  const plan = powerPlan(config, memoryScene(hass, config.pilot), lights);
   const name =
     config.name ??
-    (config.roomLabel
-      ? roomTitle(config.roomLabel)
+    (config.pilot
+      ? PilotIndex.of(hass).areaName(config.pilot)
       : lights[0]
         ? friendlyName(hass, lights[0])
         : '');
@@ -81,6 +81,7 @@ export function buildRoomHeaderModel(
   const hasAction = plan.on.source !== 'none' || plan.off.source !== 'none';
   const watched = new Set<string>([...lights, ...members]);
   if (power) watched.add(power);
+  for (const entity of plan.on.entities) watched.add(entity);
   if (mainEntity) watched.add(mainEntity);
   const badges = roomBadges(slots, config.badges, isDefined);
   for (const badge of badges)

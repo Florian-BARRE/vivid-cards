@@ -5,6 +5,8 @@ import { GLOW_SLIDER, glowPercent } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
 import { defineElement } from '../../core/register';
+import { withPilotEntity } from '../../core/pilot';
+import { pilotNodeOptions } from '../../i18n/pilot';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
 import { ICON_COLORS } from '../base/config';
@@ -22,7 +24,14 @@ type FormData = Record<string, unknown>;
 const DEFAULT = 'default';
 const CUSTOM = 'custom';
 
+/** Pilot mode unless an entity is written by hand. */
+function sourceOf(config: LightBadgeConfig): 'pilot' | 'manual' {
+  return config.entity ? 'manual' : 'pilot';
+}
+
 const LABELS: Record<string, EditorStringKey> = {
+  source: 'badge_source',
+  pilot: 'badge_pilot',
   entity: 'badge_entity',
   name: 'badge_details_title',
   icon: 'icon_on',
@@ -109,11 +118,13 @@ export class VividLightBadgeEditor extends LitElement {
   private autoIcons(): { icon?: string; off?: LightBadgeModel; error?: string } {
     const config = this._config;
     const hass = this.hass;
-    if (!hass || !config?.entity || !hass.states[config.entity]) return {};
+    if (!hass || !config) return {};
+    const target = withPilotEntity(hass, config, 'group');
+    if (!target.entity || !hass.states[target.entity]) return {};
     try {
       resolveLightBadgeConfig(config);
       const build = (extra: Partial<LightBadgeConfig>) =>
-        buildLightBadgeModel(hass, resolveLightBadgeConfig({ ...config, ...extra }));
+        buildLightBadgeModel(hass, resolveLightBadgeConfig({ ...target, ...extra }));
       return {
         icon: build({ icon: undefined, icon_off: undefined }).icon,
         off: build({ icon_off: undefined }),
@@ -155,7 +166,17 @@ export class VividLightBadgeEditor extends LitElement {
       if (raw === undefined || raw === '' || raw === null || raw === fallback) delete next[key];
       else next[key] = raw;
     };
-    set('entity', value.entity);
+    const source = sourceOf(previous);
+    if (value.source && value.source !== source) {
+      // Switching source drops the other one's target.
+      delete next.pilot;
+      delete next.entity;
+      this._config = next as LightBadgeConfig;
+      fireEvent(this, 'config-changed', { config: this._config });
+      return;
+    }
+    if (source === 'pilot') set('pilot', value.pilot);
+    else set('entity', value.entity);
     set('name', value.name);
     set('icon', value.icon);
     set('icon_off', value.icon_off);
@@ -190,8 +211,21 @@ export class VividLightBadgeEditor extends LitElement {
     const offHelper = auto.off?.strike
       ? this.t('icon_auto_struck', { icon: autoOff })
       : this.t('icon_auto', { icon: autoOff });
+    const source = sourceOf(config);
+    const nodes = pilotNodeOptions(this.hass, 'group', ['light', 'led', 'switch']);
     const schema = [
-      { name: 'entity', required: true, selector: { entity: { domain: ENTITY_DOMAINS } } },
+      {
+        name: 'source',
+        required: true,
+        selector: this.choice(['pilot', 'manual'], 'badge_source_'),
+      },
+      source === 'pilot'
+        ? {
+            name: 'pilot',
+            required: true,
+            selector: { select: { mode: 'dropdown', options: nodes } },
+          }
+        : { name: 'entity', required: true, selector: { entity: { domain: ENTITY_DOMAINS } } },
       { name: 'name', selector: { text: {} } },
       {
         type: 'grid',
@@ -230,6 +264,8 @@ export class VividLightBadgeEditor extends LitElement {
       { name: 'show_zero', selector: { boolean: {} } },
     ];
     const data: FormData = {
+      source,
+      pilot: config.pilot,
       entity: config.entity,
       name: config.name,
       icon: config.icon,
@@ -251,17 +287,19 @@ export class VividLightBadgeEditor extends LitElement {
         .schema=${schema}
         .computeLabel=${this.computeLabel}
         .computeHelper=${(field: { name: string }) =>
-          field.name === 'icon'
-            ? this.t('icon_auto', { icon: autoIcon })
-            : field.name === 'icon_off'
-              ? offHelper
-              : field.name === 'glow'
-                ? this.t('glow_helper')
-                : field.name === 'glow_boost'
-                  ? this.t('glow_boost_helper')
-                  : field.name === 'transition'
-                    ? this.t('transition_helper')
-                    : undefined}
+          field.name === 'pilot'
+            ? this.t('badge_pilot_helper')
+            : field.name === 'icon'
+              ? this.t('icon_auto', { icon: autoIcon })
+              : field.name === 'icon_off'
+                ? offHelper
+                : field.name === 'glow'
+                  ? this.t('glow_helper')
+                  : field.name === 'glow_boost'
+                    ? this.t('glow_boost_helper')
+                    : field.name === 'transition'
+                      ? this.t('transition_helper')
+                      : undefined}
         @value-changed=${(event: CustomEvent<{ value: FormData }>) => {
           event.stopPropagation();
           this.onChange(event.detail.value);

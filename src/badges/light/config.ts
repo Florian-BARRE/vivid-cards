@@ -3,6 +3,7 @@ import { domainOf } from '../../core/entities';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import { BADGE_LOOKS, ICON_COLORS, type BadgeLook, type IconColor } from '../base/config';
 import type { LovelaceCardConfig } from '../../core/hass-types';
+import type { PilotKind } from '../../core/pilot';
 
 export const BADGE_TYPE = 'vivid-light-badge';
 
@@ -31,7 +32,10 @@ export type DetailsLayout = 'list' | 'compact';
 export const DETAILS_LAYOUTS: DetailsLayout[] = ['list', 'compact'];
 
 export interface LightBadgeConfig extends LovelaceCardConfig {
-  entity: string;
+  /** Vivid Pilot node (`salon__led`): Pilot mode. */
+  pilot?: string;
+  /** A light or a group of lights: manual mode. */
+  entity?: string;
   /** Title of the details. */
   name?: string;
   /** Icon while something is on. */
@@ -59,7 +63,10 @@ export interface LightBadgeConfig extends LovelaceCardConfig {
 export interface ResolvedLightBadgeConfig {
   type: string;
   kind: LightKind;
-  entity: string;
+  /** Vivid Pilot node, used when no entity is written. */
+  pilot?: string;
+  pilotKind: PilotKind;
+  entity?: string;
   name?: string;
   icon?: string;
   iconOff?: string;
@@ -105,8 +112,12 @@ export function resolveLightBadgeConfig(
   if (typeof raw !== 'object' || raw === null) fail('invalid configuration.');
   const config = raw as LightBadgeConfig;
   const entity = text(config.entity, 'entity');
-  if (!entity) fail('set "entity" to a light or a light group.');
-  if (!ENTITY_DOMAINS.includes(domainOf(entity))) {
+  const pilot = text(config.pilot, 'pilot');
+  if (!entity && !pilot)
+    fail('pick a Vivid Pilot group ("pilot"), or set "entity" to a light or a light group.');
+  if (pilot && !/^[a-z0-9_]+$/.test(pilot))
+    fail('"pilot" must be a Vivid Pilot node, such as salon__led.');
+  if (entity && !ENTITY_DOMAINS.includes(domainOf(entity))) {
     fail(`"${entity}" must be a light, a switch or a group of them.`);
   }
   for (const key of ['show_count', 'show_zero'] as const) {
@@ -144,6 +155,8 @@ export function resolveLightBadgeConfig(
   return {
     type: config.type,
     kind,
+    pilot,
+    pilotKind: 'group',
     entity,
     name: text(config.name, 'name'),
     icon: text(config.icon, 'icon'),

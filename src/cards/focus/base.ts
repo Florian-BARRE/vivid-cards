@@ -42,6 +42,13 @@ export abstract class VividFocusCard<C extends { glow: number }> extends LitElem
   protected abstract watched(config: C): string[];
   protected abstract head(config: C, hass: HomeAssistant): FocusHead;
   protected abstract renderBody(config: C, hass: HomeAssistant): TemplateResult | typeof nothing;
+  /**
+   * Pilot mode: the config with its Vivid Pilot node's entity filled in, or
+   * `undefined` when the card has no node (manual) or its entity is current.
+   */
+  protected withPilot(_config: C, _hass: HomeAssistant): C | undefined {
+    return undefined;
+  }
 
   setConfig(config: unknown): void {
     this._config = this.resolveConfig(config);
@@ -109,6 +116,11 @@ export abstract class VividFocusCard<C extends { glow: number }> extends LitElem
 
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
     if (!this.hass || !this._config) return changed.has('_config');
+    const pilot = this.withPilot(this._config, this.hass);
+    if (pilot) {
+      this._config = pilot;
+      return true;
+    }
     if (changed.size === 1 && changed.has('hass')) {
       return watchedChanged(
         changed.get('hass') as HomeAssistant | undefined,

@@ -19,8 +19,7 @@ import {
 } from './config';
 import type { ShownBadge } from './badges';
 import { buildRoomHeaderModel, powerTap, type HaloSource, type RoomHeaderModel } from './model';
-import { NamingSource } from '../../core/slots';
-import { roleSpec } from './roles';
+import { PilotIndex } from '../../core/pilot';
 import './vivid-room-header-editor';
 
 const HOLD_MS = 500;
@@ -67,12 +66,8 @@ export class VividRoomHeader extends LitElement {
   }
 
   static getStubConfig(hass?: HomeAssistant): Partial<RoomHeaderCardConfig> {
-    const rooms = ['salon', 'chambre', 'bureau', 'cuisine', 'sdb'];
-    const lights = roleSpec('lampes');
-    const room = hass
-      ? rooms.find((id) => new NamingSource(id).find(hass, lights).length > 0)
-      : undefined;
-    return { room: room ?? 'salon' };
+    const room = hass ? PilotIndex.of(hass).rooms()[0]?.area : undefined;
+    return { pilot: room ?? 'salon' };
   }
 
   setConfig(config: RoomHeaderCardConfig): void {

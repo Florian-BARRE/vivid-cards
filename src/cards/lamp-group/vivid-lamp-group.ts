@@ -3,8 +3,8 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { haptic, openMoreInfo, toggleEntity } from '../../core/actions';
-import { domainOf } from '../../core/entities';
 import { glowSize, glowVars } from '../../core/glow';
+import { pilotStub, withPilotEntity } from '../../core/pilot';
 import type { HomeAssistant, LovelaceGridOptions } from '../../core/hass-types';
 import {
   energyWh,
@@ -134,25 +134,7 @@ export class VividLampGroup extends LitElement {
   }
 
   static getStubConfig(hass?: HomeAssistant): Partial<LampGroupCardConfig> {
-    const states = Object.values(hass?.states ?? {});
-    const groups = states.filter(
-      (state) =>
-        ['switch', 'light'].includes(domainOf(state.entity_id)) &&
-        Array.isArray(state.attributes.entity_id),
-    );
-    const isWled = (id: unknown) => hass?.entities?.[String(id)]?.platform === 'wled';
-    const lamps =
-      groups.find((state) => domainOf(state.entity_id) === 'switch') ??
-      groups.find(
-        (state) => !(state.attributes.entity_id as unknown[]).every((id) => isWled(id)),
-      ) ??
-      groups[0];
-    return {
-      entity:
-        lamps?.entity_id ??
-        states.find((state) => domainOf(state.entity_id) === 'switch')?.entity_id ??
-        'switch.lamps',
-    };
+    return pilotStub(hass, 'group', ['light', 'switch']);
   }
 
   setConfig(config: LampGroupCardConfig): void {
@@ -518,14 +500,21 @@ export class VividLampGroup extends LitElement {
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
     if (!this.hass || !this._config) return changed.has('_config');
     if (changed.size === 1 && changed.has('hass')) {
-      return watchedChanged(changed.get('hass'), this.hass, this.model?.watched ?? []);
+      // Waiting for the Vivid Pilot group: any change may bring it.
+      if (!this.model?.all.length) return true;
+      return watchedChanged(changed.get('hass'), this.hass, this.model.watched);
     }
     return true;
   }
 
   protected override willUpdate(): void {
     if (this.hass && this._config)
-      this.model = buildLampGroupModel(this.hass, this._config, Date.now(), this.switchedAt);
+      this.model = buildLampGroupModel(
+        this.hass,
+        withPilotEntity(this.hass, this._config, 'group'),
+        Date.now(),
+        this.switchedAt,
+      );
   }
 
   protected override updated(): void {
@@ -1055,7 +1044,7 @@ export class VividLampGroup extends LitElement {
     const model = this.model;
     if (!config || !this.hass) return nothing;
     if (!model || model.all.length === 0) {
-      const missing = config.entity ?? config.entities?.join(', ') ?? '';
+      const missing = config.entity ?? config.entities?.join(', ') ?? config.pilot ?? '';
       return html`<ha-card><div class="warning">Entity not found: ${missing}</div></ha-card>`;
     }
     return html`<ha-card>

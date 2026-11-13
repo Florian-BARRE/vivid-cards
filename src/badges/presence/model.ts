@@ -22,7 +22,7 @@ export interface ResolvedPresenceBadge extends ResolvedBaseBadge {
 export function resolvePresenceBadge(raw: unknown): ResolvedPresenceBadge {
   const reader = new ConfigReader(PRESENCE_BADGE, raw);
   return {
-    ...resolveBase(reader, { domains: DOMAINS }),
+    ...resolveBase(reader, { domains: DOMAINS, pilotKind: 'any' }),
     showCount: reader.bool('show_count', true),
     showZero: reader.bool('show_zero', false),
     showDuration: reader.bool('show_duration', true),

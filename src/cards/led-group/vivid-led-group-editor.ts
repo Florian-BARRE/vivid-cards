@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import '../../components/editor/vivid-slot-editor';
 import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import { applySource, sourceFields, targetSource } from '../../components/editor/pilot-source';
+import { PilotIndex } from '../../core/pilot';
 import type { SlotValue } from '../../core/slots';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -54,10 +56,11 @@ interface Resolution {
 }
 
 const LABELS: Record<string, EditorStringKey> = {
+  source: 'badge_source',
+  pilot: 'badge_pilot',
   entity: 'entity',
   name: 'name',
   icon: 'icon',
-  sensor_pattern: 'sensor_pattern',
   voltage: 'voltage',
   power_sensor: 'power_sensor',
   member_name: 'member_name',
@@ -177,13 +180,23 @@ export class VividLedGroupEditor extends LitElement {
   /** Last valid state, kept while a field holds a value the card rejects. */
   private _lastGood?: Resolution;
 
+  /** The group shown: written by hand, else the Vivid Pilot node's. */
+  private target(): string | undefined {
+    const config = this._config;
+    if (config?.entity) return config.entity;
+    return this.hass && config?.pilot
+      ? PilotIndex.of(this.hass).entity(config.pilot, 'group')
+      : undefined;
+  }
+
   private resolve(): (Resolution & { error?: string }) | undefined {
-    if (!this.hass || !this._config?.entity || !this.hass.states[this._config.entity]) {
+    const entity = this.target();
+    if (!this.hass || !this._config || !entity || !this.hass.states[entity]) {
       this._lastGood = undefined;
       return undefined;
     }
     try {
-      const resolved = resolveConfig(this._config);
+      const resolved = { ...resolveConfig(this._config), entity };
       this._lastGood = { resolved, model: buildLedGroupModel(this.hass, resolved) };
       return this._lastGood;
     } catch (error) {
@@ -333,7 +346,6 @@ export class VividLedGroupEditor extends LitElement {
             type: 'grid',
             name: '',
             schema: [
-              { name: 'sensor_pattern', selector: { text: {} } },
               ...(withVoltage
                 ? [
                     {
@@ -353,14 +365,12 @@ export class VividLedGroupEditor extends LitElement {
             ],
           },
         ],
-        { sensor_pattern: config.power?.sensor_pattern, voltage: config.power?.voltage },
+        { voltage: config.power?.voltage },
         (value) => {
-          let next = setOption(config, 'power', 'sensor_pattern', value.sensor_pattern);
-          next = setOption(next, 'power', 'voltage', value.voltage);
+          const next = setOption(config, 'power', 'voltage', value.voltage);
           this.commit(next);
         },
-        (schema) =>
-          schema.name === 'sensor_pattern' ? this.t('sensor_pattern_helper') : undefined,
+        () => undefined,
       )}
       <div class="hint">${this.t(withVoltage ? 'power_order_hint' : 'power_order_hint_plain')}</div>
       ${
@@ -435,8 +445,8 @@ export class VividLedGroupEditor extends LitElement {
     const key: EditorStringKey =
       source.origin === 'sensor'
         ? 'origin_sensor'
-        : source.origin === 'pattern'
-          ? 'origin_pattern'
+        : source.origin === 'pilot'
+          ? 'origin_pilot'
           : 'origin_device';
     return this.t(key, { entity: source.entityId });
   }
@@ -1255,8 +1265,15 @@ export class VividLedGroupEditor extends LitElement {
           .multiple=${true}
           .domains=${['light']}
           .modes=${['auto'] as const}
+          .pilot=${targetSource(this._config ?? {}) === 'pilot'}
           .value=${membersValue(this._config ?? {})}
-          .resolved=${this.hass ? membersSlot(this.hass, this._config ?? {}, ['light']) : undefined}
+          .resolved=${
+            this.hass
+              ? membersSlot(this.hass, { ...(this._config ?? {}), entity: this.target() }, [
+                  'light',
+                ])
+              : undefined
+          }
           @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
             this._config && this.commit(applyMembers(this._config, event.detail.value))}
         ></vivid-slot-editor>
@@ -1453,19 +1470,36 @@ export class VividLedGroupEditor extends LitElement {
     const config = this._config;
     const resolution = this.resolve();
 
+    const source = targetSource(config);
     const entityForm = this.form(
-      [{ name: 'entity', required: true, selector: { entity: { domain: 'light' } } }],
-      { entity: config.entity },
-      (value) => this.commit(setRoot(config, 'entity', value.entity)),
+      [
+        ...sourceFields(
+          this.hass,
+          { pilot: this.t('badge_source_pilot'), manual: this.t('badge_source_manual') },
+          'group',
+          ['led'],
+          source,
+        ),
+        ...(source === 'manual'
+          ? [{ name: 'entity', required: true, selector: { entity: { domain: 'light' } } }]
+          : []),
+      ] as FormSchema[],
+      { source, pilot: config.pilot, entity: config.entity },
+      (value) => {
+        const { config: next, switched } = applySource(config, value);
+        if (switched || source === 'pilot') return this.commit(next);
+        this.commit(setRoot(next, 'entity', value.entity));
+      },
     );
+    const target = this.target();
 
     if (!resolution) {
-      return html`<div class="editor">${entityForm}${this.renderBanner(config.entity)}</div>`;
+      return html`<div class="editor">${entityForm}${this.renderBanner(target)}</div>`;
     }
     const { resolved, model, error } = resolution;
 
     return html`<div class="editor">
-      ${entityForm} ${this.renderBanner(config.entity, resolution)}
+      ${entityForm} ${this.renderBanner(target, resolution)}
       ${
         error
           ? html`<div class="banner error">

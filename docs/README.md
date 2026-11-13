@@ -65,6 +65,7 @@ source and how the projection works, shared by every card below.
 
 ## Guides
 
+- [Vivid Pilot and manual](guides/discovery.md): where the cards take their entities from.
 - [Electricity](guides/electricity.md): tariff, invoices, data source, projection.
 - [Troubleshooting](guides/troubleshooting.md): the card does not load, no consumption, the Pi is cut…
 - [Halos and theming](guides/theming.md): the glow, the theme variables.

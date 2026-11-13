@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import { tintTone } from '../../core/glow';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { fetchStates, onSpans } from '../../core/history';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
@@ -36,12 +37,7 @@ export class VividPresenceBadge extends VividBadge<ResolvedPresenceBadge> {
   }
 
   static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
-    const sensor = Object.values(hass?.states ?? {}).find(
-      (state) =>
-        state.entity_id.startsWith('binary_sensor.') &&
-        DEVICE_CLASSES.includes(String(state.attributes.device_class)),
-    );
-    return { entity: sensor?.entity_id ?? 'binary_sensor.presence' };
+    return pilotStub(hass, 'any', ['presence']);
   }
 
   protected resolveConfig(raw: unknown): ResolvedPresenceBadge {
@@ -146,6 +142,8 @@ export class VividPresenceBadge extends VividBadge<ResolvedPresenceBadge> {
 export const PRESENCE_EDITOR: BadgeEditorSpec = {
   type: `custom:${PRESENCE_BADGE}`,
   domain: DOMAINS,
+  pilotKind: 'any',
+  pilotCategories: ['presence'],
   deviceClass: DEVICE_CLASSES,
   iconOff: true,
   fields: [

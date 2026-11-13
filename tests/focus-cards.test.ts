@@ -79,9 +79,11 @@ describe('focused cards lookups', () => {
     expect(kindOfSensor(hass, undefined)).toBe('temperature');
   });
 
-  it('finds the consumption of WLED strips from their current', () => {
+  it("reads a strip's power from Vivid Pilot, else from its current", () => {
     const { hass } = createMockHass('en', { allOnline: true });
     const config = resolvePowerCard({ entities: ['light.salon_buffet_wled'], voltage: 5 });
+    expect(seriesSources(hass, powerReadings(hass, config))[0]?.factor).toBe(1);
+    delete hass.states['sensor.salon_buffet_wled_puissance'];
     const readings = powerReadings(hass, config);
     expect(readings).toHaveLength(1);
     const [series] = seriesSources(hass, readings);

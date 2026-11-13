@@ -13,7 +13,7 @@ export interface EnergyBaseConfig {
   cost?: string;
   tariff?: TariffConfig;
   /**
-   * Devices (statistic ids): the Energy dashboard's when unset, `{ exclude,
+   * Consumers (statistic ids): Vivid Pilot's rooms when unset, `{ exclude,
    * add }` to adjust them, a list instead.
    */
   devices?: SlotValue;

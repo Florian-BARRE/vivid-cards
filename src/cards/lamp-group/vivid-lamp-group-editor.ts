@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import '../../components/editor/vivid-slot-editor';
 import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import { applySource, sourceFields, targetSource } from '../../components/editor/pilot-source';
+import { withPilotEntity } from '../../core/pilot';
 import type { SlotValue } from '../../core/slots';
 import { classMap } from 'lit/directives/class-map.js';
 import { fireEvent } from '../../core/actions';
@@ -184,10 +186,22 @@ export class VividLampGroupEditor extends LitElement {
       value,
       label: this.t(`lamp_layout_${value}` as EditorStringKey),
     }));
+    const source = targetSource(config);
     return this.form(
       [
-        { name: 'entity', selector: { entity: { domain: LAMP_DOMAINS } } },
-        { name: 'entities', selector: { entity: { domain: LAMP_DOMAINS, multiple: true } } },
+        ...sourceFields(
+          this.hass,
+          { pilot: this.t('badge_source_pilot'), manual: this.t('badge_source_manual') },
+          'group',
+          ['light', 'switch'],
+          source,
+        ),
+        ...(source === 'manual'
+          ? [
+              { name: 'entity', selector: { entity: { domain: LAMP_DOMAINS } } },
+              { name: 'entities', selector: { entity: { domain: LAMP_DOMAINS, multiple: true } } },
+            ]
+          : []),
         {
           type: 'grid',
           name: '',
@@ -199,22 +213,33 @@ export class VividLampGroupEditor extends LitElement {
         { name: 'layout', selector: { select: { mode: 'dropdown', options: layouts } } },
       ],
       {
+        source,
+        pilot: config.pilot,
         entity: config.entity,
         entities: config.entities,
         name: config.name,
         icon: config.icon,
         layout: config.layout ?? 'ambiance',
       },
-      (value) =>
+      (value) => {
+        const { config: next, switched } = applySource(config, value);
+        if (switched) return this.commit(next);
         this.commit({
-          ...config,
-          entity: value.entity as string | undefined,
-          entities: value.entities as string[] | undefined,
+          ...next,
+          ...(source === 'manual'
+            ? {
+                entity: value.entity as string | undefined,
+                entities: value.entities as string[] | undefined,
+              }
+            : {}),
           name: value.name as string | undefined,
           icon: value.icon as string | undefined,
           layout: value.layout as LampGroupCardConfig['layout'],
-        }),
+        });
+      },
       {
+        source: this.t('badge_source'),
+        pilot: this.t('badge_pilot'),
         entity: this.t('lamp_entity'),
         entities: this.t('lamp_entities'),
         name: this.t('name'),
@@ -623,7 +648,9 @@ export class VividLampGroupEditor extends LitElement {
     } catch (caught) {
       error = (caught as Error).message;
     }
-    const model = resolved ? buildLampGroupModel(hass, resolved) : undefined;
+    const model = resolved
+      ? buildLampGroupModel(hass, withPilotEntity(hass, resolved, 'group'))
+      : undefined;
     const lamps = model?.all ?? [];
     const scenes = config.scenes?.length ?? 0;
     return html`<div class="editor">
@@ -645,8 +672,9 @@ export class VividLampGroupEditor extends LitElement {
                       .multiple=${true}
                       .domains=${['light', 'switch', 'group', 'input_boolean']}
                       .modes=${['auto', 'manual'] as const}
+                      .pilot=${targetSource(config) === 'pilot'}
                       .value=${membersValue(config)}
-                      .resolved=${membersSlot(hass, config)}
+                      .resolved=${membersSlot(hass, withPilotEntity(hass, config, 'group'))}
                       @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
                         this.commit(applyMembers(config, event.detail.value))}
                     ></vivid-slot-editor>

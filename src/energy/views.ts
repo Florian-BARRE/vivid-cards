@@ -352,7 +352,7 @@ function sumRange(changes: readonly Change[], from: string, to: string): number 
   return sum;
 }
 
-/** The devices of the Energy dashboard over a period, priced at its average price. */
+/** The rooms (Vivid Pilot) over a period, priced at its average price. */
 export function devicesView(
   days: readonly DayRecord[],
   devices: readonly DeviceEnergy[],

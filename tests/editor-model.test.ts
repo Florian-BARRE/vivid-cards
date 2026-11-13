@@ -36,14 +36,8 @@ describe('setOption', () => {
   });
 
   it('keeps the other keys of the section', () => {
-    const config = setOption(
-      { ...base, power: { sensor_pattern: 'sensor.{object_id}_puissance', max: 34 } },
-      'power',
-      'max',
-      40,
-      40,
-    );
-    expect(config.power).toEqual({ sensor_pattern: 'sensor.{object_id}_puissance' });
+    const config = setOption({ ...base, power: { voltage: 12, max: 34 } }, 'power', 'max', 40, 40);
+    expect(config.power).toEqual({ voltage: 12 });
   });
 
   it('keeps false when the default is true', () => {

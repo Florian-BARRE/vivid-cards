@@ -21,7 +21,11 @@ export interface ResolvedBatteryBadge extends ResolvedBaseBadge {
 
 export function resolveBatteryBadge(raw: unknown): ResolvedBatteryBadge {
   const reader = new ConfigReader(BATTERY_BADGE, raw);
-  const base = resolveBase(reader, { domains: DOMAINS, entityOptional: true });
+  const base = resolveBase(reader, {
+    domains: DOMAINS,
+    pilotKind: 'battery',
+    defaultPilot: 'all__battery',
+  });
   const low = reader.number('low', 15, 0, 100);
   const warn = reader.number('warn', 30, 0, 100);
   if (warn < low) reader.fail('"warn" must be at least "low".');
@@ -32,21 +36,6 @@ export function resolveBatteryBadge(raw: unknown): ResolvedBatteryBadge {
     low,
     warn,
   };
-}
-
-/** Every battery of the installation: level sensors and low-battery binary sensors. */
-export function allBatteries(hass: HomeAssistant): string[] {
-  return Object.values(hass.states)
-    .filter((state) => {
-      if (state.attributes.device_class !== 'battery') return false;
-      const domain = domainOf(state.entity_id);
-      return (
-        domain === 'binary_sensor' ||
-        (domain === 'sensor' && state.attributes.unit_of_measurement === '%')
-      );
-    })
-    .map((state) => state.entity_id)
-    .sort();
 }
 
 export interface BatteryItem {
@@ -90,7 +79,7 @@ export function batteryIcon(level: number | undefined, low = false): string {
 }
 
 export function buildBatteryModel(hass: HomeAssistant, config: ResolvedBatteryBadge): BatteryModel {
-  const ids = memberIds(hass, config, () => allBatteries(hass));
+  const ids = memberIds(hass, config);
   const items: BatteryItem[] = members(hass, ids).map((member) => {
     const binary = domainOf(member.entityId) === 'binary_sensor';
     const level = binary ? undefined : numericValue(member.state);

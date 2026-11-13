@@ -1,5 +1,6 @@
 import { html } from 'lit';
 import { tintTone } from '../../core/glow';
+import { pilotStub } from '../../core/pilot';
 import type { HomeAssistant } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerBadge } from '../../core/register';
 import { localize, shortDuration } from '../../i18n';
@@ -133,15 +134,7 @@ export class VividOpeningBadge extends VividBadge<ResolvedOpeningBadge> {
 
 /** First group (else first sensor) of the badge's device classes. */
 function openingStub(hass: HomeAssistant | undefined, kind: OpeningKind): Record<string, unknown> {
-  const classes = KIND_DEVICE_CLASSES[kind];
-  const states = Object.values(hass?.states ?? {}).filter(
-    (state) =>
-      state.entity_id.startsWith('binary_sensor.') &&
-      classes.includes(String(state.attributes.device_class)),
-  );
-  const group = states.find((state) => Array.isArray(state.attributes.entity_id));
-  const fallback = kind === 'door' ? 'binary_sensor.doors' : 'binary_sensor.windows';
-  return { entity: (group ?? states[0])?.entity_id ?? fallback };
+  return pilotStub(hass, 'any', kind === 'any' ? ['window', 'door'] : [kind]);
 }
 
 /** Windows only: window icons, the windows' device class in the editor. */
@@ -173,6 +166,8 @@ export class VividDoorBadge extends VividOpeningBadge {
 export const openingEditor = (kind: OpeningKind): BadgeEditorSpec => ({
   type: `custom:${OPENING_TAGS[kind]}`,
   domain: DOMAINS,
+  pilotKind: 'any',
+  pilotCategories: kind === 'any' ? ['door', 'window'] : [kind],
   deviceClass: KIND_DEVICE_CLASSES[kind],
   iconOff: true,
   fields: [
