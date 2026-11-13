@@ -10,9 +10,10 @@ things, so a tap and a hold both open the details by default.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/badges.png" alt="Window, door, illuminance, power, presence and battery badges" width="420" />
 </p>
 
-Point a badge at a group (a binary sensor group or a sensor group made with the
-Home Assistant group helper, or an old-style `group.`), at one entity, or list
-`entities`. Badges that combine values compute them from the members with
+Point a badge at a Vivid Pilot node (`pilot: salon__window`, or
+`all__window` for the whole home, room by room), or by hand at a group (a
+binary sensor group or a sensor group made with the Home Assistant group
+helper, or an old-style `group.`), at one entity, or list `entities`. Badges that combine values compute them from the members with
 `aggregate` (`mean`, `median`, `min`, `max` or `sum`), whatever the group's own
 type.
 
@@ -20,7 +21,8 @@ Options of every status badge:
 
 | Option        | Default   | Description                                     |
 | ------------- | --------- | ----------------------------------------------- |
-| `entity`      | —         | A group or an entity.                           |
+| `pilot`       | —         | A Vivid Pilot node (`salon__presence`).         |
+| `entity`      | —         | By hand: a group or an entity.                  |
 | `entities`    | —         | Several entities, instead of a group.           |
 | `name`        | entity    | Title of the details.                           |
 | `icon`        | auto      | Icon while active.                              |
@@ -141,9 +143,9 @@ and orange, pulsing from half of `max`. The details sort devices by power.
 
 ## vivid-battery-badge
 
-The lowest battery of a group, or of every battery of the home when no entity
-is set (sensors with the `battery` device class in %, and low-battery binary
-sensors). The icon empties with the level; green, amber below `warn`, red and
+The lowest battery of a group, or of every battery Vivid Pilot found in the
+home when nothing is set (`pilot: all__battery`; `pilot: salon__battery` for
+one room). The icon empties with the level; green, amber below `warn`, red and
 pulsing below `low`. The details sort batteries from the lowest.
 
 <p align="center">

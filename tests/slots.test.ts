@@ -14,7 +14,7 @@ import {
   writeSlot,
 } from '../src/core/slots';
 import type { HassEntity, HomeAssistant } from '../src/core/hass-types';
-import { PilotIndex, nodeKey, parseNodeKey } from '../src/core/pilot';
+import { PilotIndex, nodeKey, parseNodeKey, type PilotTargetConfig } from '../src/core/pilot';
 
 function entity(id: string, attributes: Record<string, unknown> = {}, state = 'on'): HassEntity {
   return { entity_id: id, state, attributes, last_changed: '', last_updated: '' };
@@ -188,6 +188,7 @@ describe('Vivid Pilot', () => {
 });
 
 describe('Pilot targets', () => {
+  const target = (pilot: string): PilotTargetConfig => ({ pilot });
   const state = (entity_id: string, node: string, kind: string, extra = {}) => ({
     entity_id,
     state: '20',
@@ -217,7 +218,7 @@ describe('Pilot targets', () => {
 
   it("stands for the node's entity, a hand-written entity winning", async () => {
     const { withPilotEntity } = await import('../src/core/pilot');
-    expect(withPilotEntity(hass, { pilot: 'salon__temperature' }, 'mean').entity).toBe(
+    expect(withPilotEntity(hass, target('salon__temperature'), 'mean').entity).toBe(
       'sensor.vivid_pilot_salon_temperature',
     );
     expect(
@@ -227,11 +228,11 @@ describe('Pilot targets', () => {
 
   it('reads a home measure room by room, but keeps the home light group', async () => {
     const { withPilotEntity } = await import('../src/core/pilot');
-    expect(withPilotEntity(hass, { pilot: 'all__temperature' }, 'mean').entities).toEqual([
+    expect(withPilotEntity(hass, target('all__temperature'), 'mean').entities).toEqual([
       'sensor.vivid_pilot_chambre_temperature',
       'sensor.vivid_pilot_salon_temperature',
     ]);
-    expect(withPilotEntity(hass, { pilot: 'all__light' }, 'group').entity).toBe(
+    expect(withPilotEntity(hass, target('all__light'), 'group').entity).toBe(
       'light.vivid_pilot_all_light',
     );
   });

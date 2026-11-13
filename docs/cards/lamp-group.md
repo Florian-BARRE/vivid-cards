@@ -89,6 +89,14 @@ expanded: false # set true to start unfolded; expandable: false for the plain li
 
 ## Recipes
 
+**The lamps of a room, from Vivid Pilot** (the power button on an empty
+room brings back what was on last, through the Vivid Pilot group):
+
+```yaml
+type: custom:vivid-lamp-group
+pilot: salon__light
+```
+
 ```yaml
 type: custom:vivid-lamp-group
 entity: switch.living_room_lamps # a switch group of smart plugs
@@ -138,8 +146,9 @@ entities:
 
 | Option            | Default    | Description                                                                                              |
 | ----------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
-| `entity`          | required\* | A group of lamps (switch group, light group or `group.`), or one lamp.                                   |
-| `entities`        | none       | Lamps listed one by one, instead of `entity` (\*one of the two is required).                             |
+| `pilot`           | required\* | A Vivid Pilot group (`salon__light`): the room's lamps, kept up to date by Vivid Pilot.                  |
+| `entity`          | none       | By hand: a group of lamps (switch group, light group or `group.`), or one lamp.                          |
+| `entities`        | none       | By hand: lamps listed one by one (\*one of `pilot`, `entity`, `entities` is required).                   |
 | `name`            | group name | Title of the card.                                                                                       |
 | `icon`            | group's    | Icon of the title (the group's own, else `mdi:lamps`); its outline variant while everything is off.      |
 | `layout`          | `ambiance` | `ambiance` (presets and a round button per lamp) or `line` (one line, a small button per lamp).          |

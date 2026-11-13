@@ -10,8 +10,9 @@ file: reload without cache (Ctrl + F5) or reset the companion app frontend
 cache. The browser console logs the loaded version (`VIVID CARDS vX.Y.Z`).
 
 **No consumption badge.** The editor banner says how many lights have a
-consumption source. Open **Consumption** and give a sensor pattern or a strip
-voltage, or pick a sensor for a light in **Detected lights**.
+consumption source. Let Vivid Pilot compute the strips' power (its WLED
+source), give a strip voltage in **Consumption**, or pick a sensor for a
+light in **Detected lights**.
 
 **The 7 days chart is empty.** The power sensors have no long-term statistics:
 give them `state_class: measurement` (template sensors accept it), and wait for

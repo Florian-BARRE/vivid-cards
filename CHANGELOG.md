@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-11-13
+
+Vivid Cards now run on [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot),
+which sorts the home (rooms, kinds of devices, groups, aggregates, power,
+energy, memory of the last lighting). Nothing is found from entity names or
+areas any more. Breaking: dashboards built on name discovery need their cards
+picked again (two clicks per card in the editor).
+
+### Added
+
+- A **Source** on every card and badge: Vivid Pilot (`pilot:` a room or a
+  group picked in a list, its members kept up to date) or manual (`entity:`,
+  `entities:`). In Vivid Pilot mode a slot can still be adjusted (members
+  left out or added).
+- `vivid-room-header`: `pilot: <room>`; its roles are Vivid Pilot's categories
+  (`light`, `led`, `switch`, `power`, `illuminance`, `presence`, `window`,
+  `door`, `temperature`, `humidity`, `pressure`, `co2`, `battery`); the power
+  button restores the room's last lighting (its Vivid Pilot memory scene) and
+  turns its groups off.
+- A home-level measure (`pilot: all__temperature`) lists each room in its
+  details, rather than raw sensors.
+- LED strips' power: the power Vivid Pilot computes for each WLED strip.
+- Energy ranking and flow: the rooms of Vivid Pilot and, inside each, its
+  lights, LEDs and switches.
+- Climate and power focus cards: `pilot:`.
+- Battery badge: the home's batteries from Vivid Pilot when nothing is set.
+
+### Removed
+
+- Name and area discovery (`room`, `naming`, `area`, `discover`,
+  `discover_by`), the room scripts (`scripts_on`, `scripts_off`,
+  `scripts_toggle`), the 0.14–0.17 room header options (`exclude`, `lights`,
+  `power`), the French role names (`lampes`, `puissance`…) and the LED card's
+  `power.sensor_pattern`.
+- The Energy dashboard's individual devices: the rooms come from Vivid Pilot
+  (the grid meter and its cost still come from the Energy dashboard).
+
 ## [0.18.0] - 2026-11-10
 
 ### Added

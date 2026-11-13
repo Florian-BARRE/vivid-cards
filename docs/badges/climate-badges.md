@@ -46,13 +46,13 @@ curve per room; tap a room for its own chart.
 
 ```yaml
 - type: custom:vivid-temperature-badge
-  entity: sensor.all_temperatures
+  pilot: all__temperature # every room, from Vivid Pilot
   comfort: [19, 22]
 - type: custom:vivid-humidity-badge
-  entity: sensor.sdb_humidite
+  pilot: sdb__humidity
 - type: custom:vivid-pressure-badge
-  entity: sensor.sdb_pression
-- type: custom:vivid-air-quality-badge
+  pilot: sdb__pressure
+- type: custom:vivid-air-quality-badge # by hand
   entities:
     - sensor.salon_co2
     - sensor.bureau_co2
