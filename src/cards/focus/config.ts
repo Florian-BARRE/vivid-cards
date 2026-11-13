@@ -40,6 +40,11 @@ export function textOption(value: unknown): string | undefined {
 }
 
 /** Entity id option, or undefined. */
+/** A Vivid Pilot node key (`salon__temperature`), or `undefined`. */
+export function pilotOption(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[a-z0-9_]+$/.test(value.trim()) ? value.trim() : undefined;
+}
+
 export function entityOption(value: unknown): string | undefined {
   return typeof value === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(value.trim())
     ? value.trim()
@@ -90,6 +95,9 @@ export function hyperhdrCamera(hass: HomeAssistant): { camera?: string; server?:
 }
 
 export interface ClimateCardConfig extends FocusBaseConfig {
+  /** Vivid Pilot measure (`salon__temperature`): its mean sensor, Pilot mode. */
+  pilot?: string;
+  /** A sensor: manual mode. */
   entity?: string;
   /** What the sensor measures; read from its device class when left out. */
   kind?: ClimateKind;
@@ -100,6 +108,8 @@ export interface ClimateCardConfig extends FocusBaseConfig {
 }
 
 export interface ResolvedClimateCard {
+  /** Vivid Pilot node; `entity` is filled from it once Home Assistant is known. */
+  pilot?: string;
   entity?: string;
   kind?: ClimateKind;
   range: ClimateRange;
@@ -114,8 +124,10 @@ export function resolveClimateCard(raw: unknown): ResolvedClimateCard {
   const config = raw as ClimateCardConfig;
   const low = Number(config.comfort?.low);
   const high = Number(config.comfort?.high);
+  const entity = entityOption(config.entity);
   return {
-    entity: entityOption(config.entity),
+    pilot: entity ? undefined : pilotOption(config.pilot),
+    entity,
     kind: CLIMATE_KINDS.includes(config.kind as ClimateKind) ? config.kind : undefined,
     range: CLIMATE_RANGES.includes(config.range as ClimateRange)
       ? (config.range as ClimateRange)
@@ -138,7 +150,9 @@ export function kindOfSensor(hass: HomeAssistant, entityId: string | undefined):
 }
 
 export interface PowerCardConfig extends FocusBaseConfig {
-  /** Lights (their consumption is found) or power sensors. */
+  /** Vivid Pilot room or group (`salon`, `salon__led`): its power, Pilot mode. */
+  pilot?: string;
+  /** Lights (their consumption is found) or power sensors: manual mode. */
   entities?: string[];
   /** Price of a kWh, for the cost of the period. */
   price?: number;
@@ -149,6 +163,8 @@ export interface PowerCardConfig extends FocusBaseConfig {
 }
 
 export interface ResolvedPowerCard {
+  /** Vivid Pilot node; `entities` is filled from it once Home Assistant is known. */
+  pilot?: string;
   entities: string[];
   price?: number;
   currency?: string;
@@ -175,6 +191,7 @@ export function resolvePowerCard(raw: unknown): ResolvedPowerCard {
   const voltage = Number(config.voltage);
   const currency = textOption(config.currency)?.toUpperCase();
   return {
+    pilot: entities.length ? undefined : pilotOption(config.pilot),
     entities,
     price: Number.isFinite(price) && price > 0 ? price : undefined,
     currency: currency && /^[A-Z]{3}$/.test(currency) ? currency : undefined,

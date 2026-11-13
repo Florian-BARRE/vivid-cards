@@ -2,6 +2,8 @@ import { LitElement, css, html, nothing } from 'lit';
 import { fireEvent } from './actions';
 import { ensureHaForm } from './ha-elements';
 import type { HomeAssistant } from './hass-types';
+import type { PilotCategory, PilotKind } from './pilot';
+import { applySource, sourceFields, targetSource } from '../components/editor/pilot-source';
 import { defineElement } from './register';
 import { editorText, type EditorStringKey } from '../i18n/editor';
 import { tokens } from '../components/shared-styles';
@@ -24,6 +26,15 @@ export interface FormField {
 
 export interface FormEditorSpec {
   fields: FormField[];
+  /**
+   * The card can follow a Vivid Pilot node: a Source choice comes first, and
+   * the `manual` fields only show in manual mode.
+   */
+  pilot?: {
+    kind: PilotKind;
+    categories: readonly (PilotCategory | undefined)[];
+    manual: readonly string[];
+  };
   /**
    * More parts under the form (a card's device entities…): gets the config
    * and a callback that applies a changed config.
@@ -79,6 +90,17 @@ export class VividFormEditor extends LitElement {
   }
 
   private changed(value: FormData): void {
+    const pilot = this.spec?.pilot;
+    if (pilot && this._config) {
+      const { config, switched } = applySource(this._config, value);
+      if (switched) {
+        this._config = config;
+        fireEvent(this, 'config-changed', { config });
+        return;
+      }
+      value = { ...value, pilot: config.pilot };
+      delete value.source;
+    }
     const next: Record<string, unknown> = { ...(this._config ?? {}), ...value };
     for (const [key, item] of Object.entries(next)) if (item === undefined) delete next[key];
     for (const field of this.spec?.fields ?? []) {
@@ -104,13 +126,32 @@ export class VividFormEditor extends LitElement {
 
   protected override render() {
     if (!this.hass || !this._config) return nothing;
-    const fields = this.spec?.fields ?? [];
-    const data: FormData = { ...this._config };
+    const pilot = this.spec?.pilot;
+    const source = targetSource(this._config);
+    const fields = (this.spec?.fields ?? []).filter(
+      (field) => !pilot || source === 'manual' || !pilot.manual.includes(field.name),
+    );
+    const sourceSchema = pilot
+      ? sourceFields(
+          this.hass,
+          {
+            pilot: editorText(this.hass, 'badge_source_pilot'),
+            manual: editorText(this.hass, 'badge_source_manual'),
+          },
+          pilot.kind,
+          pilot.categories,
+          source,
+        )
+      : [];
+    const data: FormData = pilot ? { ...this._config, source } : { ...this._config };
     for (const field of fields) {
       if (data[field.name] === undefined && field.default !== undefined)
         data[field.name] = field.default;
     }
-    const labels: Record<string, string> = {};
+    const labels: Record<string, string> = {
+      source: editorText(this.hass, 'badge_source'),
+      pilot: editorText(this.hass, 'badge_pilot'),
+    };
     const helpers: Record<string, string> = {};
     for (const field of fields) {
       labels[field.name] = editorText(this.hass, field.label);
@@ -119,20 +160,23 @@ export class VividFormEditor extends LitElement {
     return html`<ha-form
         .hass=${this.hass}
         .data=${data}
-        .schema=${fields.map((field) => ({
-          name: field.name,
-          selector: field.options
-            ? {
-                select: {
-                  mode: 'dropdown',
-                  options: field.options.map((option) => ({
-                    value: option.value,
-                    label: editorText(this.hass, option.label),
-                  })),
-                },
-              }
-            : field.selector,
-        }))}
+        .schema=${[
+          ...sourceSchema,
+          ...fields.map((field) => ({
+            name: field.name,
+            selector: field.options
+              ? {
+                  select: {
+                    mode: 'dropdown',
+                    options: field.options.map((option) => ({
+                      value: option.value,
+                      label: editorText(this.hass, option.label),
+                    })),
+                  },
+                }
+              : field.selector,
+          })),
+        ]}
         .computeLabel=${(field: { name: string }) => labels[field.name] ?? field.name}
         .computeHelper=${(field: { name: string }) => helpers[field.name]}
         @value-changed=${(event: CustomEvent<{ value: FormData }>) => {

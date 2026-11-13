@@ -1,7 +1,9 @@
 /* ====== Code Summary ======
  * The Vivid Pilot mode of a card or badge: `pilot: <node>` stands for the
  * entity Vivid Pilot generated for that node (its group, its mean, its
- * power…). An entity or a list written by hand wins (manual mode).
+ * power…). A home-level measure (`all__temperature`) stands for each room's
+ * own entity instead, so details list rooms ("Salon", "Chambre") rather than
+ * raw sensors. An entity or a list written by hand wins (manual mode).
  */
 
 import type { HomeAssistant } from '../hass-types';
@@ -26,14 +28,34 @@ export function pilotTarget(
   return PilotIndex.of(hass).entity(config.pilot, kind);
 }
 
-/** The config with `entity` set to the Pilot node's entity (Pilot mode), else unchanged. */
+/** Kinds whose home-level node reads best room by room. */
+// Batteries stay one by one: what matters is which device to recharge.
+const PER_ROOM_KINDS: ReadonlySet<PilotKind> = new Set(['mean', 'any', 'power', 'energy']);
+
+/** Each room's entity for a home-level node (`all__temperature` → the rooms' means). */
+export function pilotRoomTargets(hass: HomeAssistant, node: string, kind: PilotKind): string[] {
+  const { area, category } = parseNodeKey(node);
+  if (area || !category || !PER_ROOM_KINDS.has(kind)) return [];
+  const index = PilotIndex.of(hass);
+  return index
+    .rooms()
+    .map((room) => index.entity(nodeKey(room.area, category), kind))
+    .filter((entity): entity is string => !!entity);
+}
+
+/**
+ * Pilot mode: the config with `entity` set to the node's entity, or
+ * `entities` to the rooms' for a home-level measure. Unchanged otherwise.
+ */
 export function withPilotEntity<T extends PilotTargetConfig>(
   hass: HomeAssistant,
   config: T,
   kind: PilotKind,
 ): T {
   const entity = pilotTarget(hass, config, kind);
-  return entity ? { ...config, entity } : config;
+  if (!entity) return config;
+  const rooms = pilotRoomTargets(hass, config.pilot!, kind);
+  return rooms.length > 1 ? { ...config, entities: rooms } : { ...config, entity };
 }
 
 /**

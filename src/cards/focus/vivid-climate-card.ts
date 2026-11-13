@@ -1,6 +1,7 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { climateColor, type ClimateKind } from '../../core/climate';
 import { parseNumericState } from '../../core/entities';
+import { PilotIndex, pilotStub } from '../../core/pilot';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { formEditor } from '../../core/vivid-form-editor';
@@ -30,6 +31,11 @@ const ICONS: Record<ClimateKind, string> = {
 export class VividClimateCard extends VividFocusCard<ResolvedClimateCard> {
   static getConfigElement(): HTMLElement {
     return formEditor({
+      pilot: {
+        kind: 'mean',
+        categories: ['temperature', 'humidity', 'pressure', 'co2', 'illuminance'],
+        manual: ['entity'],
+      },
       fields: [
         {
           name: 'entity',
@@ -61,15 +67,19 @@ export class VividClimateCard extends VividFocusCard<ResolvedClimateCard> {
   }
 
   static getStubConfig(hass?: HomeAssistant): Record<string, unknown> {
-    const sensor = Object.values(hass?.states ?? {}).find(
-      (state) =>
-        state.entity_id.startsWith('sensor.') && state.attributes.device_class === 'temperature',
-    );
-    return sensor ? { entity: sensor.entity_id } : {};
+    return pilotStub(hass, 'mean', ['temperature']);
   }
 
   protected resolveConfig(raw: unknown): ResolvedClimateCard {
     return resolveClimateCard(raw);
+  }
+
+  protected override withPilot(
+    config: ResolvedClimateCard,
+    hass: HomeAssistant,
+  ): ResolvedClimateCard | undefined {
+    const entity = config.pilot ? PilotIndex.of(hass).entity(config.pilot, 'mean') : undefined;
+    return entity && entity !== config.entity ? { ...config, entity } : undefined;
   }
 
   protected watched(config: ResolvedClimateCard): string[] {

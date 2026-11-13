@@ -186,3 +186,53 @@ describe('Vivid Pilot', () => {
     expect(discover(hass, order, { domains: [] })[0]?.source).toBe('group');
   });
 });
+
+describe('Pilot targets', () => {
+  const state = (entity_id: string, node: string, kind: string, extra = {}) => ({
+    entity_id,
+    state: '20',
+    attributes: { vivid_pilot_node: node, vivid_pilot_kind: kind, ...extra },
+    last_changed: '',
+    last_updated: '',
+  });
+  const hass = {
+    states: Object.fromEntries(
+      [
+        state('sensor.vivid_pilot_all_temperature', 'all__temperature', 'mean'),
+        state('sensor.vivid_pilot_salon_temperature', 'salon__temperature', 'mean'),
+        state('sensor.vivid_pilot_chambre_temperature', 'chambre__temperature', 'mean'),
+        state('light.vivid_pilot_all_light', 'all__light', 'group'),
+        state('light.vivid_pilot_salon_light', 'salon__light', 'group'),
+      ].map((item) => [item.entity_id, item]),
+    ),
+    entities: {},
+    devices: {},
+    areas: {
+      salon: { area_id: 'salon', name: 'Salon' },
+      chambre: { area_id: 'chambre', name: 'Chambre' },
+    },
+    language: 'fr',
+    callService: () => Promise.resolve(),
+  } as HomeAssistant;
+
+  it("stands for the node's entity, a hand-written entity winning", async () => {
+    const { withPilotEntity } = await import('../src/core/pilot');
+    expect(withPilotEntity(hass, { pilot: 'salon__temperature' }, 'mean').entity).toBe(
+      'sensor.vivid_pilot_salon_temperature',
+    );
+    expect(
+      withPilotEntity(hass, { pilot: 'salon__temperature', entity: 'sensor.x' }, 'mean').entity,
+    ).toBe('sensor.x');
+  });
+
+  it('reads a home measure room by room, but keeps the home light group', async () => {
+    const { withPilotEntity } = await import('../src/core/pilot');
+    expect(withPilotEntity(hass, { pilot: 'all__temperature' }, 'mean').entities).toEqual([
+      'sensor.vivid_pilot_chambre_temperature',
+      'sensor.vivid_pilot_salon_temperature',
+    ]);
+    expect(withPilotEntity(hass, { pilot: 'all__light' }, 'group').entity).toBe(
+      'light.vivid_pilot_all_light',
+    );
+  });
+});
