@@ -22,7 +22,8 @@ export const ENERGY_RANKING = 'vivid-energy-ranking';
 const RANKING_PERIODS = ENERGY_PERIODS;
 
 /**
- * The devices of the Energy dashboard ranked by energy, priced at the
+ * The rooms of Vivid Pilot (their lights, LEDs and switches inside) ranked
+ * by energy, priced at the
  * period's average price, with what no device measures and the share that is
  * identified.
  */
@@ -230,8 +231,7 @@ defineElement(ENERGY_RANKING, VividEnergyRanking);
 registerCard({
   type: ENERGY_RANKING,
   name: 'Vivid Energy Ranking',
-  description:
-    'The devices of the Energy dashboard ranked by energy and cost, with what is not measured.',
+  description: 'The rooms of Vivid Pilot ranked by energy and cost, with what is not measured.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-energy-ranking`,
 });

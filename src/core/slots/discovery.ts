@@ -5,8 +5,8 @@
  *   PilotSource   an entity Vivid Pilot generated for a node (a room's light
  *                 group, its mean temperature…), or its members;
  *   GroupSource   the members of a group picked by hand.
- * (`device` entries come from the device cards, `energy` from the Energy
- * dashboard's grid.) Nothing is ever found from an entity's name or area:
+ * (`device` entries come from the device cards.) Nothing is ever found from
+ * an entity's name or area:
  * Vivid Pilot sorts the home, the cards read it.
  */
 
@@ -16,7 +16,7 @@ import { PilotIndex, type PilotKind } from '../pilot';
 
 /* ============================== Types ============================== */
 
-export type SourceKind = 'pilot' | 'group' | 'device' | 'energy';
+export type SourceKind = 'pilot' | 'group' | 'device';
 
 /** What a slot accepts. */
 export interface RoleQuery {

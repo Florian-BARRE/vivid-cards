@@ -108,7 +108,7 @@ describe('energy devices', () => {
     { stat: 'sensor.fridge_energy', name: 'Frigo' },
   ];
 
-  it('takes the Energy dashboard devices, left out, added or listed', async () => {
+  it('takes the consumers, left out, added or listed', async () => {
     const { pickDevices } = await import('../src/energy/data');
     const { parseSlot } = await import('../src/core/slots');
     expect(pickDevices(sources, undefined)).toEqual(sources);
@@ -120,6 +120,39 @@ describe('energy devices', () => {
     ).toEqual([{ stat: 'sensor.fridge_energy', name: 'Frigo' }, { stat: 'sensor.oven' }]);
     expect(pickDevices(sources, parseSlot(['sensor.oven'], 'devices'))).toEqual([
       { stat: 'sensor.oven' },
+    ]);
+  });
+
+  it('lists each Vivid Pilot room, its categories inside it', async () => {
+    const { pilotDevices } = await import('../src/energy/data');
+    const state = (entity_id: string, node: string) => ({
+      entity_id,
+      state: '1',
+      attributes: { vivid_pilot_node: node, vivid_pilot_kind: 'energy' },
+      last_changed: '',
+      last_updated: '',
+    });
+    const hass = {
+      states: {
+        'sensor.vivid_pilot_salon_energy': state('sensor.vivid_pilot_salon_energy', 'salon'),
+        'sensor.vivid_pilot_salon_led_energy': state(
+          'sensor.vivid_pilot_salon_led_energy',
+          'salon__led',
+        ),
+        'sensor.vivid_pilot_all_energy': state('sensor.vivid_pilot_all_energy', 'all'),
+      },
+      entities: {},
+      devices: {},
+      areas: { salon: { area_id: 'salon', name: 'Salon' } },
+      language: 'fr',
+      callService: () => Promise.resolve(),
+    };
+    expect(pilotDevices(hass)).toEqual([
+      { stat: 'sensor.vivid_pilot_salon_energy', name: 'Salon' },
+      {
+        stat: 'sensor.vivid_pilot_salon_led_energy',
+        includedIn: 'sensor.vivid_pilot_salon_energy',
+      },
     ]);
   });
 });
