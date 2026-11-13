@@ -60,7 +60,7 @@ export function groupAreas(hass: HomeAssistant, entityId: string, strips: string
 
 /**
  * The box of the card:
- * - `box: false` (or Ambilight turned off without a box): none;
+ * - Ambilight off, or `box: false`: none;
  * - a device id, or an entity of the box: that one;
  * - left out: the only box there is, when it shares an area with the group
  *   or HyperHDR drives one of its strips (so a bedroom card stays without it).
@@ -71,7 +71,7 @@ export function resolveBoxTarget(
   context: { areas: Set<string>; hyperhdrStrips: number },
 ): BoxTarget | undefined {
   const option = ambilight.box;
-  if (option === false) return undefined;
+  if (!ambilight.enabled || option === false) return undefined;
   if (typeof option === 'string') {
     if (hass.devices?.[option]) return { device: option };
     if (option.includes('.')) {
@@ -82,7 +82,6 @@ export function resolveBoxTarget(
     }
     return { device: option };
   }
-  if (!ambilight.enabled) return undefined;
   const boxes = findBoxes(hass);
   if (boxes.length !== 1) return undefined;
   const box = boxes[0] as string;

@@ -38,16 +38,20 @@ device information.
 Every card editor is built the same way: **Source** first, then one folding
 section per part of the card, from top to bottom.
 
-| Section            | What it sets                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| **Source**         | Vivid Pilot (`pilot: salon__led`, the room's strips) or manual (a light or group)  |
-| **Header**         | Name, icon, layout; header, ambilight button and consumption badges on or off      |
-| **Tile**           | Color bar, state text, effects, favorite colors, badges, brightness; gestures      |
-| **Ambilight box**  | The box behind the ambilight button                                                |
-| **Details window** | On or off; link (hash), order, color bar, what the details show                    |
-| **Strips**         | Per strip: ambilight, how consumption is measured, name, icon, transition, details |
-| **Consumption**    | Strip voltage, price, glow scale                                                   |
-| **Appearance**     | Glow, gradient, shimmer                                                            |
+| Section            | What it sets                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| **Source**         | Vivid Pilot (`pilot: salon__led`, the room's strips) or manual (a light or group)            |
+| **Header**         | Name, icon, layout; header and consumption badges on or off                                  |
+| **Tile**           | Color bar, state text, effects, favorite colors, badges, brightness; gestures                |
+| **Details window** | On or off; link (hash), order, color bar, what the details show                              |
+| **Strips**         | Per strip: how consumption is measured, name, icon, transition, details                      |
+| **Consumption**    | Strip voltage, price, glow scale                                                             |
+| **Appearance**     | Glow, gradient, shimmer                                                                      |
+| **Ambilight**      | Off by default. On: box, HyperHDR server, button, strips that follow the screen, HDMI inputs |
+
+Ambilight comes last because most strips have no TV behind them. Switched on,
+it fills in the box (when there is only one) and shows every option that goes
+with it.
 
 The YAML only keeps what you changed. Actions richer than a toggle (navigate,
 perform-action…) are kept as they are and shown as **Custom (YAML)**.
@@ -166,7 +170,7 @@ members:
 | `tile`       | see below    | Brightness tile.                                                               |
 | `badges`     | none         | Entities shown on the tile and on top of the details.                          |
 | `power`      | see below    | Consumption badges, chart and cost.                                            |
-| `ambilight`  | see below    | WLED ambilight button.                                                         |
+| `ambilight`  | see below    | The TV the strips follow (off by default).                                     |
 | `details`    | see below    | Details dialog.                                                                |
 | `appearance` | see below    | Glow, layout and animations.                                                   |
 | `members`    | none         | Per-light overrides.                                                           |
@@ -209,9 +213,14 @@ their value, on/off entities light up while on.
 
 `ambilight`:
 
-| Option    | Default | Description                                                          |
-| --------- | ------- | -------------------------------------------------------------------- |
-| `enabled` | `true`  | WLED ambilight button (shown only when a light has a live override). |
+| Option        | Default         | Description                                                                          |
+| ------------- | --------------- | ------------------------------------------------------------------------------------ |
+| `enabled`     | `false`         | The strips follow a TV through HyperHDR. On by itself when a `box` is given.         |
+| `box`         | the only box    | The Ambilight box (device or one of its entities); `false`: HyperHDR alone, no rail. |
+| `hyperhdr`    | the only server | The HyperHDR server.                                                                 |
+| `button`      | `true`          | The Ambilight button, shown while the Pi runs (always without a box).                |
+| `confirm_off` | `true`          | A second tap before switching Ambilight off.                                         |
+| `inputs`      | the box's       | Names and icons of the HDMI inputs, in order.                                        |
 
 `details`:
 
@@ -342,8 +351,9 @@ tile fills with their captured colors and the color bar steps back: touching it
 takes the strips back (WLED live override). The details dialog adds the box and
 the HyperHDR server.
 
-The only box of the home is found by itself when it sits in the strips' area or
-when HyperHDR sends to one of the strips; `vivid-ambilight-card` and
+With `ambilight.enabled: true` and no `box`, the only box of the home is found
+by itself when it sits in the strips' area or when HyperHDR sends to one of the
+strips; `vivid-ambilight-card` and
 `vivid-hyperhdr-card` keep working on their own.
 
 ```yaml
@@ -352,7 +362,7 @@ entity: light.salon_leds
 layout: collapsible # default: header and tile
 expanded: false # first state of the collapsible layout
 ambilight:
-  box: device_ambilight # a device or one of its entities; false hides the rail
+  box: device_ambilight # turns Ambilight on; false: HyperHDR alone, no rail
   hyperhdr: device_hub # optional, the only server when left out
   inputs: [TV box, Console, PC, HDMI 4, HDMI 5]
   confirm_off: true # second tap before switching Ambilight off

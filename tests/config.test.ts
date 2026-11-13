@@ -22,7 +22,7 @@ describe('resolveConfig', () => {
         doubleTapAction: { action: 'none' },
       },
       power: { enabled: true, scale: DEFAULT_SCALE },
-      ambilight: { enabled: true },
+      ambilight: { enabled: false, button: true },
       details: { sort: 'name', summary: true, effects: true, colorBar: 'auto' },
     });
     expect(config.tile.holdAction).toBeUndefined();

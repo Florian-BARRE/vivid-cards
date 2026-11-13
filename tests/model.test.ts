@@ -143,7 +143,7 @@ describe('buildLedGroupModel', () => {
 
   it('aggregates the live override of available strips only', () => {
     const { hass } = createMockHass();
-    const model = buildLedGroupModel(hass, config());
+    const model = buildLedGroupModel(hass, config({ ambilight: { enabled: true } }));
     expect(model.isGroup).toBe(true);
     expect(model.hasLiveOverride).toBe(true);
     expect(model.liveOverride).toEqual({
@@ -159,7 +159,10 @@ describe('buildLedGroupModel', () => {
     const { hass } = createMockHass();
     const model = buildLedGroupModel(
       hass,
-      config({ members: [{ entity: 'light.salon_buffet_wled', ambilight: false }] }),
+      config({
+        ambilight: { enabled: true },
+        members: [{ entity: 'light.salon_buffet_wled', ambilight: false }],
+      }),
     );
     expect(model.detected.find((m) => m.autoName === 'Buffet')?.ambilight).toBe(false);
     expect(model.liveOverride).toEqual({
