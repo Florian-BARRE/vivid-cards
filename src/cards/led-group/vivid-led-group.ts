@@ -423,7 +423,7 @@ export class VividLedGroup extends LitElement {
   /** The Ambilight button: pressed while WLED follows the screen. */
   private renderAmbilightChip(model: LedGroupModel, config: ResolvedLedGroupConfig) {
     const override = model.liveOverride;
-    if (!config.ambilight.enabled || !override) return nothing;
+    if (!config.ambilight.enabled || !config.ambilight.button || !override) return nothing;
     // With a box, the button comes with the Pi: without it there is no stream.
     if (this.side && !piRunning(this.side)) return nothing;
     const usable = override.available.length > 0;
@@ -513,7 +513,9 @@ export class VividLedGroup extends LitElement {
             .hasPower=${model.hasPower}
             .watts=${model.watts}
             .scale=${model.groupScale}
-            .showLiveOverride=${config.ambilight.enabled && (!side || piRunning(side))}
+            .showLiveOverride=${
+              config.ambilight.enabled && config.ambilight.button && (!side || piRunning(side))
+            }
             .liveOverride=${model.liveOverride}
             @vivid-name-click=${this.openDetails}
             @vivid-more-info=${this.onMoreInfo}

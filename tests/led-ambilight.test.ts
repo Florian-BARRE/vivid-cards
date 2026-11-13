@@ -27,8 +27,14 @@ import { captureGradient } from '../src/components/vivid-light-tile';
 import type { HassEntity, HomeAssistant, Rgb } from '../src/core/hass-types';
 import type { AmbilightScenario } from '../dev/ambilight-mock';
 
+/** A LED group card with Ambilight on, unless the test says otherwise. */
 const config = (extra: Record<string, unknown> = {}) =>
-  resolveConfig({ type: 'custom:vivid-led-group', entity: GROUP_ID, ...extra });
+  resolveConfig({
+    type: 'custom:vivid-led-group',
+    entity: GROUP_ID,
+    ...extra,
+    ambilight: { enabled: true, ...(extra.ambilight as Record<string, unknown> | undefined) },
+  });
 
 const STRIPS = ['salon_ambilight_wled', 'salon_buffet_wled', 'salon_canape_wled'];
 const HOSTS = ['192.168.1.40', '192.168.1.41', '192.168.1.42'];
@@ -99,17 +105,29 @@ const side = (hass: HomeAssistant, extra: Record<string, unknown> = {}) => {
 };
 
 describe('led group config', () => {
-  it('keeps the default layout and leaves the box to auto-detection', () => {
-    const resolved = config();
+  it('keeps the default layout and leaves Ambilight off', () => {
+    const resolved = resolveConfig({ type: 'custom:vivid-led-group', entity: GROUP_ID });
     expect(resolved.layout).toBe('default');
     expect(resolved.expanded).toBe(false);
     expect(resolved.ambilight).toEqual({
-      enabled: true,
+      enabled: false,
       box: undefined,
       hyperhdr: undefined,
       inputs: undefined,
       confirmOff: true,
+      button: true,
     });
+  });
+
+  it('turns Ambilight on with a box, and leaves the box to auto-detection when on', () => {
+    const withBox = resolveConfig({
+      type: 'custom:vivid-led-group',
+      entity: GROUP_ID,
+      ambilight: { box: 'device_x' },
+    });
+    expect(withBox.ambilight.enabled).toBe(true);
+    expect(config().ambilight.box).toBeUndefined();
+    expect(config({ ambilight: { button: false } }).ambilight.button).toBe(false);
   });
 
   it('reads the collapsible layout and the box options', () => {

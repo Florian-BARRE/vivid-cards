@@ -5,7 +5,7 @@ import { GLOW_SLIDER, tintTone } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
 import { localize } from '../../i18n';
-import '../../components/vivid-source-row';
+import './vivid-hdmi-inputs-editor';
 import '../../components/vivid-order-picker';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
@@ -14,7 +14,6 @@ import {
   AMB_INFO,
   DEFAULT_AMB_INFO,
   DEFAULT_PREFIX,
-  INPUT_COUNT,
   LAYOUTS,
   SOURCE_DISPLAYS,
   entityMap,
@@ -24,7 +23,7 @@ import {
 } from './config';
 import { HYPERHDR_INTEGRATION, hubIcon } from '../hyperhdr/model';
 import { buildAmbilightModel, hyperhdrLink, type HyperHdrLink } from './model';
-import { AMBER, GREEN, GREY, RED, celsius, linkView, sourceLabels } from './view';
+import { AMBER, GREEN, GREY, RED, celsius, linkView } from './view';
 import { MANAGER_INTEGRATION, boxDevice, coverage, lookupDevices } from './devices';
 import { sourceSection, type SourceChoice } from '../../components/editor/source-section';
 import '../../components/editor/vivid-editor-section';
@@ -57,19 +56,15 @@ export class VividAmbilightCardEditor extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _open: { state: true },
-    _input: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: AmbilightCardConfig;
   declare _open: Set<string>;
-  /** Input edited in the inputs section. */
-  declare _input: number;
 
   constructor() {
     super();
     this._open = new Set(['header']);
-    this._input = 0;
   }
 
   static override styles = [
@@ -576,62 +571,17 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
   /* ---------------------------------- inputs -------------------------------- */
 
   private renderInputs(config: AmbilightCardConfig) {
-    const hass = this.hass;
-    const inputs = resolveAmbilightConfig(config).inputs;
-    const index = Math.min(this._input, INPUT_COUNT - 1);
-    const n = index + 1;
-    const raw = config.inputs?.[index];
-    const value: AmbilightInputConfig = typeof raw === 'string' ? { name: raw } : (raw ?? {});
-    const preview = html`<vivid-source-row
-      .items=${inputs.map((input) => ({ name: input.name, icon: input.icon, available: true }))}
-      .active=${index}
-      .labels=${sourceLabels(hass)}
-      @vivid-source-select=${(event: CustomEvent<{ index: number }>) => {
+    return html`<vivid-hdmi-inputs-editor
+      .hass=${this.hass}
+      .inputs=${config.inputs}
+      @inputs-changed=${(event: CustomEvent<{ inputs?: AmbilightInputConfig[] }>) => {
         event.stopPropagation();
-        this._input = event.detail.index;
-      }}
-    ></vivid-source-row>`;
-    const form = this.form(
-      [
-        {
-          type: 'grid',
-          name: '',
-          schema: [
-            { name: 'name', selector: { text: {} } },
-            { name: 'icon', selector: { icon: { placeholder: 'mdi:video-input-hdmi' } } },
-          ],
-        },
-        { name: 'hidden', selector: { boolean: {} } },
-      ],
-      { name: value.name ?? '', icon: value.icon ?? '', hidden: value.hidden === true },
-      (changed) => {
-        const text = (key: string) =>
-          typeof changed[key] === 'string' ? (changed[key] as string).trim() : '';
-        const list: AmbilightInputConfig[] = Array.from({ length: INPUT_COUNT }, (_, i) => {
-          const item = config.inputs?.[i];
-          return typeof item === 'string' ? { name: item } : { ...(item ?? {}) };
-        });
-        const name = text('name');
-        const icon = text('icon');
-        list[index] = {
-          ...(name ? { name } : {}),
-          ...(icon ? { icon } : {}),
-          ...(changed.hidden === true ? { hidden: true } : {}),
-        };
-        while (list.length && Object.keys(list[list.length - 1] ?? {}).length === 0) list.pop();
         const next: Record<string, unknown> = { ...config };
-        if (list.length) next.inputs = list;
+        if (event.detail.inputs) next.inputs = event.detail.inputs;
         else delete next.inputs;
         this.commit(next);
-      },
-      {
-        name: this.t('amb_input_name', { n }),
-        icon: this.t('amb_input_icon', { n }),
-        hidden: this.t('amb_input_hidden'),
-      },
-    );
-    return html`<div class="hint-line">${this.t('amb_inputs_pick')}</div>
-      ${preview}${form}`;
+      }}
+    ></vivid-hdmi-inputs-editor>`;
   }
 
   /* --------------------------------- options -------------------------------- */

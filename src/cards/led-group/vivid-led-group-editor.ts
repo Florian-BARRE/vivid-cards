@@ -45,8 +45,7 @@ import {
   updateMember,
 } from './editor-model';
 import { buildLedGroupModel, type LedGroupModel, type StripModel } from './model';
-import { buildAmbilightSide, findBoxes } from './ambilight-link';
-import { findDevices, deviceName } from '../hyperhdr/model';
+import './vivid-led-ambilight-editor';
 
 type FormSchema = Record<string, unknown>;
 type FormData = Record<string, unknown>;
@@ -100,10 +99,6 @@ const LABELS: Record<string, EditorStringKey> = {
   member_transition: 'transition',
   layout: 'layout',
   expanded: 'expanded',
-  box: 'box',
-  box_hyperhdr: 'box_hyperhdr',
-  confirm_off: 'box_confirm_off',
-  ambilight_button: 'ambilight_button',
   power_badge: 'power_badge',
   details_enabled: 'details_enabled',
 };
@@ -541,26 +536,7 @@ export class VividLedGroupEditor extends LitElement {
   private renderMemberBody(strip: StripModel, resolved: ResolvedLedGroupConfig, isGroup: boolean) {
     const config = this._config ?? ({} as LedGroupCardConfig);
     const override = memberOverride(config, strip.entityId);
-    const ambilightRow =
-      isGroup && resolved.ambilight.enabled && strip.liveOverride
-        ? html`<label class="switch-row">
-            <span>${this.t('ambilight_member')}</span>
-            <input
-              type="checkbox"
-              role="switch"
-              class="switch"
-              .checked=${override?.ambilight !== false}
-              @change=${(event: Event) =>
-                this.commit(
-                  updateMember(config, strip.entityId, {
-                    ambilight: (event.target as HTMLInputElement).checked,
-                  }),
-                )}
-            />
-          </label>`
-        : nothing;
     return html`<div class="member-body">
-        ${ambilightRow}
         ${resolved.power.enabled ? this.renderPowerChoice(strip, resolved) : nothing}
         ${
           isGroup
@@ -750,74 +726,27 @@ export class VividLedGroupEditor extends LitElement {
     );
   }
 
-  /* --------------------------------- ambilight box -------------------------------- */
+  /* --------------------------------- ambilight -------------------------------- */
 
-  private renderBoxSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
-    const hass = this.hass;
-    if (!hass) return nothing;
+  /** Last part, off by default: the TV the strips may follow, and all that goes with it. */
+  private renderAmbilightSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const config = this._config ?? ({} as LedGroupCardConfig);
-    const boxes = findBoxes(hass);
-    const servers = findDevices(hass).servers;
-    if (boxes.length === 0 && typeof resolved.ambilight.box !== 'string') return nothing;
-    const side = buildAmbilightSide(hass, resolved, model);
-    const boxName = (id: string) =>
-      hass.devices?.[id]?.name_by_user || hass.devices?.[id]?.name || id;
-    const found = side
-      ? 'device' in side.target
-        ? boxName(side.target.device)
-        : side.target.prefix
-      : undefined;
-    const driven = side?.drive.driven.length ?? 0;
-    const summary = this.join([
-      found ? this.t('box_found', { name: found }) : this.t('box_none'),
-      driven > 0 && this.t('box_driven', { count: driven }),
-    ]);
-    const option = resolved.ambilight.box;
-    const value = option === false ? 'off' : (option ?? 'auto');
-    const choices = [
-      { value: 'auto', label: this.t('box_auto') },
-      { value: 'off', label: this.t('box_off') },
-      ...boxes.map((id) => ({ value: id, label: boxName(id) })),
-      ...(typeof option === 'string' && !boxes.includes(option)
-        ? [{ value: option, label: option }]
-        : []),
-    ];
-    return this.section('box', 'mdi:television-ambient-light', this.t('section_box'), summary, () =>
-      this.form(
-        [
-          { name: 'box', selector: this.select(choices) },
-          ...(servers.length > 1
-            ? [
-                {
-                  name: 'box_hyperhdr',
-                  selector: this.select([
-                    { value: 'auto', label: this.t('box_auto') },
-                    ...servers.map((id) => ({ value: id, label: deviceName(hass, id) })),
-                  ]),
-                },
-              ]
-            : []),
-          { name: 'confirm_off', selector: { boolean: {} } },
-        ],
-        {
-          box: value,
-          box_hyperhdr: resolved.ambilight.hyperhdr ?? 'auto',
-          confirm_off: resolved.ambilight.confirmOff,
-        },
-        (data) => {
-          const box = data.box === 'auto' ? undefined : data.box === 'off' ? false : data.box;
-          let next = setOption(config, 'ambilight', 'box', box);
-          next = setOption(
-            next,
-            'ambilight',
-            'hyperhdr',
-            data.box_hyperhdr === 'auto' ? undefined : data.box_hyperhdr,
-          );
-          next = setOption(next, 'ambilight', 'confirm_off', data.confirm_off, true);
-          this.commit(next);
-        },
-        (schema) => (schema.name === 'box' ? this.t('box_helper') : undefined),
-      ),
+    return this.section(
+      'ambilight',
+      'mdi:television-ambient-light',
+      this.t('section_ambilight'),
+      resolved.ambilight.enabled ? this.t('amb_led_on') : this.t('amb_led_off'),
+      () =>
+        html`<vivid-led-ambilight-editor
+          .hass=${this.hass}
+          .config=${config}
+          .resolved=${resolved}
+          .model=${model}
+          @config-changed=${(event: CustomEvent<{ config: LedGroupCardConfig }>) => {
+            event.stopPropagation();
+            this.commit(event.detail.config);
+          }}
+        ></vivid-led-ambilight-editor>`,
     );
   }
 
@@ -1477,30 +1406,18 @@ export class VividLedGroupEditor extends LitElement {
         ${this.form(
           [
             { name: 'header', selector: { boolean: {} } },
-            ...(model.hasLiveOverride
-              ? [{ name: 'ambilight_button', selector: { boolean: {} } }]
-              : []),
             { name: 'power_badge', selector: { boolean: {} } },
           ],
           {
             header: resolved.appearance.header,
-            ambilight_button: resolved.ambilight.enabled,
             power_badge: resolved.power.enabled,
           },
           (value) => {
             let next = setOption(config, 'appearance', 'header', value.header, true);
-            if (model.hasLiveOverride) {
-              next = setOption(next, 'ambilight', 'enabled', value.ambilight_button, true);
-            }
             next = setOption(next, 'power', 'enabled', value.power_badge, true);
             this.commit(next);
           },
-          (schema) =>
-            schema.name === 'ambilight_button'
-              ? this.t('ambilight_button_helper')
-              : schema.name === 'power_badge'
-                ? this.t('power_badge_helper')
-                : undefined,
+          (schema) => (schema.name === 'power_badge' ? this.t('power_badge_helper') : undefined),
         )}`,
     );
   }
@@ -1509,7 +1426,8 @@ export class VividLedGroupEditor extends LitElement {
 
   /**
    * The sections follow the card from top to bottom: source, header, tile,
-   * Ambilight box rail, details window, the lights in it, consumption, look.
+   * details window, the strips in it, consumption, look. Ambilight comes
+   * last: off by default, it unfolds everything about the TV when on.
    */
   protected override render() {
     if (!this.hass || !this._config) return nothing;
@@ -1530,9 +1448,9 @@ export class VividLedGroupEditor extends LitElement {
       }
       ${resolved.power.enabled && !model.hasPower ? this.renderPowerWarning(model) : nothing}
       ${this.renderHeaderSection(resolved, model)} ${this.renderTileSection(resolved, model)}
-      ${this.renderBoxSection(resolved, model)} ${this.renderDetailsSection(resolved, model)}
-      ${this.renderLightsSection(resolved, model)} ${this.renderPowerSection(resolved, model)}
-      ${this.renderAppearanceSection(resolved, model)}
+      ${this.renderDetailsSection(resolved, model)} ${this.renderLightsSection(resolved, model)}
+      ${this.renderPowerSection(resolved, model)} ${this.renderAppearanceSection(resolved, model)}
+      ${this.renderAmbilightSection(resolved, model)}
     </div>`;
   }
 

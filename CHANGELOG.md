@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-13
+
+### Changed
+
+- `vivid-led-group`: **Ambilight is off by default**. Turn it on in the
+  editor's new Ambilight section (last), or with `ambilight.enabled: true` or
+  a `ambilight.box`. A card that relied on finding the box by itself needs
+  `ambilight.enabled: true`.
+- The LED editor keeps everything about the strips first; the Ambilight
+  section, switched on, asks for the box and the HyperHDR server, then shows
+  the button, the strips that follow the screen and the HDMI inputs.
+- The HDMI inputs editor is shared by the Ambilight and LED group cards.
+
+### Added
+
+- `ambilight.button` (default on): show or hide the Ambilight button.
+
 ## [1.2.0] - 2026-11-13
 
 ### Changed

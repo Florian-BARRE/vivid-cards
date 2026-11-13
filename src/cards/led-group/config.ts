@@ -108,11 +108,15 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     currency?: string;
   };
   ambilight?: {
+    /**
+     * These strips follow a TV through HyperHDR. Off by default: on when set,
+     * or when a `box` is given.
+     */
     enabled?: boolean;
     /**
      * The Ambilight box (its device, or one of its entities): a rail at the
-     * bottom of the card. `false` hides it; left out, the only box there is,
-     * when it sits with these strips.
+     * bottom of the card. `false`: no box (HyperHDR drives the strips alone);
+     * left out, the only box there is, when it sits with these strips.
      */
     box?: string | false;
     /** The HyperHDR server device; the only one found when left out. */
@@ -121,6 +125,8 @@ export interface LedGroupCardConfig extends LovelaceCardConfig {
     inputs?: (string | { name?: string; icon?: string; hidden?: boolean })[];
     /** Turning Ambilight off asks for a second tap (default on). */
     confirm_off?: boolean;
+    /** The Ambilight button on the card, shown while the Pi runs (default on). */
+    button?: boolean;
   };
   details?: {
     enabled?: boolean;
@@ -198,6 +204,7 @@ export interface ResolvedLedGroupConfig {
     hyperhdr?: string;
     inputs?: (string | { name?: string; icon?: string; hidden?: boolean })[];
     confirmOff: boolean;
+    button: boolean;
   };
   details: {
     /** `undefined` means: enabled for groups only. */
@@ -566,11 +573,14 @@ export function resolveConfig(raw: unknown): ResolvedLedGroupConfig {
       currency: resolveCurrency(power.currency),
     },
     ambilight: {
-      enabled: optionalBoolean(ambilight.enabled, 'ambilight.enabled') ?? true,
+      enabled:
+        optionalBoolean(ambilight.enabled, 'ambilight.enabled') ??
+        typeof resolveBox(ambilight.box) === 'string',
       box: resolveBox(ambilight.box),
       hyperhdr: optionalString(ambilight.hyperhdr, 'ambilight.hyperhdr'),
       inputs: resolveInputs(ambilight.inputs),
       confirmOff: optionalBoolean(ambilight.confirm_off, 'ambilight.confirm_off') ?? true,
+      button: optionalBoolean(ambilight.button, 'ambilight.button') ?? true,
     },
     details: {
       enabled: optionalBoolean(details.enabled, 'details.enabled'),
