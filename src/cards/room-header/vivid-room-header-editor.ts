@@ -1,14 +1,14 @@
 /* ====== Code Summary ======
- * Visual editor of the room header, in folding sections, with nothing left
- * to YAML:
- *   Room          the Vivid Pilot room everything comes from;
- *   Lights        one slot row per light role, and the power sensor;
- *   Power button  when it shows, what a tap runs in each way (the room's
- *                 memory scene, the lights, or any Home Assistant action) and
- *                 a hold;
- *   Badges        what each role shows, then the badges in order with their
- *                 options;
- *   Look          title, subtitle, halo.
+ * Visual editor of the room header, in the order the card shows things:
+ *   Source        Vivid Pilot (a room, or the whole home) or manual;
+ *   Title         the title (the room's name unless written), the subtitle
+ *                 and the lamps, LEDs, switches and power it counts;
+ *   Power button  when it shows, what a tap does with everything off (the
+ *                 room's last lighting or its lights, in Vivid Pilot mode)
+ *                 and with a light on, a hold — or any action;
+ *   Badges        every badge, shown or hidden, in order, with its options;
+ *   Look          halo.
+ * In manual mode the same sections ask for every entity by hand.
  */
 
 import { LitElement, css, html, nothing } from 'lit';
@@ -17,22 +17,32 @@ import { friendlyName } from '../../core/entities';
 import { GLOW_SLIDER } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
+import { HOME_NODE, PilotIndex } from '../../core/pilot';
 import { defineElement } from '../../core/register';
-import { PilotIndex } from '../../core/pilot';
-import type { SlotValue } from '../../core/slots';
+import type { SlotMode, SlotValue } from '../../core/slots';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
+import { pilotNodeLabel } from '../../i18n/pilot';
 import { tokens } from '../../components/shared-styles';
 import '../../components/editor/vivid-action-field';
 import '../../components/editor/vivid-editor-section';
 import '../../components/editor/vivid-slot-editor';
 import {
+  POWER_ON,
   POWER_SHOW,
   resolveRoomHeaderConfig,
   type PowerButtonConfig,
   type ResolvedRoomHeaderConfig,
   type RoomHeaderCardConfig,
 } from './config';
-import { setOption, setPowerButton, setSlot } from './editor-model';
+import {
+  headerSource,
+  setOption,
+  setPowerButton,
+  setSlot,
+  setSource,
+  shownBadges,
+  type HeaderSource,
+} from './editor-model';
 import { roomEditorStyles } from './editor-styles';
 import { memoryScene } from './model';
 import { powerPlan, type PowerPlan } from './power-action';
@@ -42,6 +52,9 @@ import { ROOM_ROLES, type RoleSpec, type RoomRole } from './roles';
 import './vivid-room-badges-editor';
 
 type Form = Record<string, unknown>;
+
+/** The lights and the power the title counts (and the button and the halo use). */
+const TITLE_ROLES: readonly RoomRole[] = ['light', 'led', 'switch', 'power'];
 
 /** The room as the editor reads it now; `error` when the config is incomplete. */
 interface RoomState {
@@ -57,10 +70,13 @@ export class VividRoomHeaderEditor extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
+    _source: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: RoomHeaderCardConfig;
+  /** Kept while editing: a manual card has nothing written yet right after the switch. */
+  declare _source?: HeaderSource;
 
   static override styles = [
     tokens,
@@ -75,6 +91,7 @@ export class VividRoomHeaderEditor extends LitElement {
 
   setConfig(config: RoomHeaderCardConfig): void {
     this._config = config;
+    this._source ??= headerSource(config);
   }
 
   override connectedCallback(): void {
@@ -97,8 +114,9 @@ export class VividRoomHeaderEditor extends LitElement {
       if (!this.hass) return { resolved };
       const slots = roomSlots(this.hass, resolved);
       const lights = [...slots.light.entities, ...slots.led.entities, ...slots.switch.entities];
-      const plan = powerPlan(resolved, memoryScene(this.hass, resolved.pilot), lights);
-      return { resolved, slots, plan };
+      const scene =
+        resolved.powerOn === 'memory' ? memoryScene(this.hass, resolved.pilot) : undefined;
+      return { resolved, slots, plan: powerPlan(resolved, scene, lights) };
     } catch (error) {
       return { error: (error as Error).message.replace(/^vivid-room-header: /, '') };
     }
@@ -124,14 +142,77 @@ export class VividRoomHeaderEditor extends LitElement {
     ></ha-form>`;
   }
 
+  /* ------------------------------ source ------------------------------ */
+
+  private renderSource(config: RoomHeaderCardConfig, source: HeaderSource, state: RoomState) {
+    const rooms = this.hass ? PilotIndex.of(this.hass).rooms() : [];
+    const roomOptions = [
+      { value: HOME_NODE, label: this.rh('rh_room_home') },
+      ...rooms.map((room) => ({ value: room.area, label: room.name })),
+    ];
+    const schema: Form[] = [
+      {
+        name: 'source',
+        selector: {
+          select: {
+            mode: 'box',
+            options: [
+              { value: 'pilot', label: this.rh('rh_source_pilot') },
+              { value: 'manual', label: this.rh('rh_source_manual') },
+            ],
+          },
+        },
+      },
+    ];
+    if (source === 'pilot') {
+      schema.push({
+        name: 'pilot',
+        selector: { select: { mode: 'dropdown', options: roomOptions } },
+      });
+    }
+    return html`${this.form(
+      schema,
+      { source, pilot: config.pilot ?? '' },
+      { source: this.rh('rh_source'), pilot: this.rh('rh_pilot') },
+      {
+        source: this.rh(source === 'pilot' ? 'rh_source_helper_pilot' : 'rh_source_helper_manual'),
+      },
+      (value) => {
+        const next = (value.source as HeaderSource | undefined) ?? source;
+        if (next !== source) {
+          this._source = next;
+          return setSource(config, next);
+        }
+        return setOption(config, 'pilot', value.pilot);
+      },
+    )}
+    ${
+      source === 'pilot' && !rooms.length
+        ? html`<div class="error">${this.rh('rh_pilot_missing')}</div>`
+        : nothing
+    }
+    ${
+      state.error && !(source === 'pilot' && !config.pilot)
+        ? html`<div class="error">${state.error}</div>`
+        : nothing
+    }`;
+  }
+
   /* ------------------------------ slots ------------------------------ */
 
-  private slotRow(config: RoomHeaderCardConfig, state: RoomState, spec: RoleSpec) {
+  private slotRow(
+    config: RoomHeaderCardConfig,
+    state: RoomState,
+    spec: RoleSpec,
+    source: HeaderSource,
+  ) {
+    const modes: readonly SlotMode[] = source === 'pilot' ? ['auto', 'off'] : ['manual', 'off'];
     return html`<vivid-slot-editor
       .hass=${this.hass}
       .label=${this.rh(`rh_role_${spec.role}` as EditorStringKey)}
       .icon=${spec.icon}
-      .pilot=${true}
+      .pilot=${source === 'pilot'}
+      .modes=${modes}
       .multiple=${spec.multiple}
       .domains=${spec.domains}
       .value=${config.entities?.[spec.role]}
@@ -141,25 +222,27 @@ export class VividRoomHeaderEditor extends LitElement {
     ></vivid-slot-editor>`;
   }
 
-  private slotRows(config: RoomHeaderCardConfig, state: RoomState, roles: readonly RoomRole[]) {
-    const specs = ROOM_ROLES.filter((spec) => roles.includes(spec.role));
-    return html`<div class="slots">${specs.map((spec) => this.slotRow(config, state, spec))}</div>`;
-  }
+  /* ------------------------------ title ------------------------------ */
 
-  /* ------------------------------ room ------------------------------ */
-
-  private renderRoom(config: RoomHeaderCardConfig, state: RoomState) {
-    const rooms = this.hass ? PilotIndex.of(this.hass).rooms() : [];
-    const options = rooms.map((room) => ({ value: room.area, label: room.name }));
+  private renderTitle(config: RoomHeaderCardConfig, state: RoomState, source: HeaderSource) {
+    const auto = config.pilot && this.hass ? pilotNodeLabel(this.hass, config.pilot) : '';
+    const specs = ROOM_ROLES.filter((spec) => TITLE_ROLES.includes(spec.role));
     return html`${this.form(
-      [{ name: 'pilot', selector: { select: { mode: 'dropdown', options } } }],
-      { pilot: config.pilot ?? '' },
-      { pilot: this.rh('rh_pilot') },
-      { pilot: this.rh('rh_pilot_helper') },
-      (value) => setOption(this._config ?? config, 'pilot', value.pilot),
-    )}
-    ${rooms.length ? nothing : html`<div class="error">${this.rh('rh_pilot_missing')}</div>`}
-    ${state.error ? html`<div class="error">${state.error}</div>` : nothing}`;
+        [
+          { name: 'name', selector: { text: {} } },
+          { name: 'show_subtitle', selector: { boolean: {} } },
+        ],
+        { name: config.name ?? '', show_subtitle: config.show_subtitle !== false },
+        { name: this.rh('rh_name'), show_subtitle: this.rh('rh_show_subtitle') },
+        { name: auto ? this.rh('rh_name_auto', { name: auto }) : '' },
+        (value) => {
+          const name = typeof value.name === 'string' ? value.name.trim() : '';
+          const next = setOption(this._config ?? config, 'name', name);
+          return setOption(next, 'show_subtitle', value.show_subtitle, true);
+        },
+      )}
+      <div class="group-title">${this.rh('rh_title_lights')}</div>
+      <div class="slots">${specs.map((spec) => this.slotRow(config, state, spec, source))}</div>`;
   }
 
   /* ------------------------------ power button ------------------------------ */
@@ -181,31 +264,47 @@ export class VividRoomHeaderEditor extends LitElement {
     ></vivid-action-field>`;
   }
 
-  private renderPower(config: RoomHeaderCardConfig, state: RoomState) {
-    const slots = state.slots;
-    const lights = slots
-      ? [...slots.light.entities, ...slots.led.entities, ...slots.switch.entities]
-      : [];
+  private renderPower(config: RoomHeaderCardConfig, state: RoomState, source: HeaderSource) {
     const plan = state.plan;
     const shows = POWER_SHOW.map((value) => ({
       value,
       label: this.rh(`rh_power_show_${value}` as EditorStringKey),
     }));
+    const ons = POWER_ON.map((value) => ({
+      value,
+      label: this.rh(`rh_power_on_${value}` as EditorStringKey),
+    }));
+    const lights = state.slots
+      ? [...state.slots.light.entities, ...state.slots.led.entities, ...state.slots.switch.entities]
+      : [];
     const main = config.entity ?? lights[0];
+    const schema: Form[] = [
+      { name: 'show', selector: { select: { mode: 'dropdown', options: shows } } },
+    ];
+    if (source === 'pilot') {
+      schema.push({ name: 'on', selector: { select: { mode: 'dropdown', options: ons } } });
+    }
+    schema.push({ name: 'entity', selector: { entity: {} } });
     return html`${this.form(
-        [
-          { name: 'show', selector: { select: { mode: 'dropdown', options: shows } } },
-          { name: 'entity', selector: { entity: {} } },
-        ],
-        { show: config.power_button?.show ?? 'auto', entity: config.entity ?? '' },
-        { show: this.rh('rh_power_show'), entity: this.rh('rh_entity') },
-        { entity: this.rh('rh_entity_helper') },
-        (value) =>
-          setOption(
-            setPowerButton(this._config ?? config, 'show', value.show),
-            'entity',
-            value.entity,
-          ),
+        schema,
+        {
+          show: config.power_button?.show ?? 'auto',
+          on: config.power_button?.on ?? 'memory',
+          entity: config.entity ?? '',
+        },
+        {
+          show: this.rh('rh_power_show'),
+          on: this.rh('rh_power_on'),
+          entity: this.rh('rh_entity'),
+        },
+        { on: this.rh('rh_power_on_helper'), entity: this.rh('rh_entity_helper') },
+        (value) => {
+          let next = setPowerButton(this._config ?? config, 'show', value.show);
+          if (source === 'pilot') {
+            next = setPowerButton(next, 'on', value.on === 'memory' ? undefined : value.on);
+          }
+          return setOption(next, 'entity', value.entity);
+        },
       )}
       <div class="group-title">${this.rh('rh_power_actions')}</div>
       ${this.actionField(config, 'on_action', this.rh('rh_tap_when_off'), plan ? describeWay(this.hass, plan.on, true) : '')}
@@ -222,8 +321,7 @@ export class VividRoomHeaderEditor extends LitElement {
 
   /* ------------------------------ badges and look ------------------------------ */
 
-  private renderBadges(config: RoomHeaderCardConfig, state: RoomState) {
-    const roles = ROOM_ROLES.filter((spec) => spec.feeds === 'badge').map((spec) => spec.role);
+  private renderBadges(config: RoomHeaderCardConfig, state: RoomState, source: HeaderSource) {
     return html`${this.form(
         [{ name: 'show_badges', selector: { boolean: {} } }],
         { show_badges: config.show_badges !== false },
@@ -231,90 +329,63 @@ export class VividRoomHeaderEditor extends LitElement {
         {},
         (value) => setOption(this._config ?? config, 'show_badges', value.show_badges, true),
       )}
-      <div class="group-title">${this.rh('rh_badges_order')}</div>
       <vivid-room-badges-editor
         .hass=${this.hass}
         .config=${config}
         .slots=${state.slots}
+        .source=${source}
         @room-config-changed=${(event: CustomEvent<{ config: RoomHeaderCardConfig }>) => {
           event.stopPropagation();
           this.commit(event.detail.config);
         }}
-      ></vivid-room-badges-editor>
-      <div class="group-title">${this.rh('rh_badges_sources')}</div>
-      ${this.slotRows(config, state, roles)}`;
+      ></vivid-room-badges-editor>`;
   }
 
   private renderLook(config: RoomHeaderCardConfig) {
     return this.form(
-      [
-        { name: 'name', selector: { text: {} } },
-        { name: 'show_subtitle', selector: { boolean: {} } },
-        { name: 'glow', selector: GLOW_SLIDER },
-      ],
-      {
-        name: config.name ?? '',
-        show_subtitle: config.show_subtitle !== false,
-        glow: typeof config.glow === 'number' ? config.glow : 100,
-      },
-      {
-        name: this.rh('rh_name'),
-        show_subtitle: this.rh('rh_show_subtitle'),
-        glow: this.rh('glow'),
-      },
+      [{ name: 'glow', selector: GLOW_SLIDER }],
+      { glow: typeof config.glow === 'number' ? config.glow : 100 },
+      { glow: this.rh('glow') },
       { glow: this.rh('glow_helper') },
-      (value) => {
-        let next = setOption(
-          this._config ?? config,
-          'name',
-          typeof value.name === 'string' ? value.name.trim() : '',
-        );
-        next = setOption(next, 'show_subtitle', value.show_subtitle, true);
-        return setOption(next, 'glow', value.glow, 100);
-      },
+      (value) => setOption(this._config ?? config, 'glow', value.glow, 100),
     );
   }
 
   /* ------------------------------ render ------------------------------ */
 
-  private hint(state: RoomState, roles: RoomRole[]): string {
-    const slots = state.slots;
-    if (!slots) return '';
-    const count = roles.reduce((sum, role) => sum + slots[role].entities.length, 0);
-    return this.rh('rh_section_room_hint', { count });
-  }
-
   protected override render() {
     const config = this._config;
     if (!config) return nothing;
+    const source = this._source ?? headerSource(config);
     const state = this.state(config);
-    const room = config.pilot && this.hass ? PilotIndex.of(this.hass).areaName(config.pilot) : '';
-    const badgeRoles = ROOM_ROLES.filter((spec) => spec.feeds === 'badge').map((spec) => spec.role);
+    const room = config.pilot && this.hass ? pilotNodeLabel(this.hass, config.pilot) : '';
+    const title = config.name ?? room;
+    const shown = shownBadges(config, state.slots).length;
     return html`<div class="editor">
       <vivid-editor-section
         open
-        icon="mdi:steering"
-        .heading=${this.rh('rh_section_pilot')}
-        .hint=${room || this.rh('rh_section_pilot_hint_none')}
-        >${this.renderRoom(config, state)}</vivid-editor-section
+        icon=${source === 'pilot' ? 'mdi:steering' : 'mdi:hand-back-right-outline'}
+        .heading=${this.rh('rh_section_source')}
+        .hint=${source === 'pilot' ? room || this.rh('rh_source_pilot') : this.rh('rh_source_manual')}
+        >${this.renderSource(config, source, state)}</vivid-editor-section
       >
       <vivid-editor-section
-        icon="mdi:lightbulb-group-outline"
-        .heading=${this.rh('rh_section_lights')}
-        .hint=${this.hint(state, ['light', 'led', 'switch', 'power'])}
-        >${this.slotRows(config, state, ['light', 'led', 'switch', 'power'])}</vivid-editor-section
+        icon="mdi:format-title"
+        .heading=${this.rh('rh_section_title')}
+        .hint=${title || this.rh('rh_section_title_hint')}
+        >${this.renderTitle(config, state, source)}</vivid-editor-section
       >
       <vivid-editor-section
         icon="mdi:power"
         .heading=${this.rh('rh_section_power')}
         .hint=${powerHint(this.hass, config, state.plan)}
-        >${this.renderPower(config, state)}</vivid-editor-section
+        >${this.renderPower(config, state, source)}</vivid-editor-section
       >
       <vivid-editor-section
         icon="mdi:label-multiple-outline"
         .heading=${this.rh('rh_section_badges')}
-        .hint=${this.hint(state, badgeRoles)}
-        >${this.renderBadges(config, state)}</vivid-editor-section
+        .hint=${this.rh('rh_section_badges_hint', { count: shown })}
+        >${this.renderBadges(config, state, source)}</vivid-editor-section
       >
       <vivid-editor-section
         icon="mdi:palette-outline"

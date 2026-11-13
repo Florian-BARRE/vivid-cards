@@ -6,7 +6,7 @@
  * Vivid Pilot categories, so `entities.presence` is the room's presence.
  */
 
-import { nodeKey, type PilotCategory, type PilotKind } from '../../core/pilot';
+import { HOME_NODE, nodeKey, type PilotCategory, type PilotKind } from '../../core/pilot';
 import type { RoleQuery } from '../../core/slots';
 
 /* ============================== Types ============================== */
@@ -40,6 +40,8 @@ export interface RoleSpec extends RoleQuery {
   multiple: boolean;
   /** Badge tag shown for it (lights: one per entity). */
   badge?: string;
+  /** Options the role's badge gets unless the config sets them. */
+  badgeOptions?: Record<string, unknown>;
   /** Icon of the slot in the editor. */
   icon: string;
 }
@@ -48,7 +50,12 @@ export interface RoleSpec extends RoleQuery {
 
 const LIGHT_DOMAINS = ['light', 'switch', 'group', 'input_boolean'];
 
-function light(role: 'light' | 'led' | 'switch', badge: string, icon: string): RoleSpec {
+function light(
+  role: 'light' | 'led' | 'switch',
+  badge: string,
+  icon: string,
+  badgeOptions?: Record<string, unknown>,
+): RoleSpec {
   return {
     role,
     category: role,
@@ -57,6 +64,7 @@ function light(role: 'light' | 'led' | 'switch', badge: string, icon: string): R
     feeds: 'light',
     multiple: true,
     badge,
+    badgeOptions,
     icon,
   };
 }
@@ -76,7 +84,11 @@ function sensor(
 export const ROOM_ROLES: readonly RoleSpec[] = [
   light('light', 'vivid-lamp-badge', 'mdi:lamp'),
   light('led', 'vivid-led-badge', 'mdi:led-strip-variant'),
-  light('switch', 'vivid-light-badge', 'mdi:light-switch'),
+  // Switches show as a toggle, filled when on, rather than as lamps.
+  light('switch', 'vivid-light-badge', 'mdi:toggle-switch', {
+    icon: 'mdi:toggle-switch',
+    icon_off: 'mdi:toggle-switch-off-outline',
+  }),
   {
     role: 'power',
     kind: 'power',
@@ -134,7 +146,10 @@ export function isRoomRole(value: string): value is RoomRole {
   return BY_ROLE.has(value as RoomRole);
 }
 
-/** The Vivid Pilot node a role reads in a room (`salon__light`, or `salon` for the power). */
+/**
+ * The Vivid Pilot node a role reads in a room (`salon__light`, or `salon` for
+ * the power); the room `all` is the whole home (`all__light`, `all`).
+ */
 export function roleNode(room: string, spec: RoleSpec): string {
-  return nodeKey(room, spec.category);
+  return nodeKey(room === HOME_NODE ? undefined : room, spec.category);
 }

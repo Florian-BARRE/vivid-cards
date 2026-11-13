@@ -1,10 +1,10 @@
 /* ====== Code Summary ======
- * Badges list of the room header editor, in the order they show: the badge
- * of a role (its entity comes from that role's slot), "the other badges
- * found" (every role not listed, so a role found later shows up), and free
- * badges (a kind and an entity). Each row moves, goes away, and unfolds to
- * its options: name, icon, tap and hold actions, visibility; a free badge
- * also its kind and entity. Fires `room-config-changed` with the new config.
+ * Badges list of the room header editor: every badge the room can show, the
+ * shown ones first in their order, then the hidden ones. A tick shows or
+ * hides a badge, arrows move it, and a row unfolds to where its entity comes
+ * from (Vivid Pilot, adjustable, or picked by hand) and its options: name,
+ * icon, tap and hold actions, visibility. Free badges (a kind and any
+ * entity) can be added. Fires `room-config-changed` with the new config.
  */
 
 import { LitElement, html, nothing } from 'lit';
@@ -19,10 +19,14 @@ import { BADGE_KINDS, badgeKindOf } from './badge-kinds';
 import type { RoomBadgeConfig, RoomHeaderCardConfig, StateCondition } from './config';
 import {
   addBadgeItem,
-  badgeItems,
-  moveBadgeItem,
-  removeBadgeItem,
-  setBadgeOptions,
+  listShownBadges,
+  moveShownBadge,
+  removeShownBadge,
+  setRoleBadge,
+  setShownBadgeOptions,
+  setSlot,
+  shownBadges,
+  type HeaderSource,
 } from './editor-model';
 import { roomEditorStyles } from './editor-styles';
 import {
@@ -34,6 +38,8 @@ import {
 import '../../components/editor/vivid-native-editor';
 import type { RoomSlots } from './room-slots';
 import { ROOM_ROLES, roleSpec, type RoomRole } from './roles';
+import '../../components/editor/vivid-slot-editor';
+import type { SlotMode, SlotValue } from '../../core/slots';
 
 type Form = Record<string, unknown>;
 
@@ -44,6 +50,7 @@ export class VividRoomBadgesEditor extends LitElement {
     hass: { attribute: false },
     config: { attribute: false },
     slots: { attribute: false },
+    source: {},
     _open: { state: true },
   };
 
@@ -51,13 +58,17 @@ export class VividRoomBadgesEditor extends LitElement {
   declare config?: RoomHeaderCardConfig;
   /** The room's slots as resolved now (what each role badge shows). */
   declare slots?: RoomSlots;
-  declare _open: number;
+  /** Vivid Pilot or manual: where a role badge takes its entity. */
+  declare source: HeaderSource;
+  /** Open row: a shown badge's index, or `hidden:<role>`. */
+  declare _open: number | string;
 
   static override styles = [tokens, roomEditorStyles];
 
   constructor() {
     super();
     this._open = -1;
+    this.source = 'pilot';
   }
 
   private rh(key: EditorStringKey): string {
@@ -119,8 +130,21 @@ export class VividRoomBadgesEditor extends LitElement {
   ) {
     const info = this.describe(item);
     const open = this._open === index;
+    const role = item.slot as RoomRole | undefined;
     return html`<div class="badge-item">
       <div class="row">
+        <ha-checkbox
+          .checked=${true}
+          title=${this.rh('rh_badge_hide')}
+          @change=${() => {
+            this._open = -1;
+            this.emit(
+              role
+                ? setRoleBadge(config, this.slots, role, false)
+                : removeShownBadge(config, this.slots, index),
+            );
+          }}
+        ></ha-checkbox>
         <ha-icon .icon=${info.icon}></ha-icon>
         <button class="row-text plain" @click=${() => (this._open = open ? -1 : index)}>
           <span class="row-name">${info.title}</span>
@@ -131,7 +155,7 @@ export class VividRoomBadgesEditor extends LitElement {
           class="icon-button"
           title=${this.s('up')}
           ?disabled=${index === 0}
-          @click=${() => this.emit(moveBadgeItem(config, index, -1))}
+          @click=${() => this.emit(moveShownBadge(config, this.slots, index, -1))}
         >
           <ha-icon .icon=${'mdi:arrow-up'}></ha-icon>
         </button>
@@ -139,23 +163,62 @@ export class VividRoomBadgesEditor extends LitElement {
           class="icon-button"
           title=${this.s('down')}
           ?disabled=${index === count - 1}
-          @click=${() => this.emit(moveBadgeItem(config, index, 1))}
+          @click=${() => this.emit(moveShownBadge(config, this.slots, index, 1))}
         >
           <ha-icon .icon=${'mdi:arrow-down'}></ha-icon>
         </button>
-        <button
-          class="icon-button danger"
-          title=${this.s('remove')}
-          @click=${() => {
-            this._open = -1;
-            this.emit(removeBadgeItem(config, index));
-          }}
-        >
-          <ha-icon .icon=${'mdi:close'}></ha-icon>
+      </div>
+      ${
+        open
+          ? html`${role ? this.renderSlot(config, role) : nothing}
+            ${this.renderBadgeOptions(config, item, index)}`
+          : nothing
+      }
+    </div>`;
+  }
+
+  /** A hidden role: ticking it shows its badge last; unfolded, where its entity comes from. */
+  private renderHidden(config: RoomHeaderCardConfig, role: RoomRole) {
+    const info = this.describe({ slot: role });
+    const key = `hidden:${role}`;
+    const open = this._open === key;
+    return html`<div class="badge-item hidden">
+      <div class="row">
+        <ha-checkbox
+          .checked=${false}
+          title=${this.rh('rh_badge_show')}
+          @change=${() => this.emit(setRoleBadge(config, this.slots, role, true))}
+        ></ha-checkbox>
+        <ha-icon .icon=${info.icon}></ha-icon>
+        <button class="row-text plain" @click=${() => (this._open = open ? -1 : key)}>
+          <span class="row-name">${info.title}</span>
+          <span class="row-id">${info.detail}</span>
+          ${info.warn ? html`<span class="tag">${info.warn}</span>` : nothing}
         </button>
       </div>
-      ${open && item.slot !== '*' ? this.renderBadgeOptions(config, item, index) : nothing}
+      ${open ? this.renderSlot(config, role) : nothing}
     </div>`;
+  }
+
+  /** Where a role badge takes its entity: Vivid Pilot (adjustable) or picked by hand. */
+  private renderSlot(config: RoomHeaderCardConfig, role: RoomRole) {
+    const spec = roleSpec(role);
+    const modes: readonly SlotMode[] =
+      this.source === 'pilot' ? ['auto', 'off'] : ['manual', 'off'];
+    return html`<vivid-slot-editor
+      class="badge-slot"
+      .hass=${this.hass}
+      .label=${this.rh(`rh_role_${role}` as EditorStringKey)}
+      .icon=${spec.icon}
+      .pilot=${this.source === 'pilot'}
+      .modes=${modes}
+      .multiple=${spec.multiple}
+      .domains=${spec.domains}
+      .value=${config.entities?.[role]}
+      .resolved=${this.slots?.[role]}
+      @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
+        this.emit(setSlot(config, role, event.detail.value))}
+    ></vivid-slot-editor>`;
   }
 
   /* ------------------------------ options ------------------------------ */
@@ -231,7 +294,9 @@ export class VividRoomBadgesEditor extends LitElement {
         .computeLabel=${(field: { name: string }) => labels[field.name]}
         @value-changed=${(event: CustomEvent<{ value: Form }>) => {
           event.stopPropagation();
-          this.emit(setBadgeOptions(config, index, this.options(event.detail.value)));
+          this.emit(
+            setShownBadgeOptions(config, this.slots, index, this.options(event.detail.value)),
+          );
         }}
       ></ha-form>
     </div>`;
@@ -260,7 +325,7 @@ export class VividRoomBadgesEditor extends LitElement {
               .filter((key) => !(key in next))
               .map((key) => [key, undefined]),
           );
-          this.emit(setBadgeOptions(config, index, { ...cleared, ...next }));
+          this.emit(setShownBadgeOptions(config, this.slots, index, { ...cleared, ...next }));
         }}
       ></vivid-native-editor>
       <ha-form
@@ -275,7 +340,7 @@ export class VividRoomBadgesEditor extends LitElement {
         @value-changed=${(event: CustomEvent<{ value: Form }>) => {
           event.stopPropagation();
           this.emit(
-            setBadgeOptions(config, index, {
+            setShownBadgeOptions(config, this.slots, index, {
               visibility: visibilityConditions(event.detail.value),
             }),
           );
@@ -302,37 +367,26 @@ export class VividRoomBadgesEditor extends LitElement {
 
   /* ------------------------------ add ------------------------------ */
 
+  /** A free badge: a kind of badge on any entity, added last. */
   private renderAdd(config: RoomHeaderCardConfig, items: RoomBadgeConfig[]) {
-    const listed = new Set(items.map((item) => item.slot));
-    const options = [
-      ...ROOM_ROLES.filter((spec) => spec.badge && !listed.has(spec.role)).map((spec) => ({
-        value: `role:${spec.role}`,
-        label: this.rh(`rh_role_${spec.role}` as EditorStringKey),
-      })),
-      ...BADGE_KINDS.map((kind) => ({
-        value: `free:${kind.key}`,
-        label: `${this.rh(`rh_kind_${kind.key}` as EditorStringKey)} · ${this.s('badge_free')}`,
-      })),
-      ...(listed.has('*') ? [] : [{ value: 'rest', label: this.s('badge_add_rest') }]),
-    ];
+    const options = BADGE_KINDS.map((kind) => ({
+      value: kind.key,
+      label: this.rh(`rh_kind_${kind.key}` as EditorStringKey),
+    }));
     return html`<ha-form
       .hass=${this.hass}
       .data=${{ add: '' }}
       .schema=${[{ name: 'add', selector: { select: { mode: 'dropdown', options } } }]}
-      .computeLabel=${() => this.s('badge_add')}
+      .computeLabel=${() => this.rh('rh_badge_add_free')}
       @value-changed=${(event: CustomEvent<{ value: { add?: string } }>) => {
         event.stopPropagation();
-        const choice = event.detail.value.add ?? '';
-        let item: RoomBadgeConfig | undefined;
-        if (choice === 'rest') item = { slot: '*' };
-        else if (choice.startsWith('role:')) item = { slot: choice.slice(5) };
-        else if (choice.startsWith('free:')) {
-          const kind = BADGE_KINDS.find((option) => option.key === choice.slice(5));
-          if (kind) item = { type: `custom:${kind.tag}` };
-        }
-        if (!item) return;
-        this._open = item.slot === '*' ? -1 : items.length;
-        this.emit(addBadgeItem(config, item));
+        const kind = BADGE_KINDS.find((option) => option.key === event.detail.value.add);
+        if (!kind) return;
+        this._open = items.length;
+        // The shown badges are written out first, so the new one goes last.
+        this.emit(
+          addBadgeItem(listShownBadges(config, this.slots), { type: `custom:${kind.tag}` }),
+        );
       }}
     ></ha-form>`;
   }
@@ -340,11 +394,19 @@ export class VividRoomBadgesEditor extends LitElement {
   protected override render() {
     const config = this.config;
     if (!config) return nothing;
-    const items = badgeItems(config);
+    const items = shownBadges(config, this.slots);
+    const shownRoles = new Set(items.map((item) => item.slot));
+    const hidden = ROOM_ROLES.filter((spec) => spec.badge && !shownRoles.has(spec.role));
     return html`<div class="editor">
       <div class="rows">
         ${items.map((item, index) => this.renderRow(config, item, index, items.length))}
       </div>
+      ${
+        hidden.length
+          ? html`<div class="group-title">${this.rh('rh_badges_hidden')}</div>
+              <div class="rows">${hidden.map((spec) => this.renderHidden(config, spec.role))}</div>`
+          : nothing
+      }
       ${this.renderAdd(config, items)}
     </div>`;
   }
