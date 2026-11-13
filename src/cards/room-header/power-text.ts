@@ -21,7 +21,9 @@ export function describeWay(
     return `${editorText(hass, 'rh_tap_scene')} ${names.join(', ')} (${way.entities.join(', ')})`;
   }
   if (way.source === 'lights') {
-    return `${editorText(hass, turnOn ? 'rh_tap_lights_on' : 'rh_tap_lights_off')} : ${names.join(', ')}`;
+    return editorText(hass, turnOn ? 'rh_tap_lights_on' : 'rh_tap_lights_off', {
+      names: names.join(', '),
+    });
   }
   return slotText(hass, 'action_none');
 }

@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-11-13
+
+### Fixed
+
+- `vivid-room-header`: a memory scene never activated yet (state `unknown`)
+  is used by the power button; it fell back to every light, switches
+  included.
+
+### Changed
+
+- The power button controls what the room's memory covers (or the lamps and
+  LEDs without a memory): it turns on and off only that, and it is "on" only
+  when part of it is on. Switches are counted under the title, never
+  switched by the button.
+- The editor says what the button controls, and words each way by the
+  button's own state ("Button off (nothing it controls is on)").
+
 ## [1.1.0] - 2026-11-13
 
 ### Changed

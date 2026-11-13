@@ -44,7 +44,7 @@ import {
   type HeaderSource,
 } from './editor-model';
 import { roomEditorStyles } from './editor-styles';
-import { memoryScene } from './model';
+import { buttonScope, memoryScene } from './model';
 import { powerPlan, type PowerPlan } from './power-action';
 import { describeWay, powerHint } from './power-text';
 import { roomSlots, type RoomSlots } from './room-slots';
@@ -61,6 +61,9 @@ interface RoomState {
   resolved?: ResolvedRoomHeaderConfig;
   slots?: RoomSlots;
   plan?: PowerPlan;
+  /** What the button controls, and the memory scene it restores. */
+  scope?: string[];
+  scene?: string;
   error?: string;
 }
 
@@ -113,10 +116,10 @@ export class VividRoomHeaderEditor extends LitElement {
       const resolved = resolveRoomHeaderConfig(config);
       if (!this.hass) return { resolved };
       const slots = roomSlots(this.hass, resolved);
-      const lights = [...slots.light.entities, ...slots.led.entities, ...slots.switch.entities];
       const scene =
         resolved.powerOn === 'memory' ? memoryScene(this.hass, resolved.pilot) : undefined;
-      return { resolved, slots, plan: powerPlan(resolved, scene, lights) };
+      const scope = buttonScope(this.hass, slots, scene);
+      return { resolved, slots, scope, scene, plan: powerPlan(resolved, scene, scope) };
     } catch (error) {
       return { error: (error as Error).message.replace(/^vivid-room-header: /, '') };
     }
@@ -306,6 +309,7 @@ export class VividRoomHeaderEditor extends LitElement {
           return setOption(next, 'entity', value.entity);
         },
       )}
+      ${this.renderScope(state)}
       <div class="group-title">${this.rh('rh_power_actions')}</div>
       ${this.actionField(config, 'on_action', this.rh('rh_tap_when_off'), plan ? describeWay(this.hass, plan.on, true) : '')}
       ${this.actionField(config, 'off_action', this.rh('rh_tap_when_on'), plan ? describeWay(this.hass, plan.off, false) : '')}
@@ -317,6 +321,23 @@ export class VividRoomHeaderEditor extends LitElement {
           ? `${this.rh('rh_power_hold_auto')} ${this.hass?.states[main] ? friendlyName(this.hass, main) : main}`
           : '',
       )}`;
+  }
+
+  /** What the button controls, in plain words. */
+  private renderScope(state: RoomState) {
+    const scope = state.scope ?? [];
+    const hass = this.hass;
+    const names = scope.map((id) => (hass?.states[id] ? friendlyName(hass, id) : id)).join(', ');
+    return html`<div class="note">
+      <ha-icon .icon=${'mdi:target'}></ha-icon>
+      <span
+        >${
+          scope.length
+            ? this.rh(state.scene ? 'rh_scope_memory' : 'rh_scope_lights', { names })
+            : this.rh('rh_scope_none')
+        }</span
+      >
+    </div>`;
   }
 
   /* ------------------------------ badges and look ------------------------------ */

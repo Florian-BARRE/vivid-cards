@@ -17,12 +17,30 @@ import { roomSlots, type RoomSlots } from './room-slots';
 
 export { AMBER, haloSources, type HaloSource } from './halo';
 
-/** The room's memory scene when it can restore something now. */
+/**
+ * The room's memory scene when it can restore something now: memory on (the
+ * scene is not unavailable) and something stored. A scene never activated
+ * yet has the state `unknown`, which is fine.
+ */
 export function memoryScene(hass: HomeAssistant, room: string | undefined): string | undefined {
   if (!room) return undefined;
   const scene = PilotIndex.of(hass).entity(room, 'state');
   const state = scene ? hass.states[scene] : undefined;
-  return state && isAvailable(state) && state.attributes.saved_at ? scene : undefined;
+  return state && state.state !== 'unavailable' && state.attributes.saved_at ? scene : undefined;
+}
+
+/**
+ * What the power button controls: the lights its memory scene covers, or
+ * the lamps and LEDs (switches are only counted, never switched by it).
+ */
+export function buttonScope(
+  hass: HomeAssistant,
+  slots: RoomSlots,
+  scene: string | undefined,
+): string[] {
+  const members = scene ? hass.states[scene]?.attributes.entity_id : undefined;
+  if (Array.isArray(members) && members.length) return members.map(String);
+  return [...slots.light.entities, ...slots.led.entities];
 }
 
 /** Watts of a power sensor (kW converted); `undefined` when it cannot be read. */
@@ -52,6 +70,9 @@ export interface RoomHeaderModel {
   plan: PowerPlan;
   /** The power button shows. */
   hasPower: boolean;
+  /** What the power button controls, and whether any of it is on. */
+  scope: string[];
+  buttonOn: boolean;
   /** Badges to show now (their conditions hold). */
   badges: ShownBadge[];
   /** Entity of the more-info a hold opens by default. */
@@ -71,7 +92,9 @@ export function buildRoomHeaderModel(
   const readable = members.filter((id) => isAvailable(hass.states[id]));
   const power = slots.power.entities[0];
   const scene = config.powerOn === 'memory' ? memoryScene(hass, config.pilot) : undefined;
-  const plan = powerPlan(config, scene, lights);
+  const scope = buttonScope(hass, slots, scene);
+  const plan = powerPlan(config, scene, scope);
+  const scopeLeaves = [...new Set(scope.flatMap((id) => expandGroup(hass, id)))];
   const name =
     config.name ??
     (config.pilot
@@ -84,6 +107,7 @@ export function buildRoomHeaderModel(
   const watched = new Set<string>([...lights, ...members]);
   if (power) watched.add(power);
   for (const entity of plan.on.entities) watched.add(entity);
+  for (const entity of [...scope, ...scopeLeaves]) watched.add(entity);
   if (mainEntity) watched.add(mainEntity);
   const badges = roomBadges(slots, config.badges, isDefined);
   for (const badge of badges)
@@ -99,6 +123,8 @@ export function buildRoomHeaderModel(
     power: powerWatts(hass, power),
     sources: haloSources(hass, lights),
     plan,
+    scope,
+    buttonOn: scopeLeaves.some((id) => isOn(hass, id)),
     hasPower: config.powerShow === 'always' || (config.powerShow === 'auto' && hasAction),
     badges: badges.filter((badge) => isVisible(hass, badge.visibility)),
     mainEntity,
@@ -106,7 +132,7 @@ export function buildRoomHeaderModel(
   };
 }
 
-/** The action a tap on the power button runs now (off when a light is on). */
+/** The action a tap on the power button runs now (off when anything it controls is on). */
 export function powerTap(model: RoomHeaderModel) {
-  return (model.on > 0 ? model.plan.off : model.plan.on).action;
+  return (model.buttonOn ? model.plan.off : model.plan.on).action;
 }
