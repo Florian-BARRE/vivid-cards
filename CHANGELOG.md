@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-13
+
+### Changed
+
+- Every card editor is built the same way: a shared **Source** section first
+  (Vivid Pilot or manual; Automatic or manual for the Ambilight box), then one
+  folding section per part of the card, from top to bottom.
+- `vivid-led-group` editor: Source, Header (name, icon, layout, header,
+  ambilight button, consumption badges), Tile (gestures included), Ambilight
+  box, Details window (with its on/off switch), Strips, Consumption,
+  Appearance. The switches on top are gone.
+- `vivid-ambilight-card` editor: Source, Header, HDMI inputs, Raspberry Pi,
+  Details window, Appearance. The card finds the box by itself; manual mode
+  starts from the box found.
+- `vivid-lamp-group` editor: Source, Header, Quick presets, Lamps (gestures
+  included), Consumption, Appearance.
+- `vivid-room-header` uses the same Source section.
+
 ## [1.1.1] - 2026-11-13
 
 ### Fixed

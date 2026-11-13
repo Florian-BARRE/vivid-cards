@@ -35,20 +35,19 @@ device information.
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/led-group-editor.png" alt="Visual editor of the LED group card" width="420" />
 </p>
 
-Pick the source first: a Vivid Pilot LED group (`pilot: salon__led`, the
-room's strips, kept up to date by Vivid Pilot) or, by hand, a light or a
-group. The editor shows what it detected and only offers what applies. The three switches on top turn the ambilight button, the
-consumption badges and the details on or off. Everything else is folded into
-sections that summarize their settings:
+Every card editor is built the same way: **Source** first, then one folding
+section per part of the card, from top to bottom.
 
-| Section             | What it sets                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| **Detected lights** | Per light: ambilight, how consumption is measured, name, icon, transition, shown in the details |
-| **Tile**            | Color bar, state text, effect picker, favorite colors, badges, brightness, transition           |
-| **Gestures**        | Tap, hold and double tap                                                                        |
-| **Consumption**     | Strip voltage, price, glow scale                                                                |
-| **Details**         | Link (hash), order, color bar, what the details show                                            |
-| **Appearance**      | Glow, header, compact layout, gradient, shimmer                                                 |
+| Section            | What it sets                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| **Source**         | Vivid Pilot (`pilot: salon__led`, the room's strips) or manual (a light or group)  |
+| **Header**         | Name, icon, layout; header, ambilight button and consumption badges on or off      |
+| **Tile**           | Color bar, state text, effects, favorite colors, badges, brightness; gestures      |
+| **Ambilight box**  | The box behind the ambilight button                                                |
+| **Details window** | On or off; link (hash), order, color bar, what the details show                    |
+| **Strips**         | Per strip: ambilight, how consumption is measured, name, icon, transition, details |
+| **Consumption**    | Strip voltage, price, glow scale                                                   |
+| **Appearance**     | Glow, gradient, shimmer                                                            |
 
 The YAML only keeps what you changed. Actions richer than a toggle (navigate,
 perform-action…) are kept as they are and shown as **Custom (YAML)**.

@@ -25,7 +25,9 @@ import {
 import { HYPERHDR_INTEGRATION, hubIcon } from '../hyperhdr/model';
 import { buildAmbilightModel, hyperhdrLink, type HyperHdrLink } from './model';
 import { AMBER, GREEN, GREY, RED, celsius, linkView, sourceLabels } from './view';
-import { MANAGER_INTEGRATION, coverage, lookupDevices } from './devices';
+import { MANAGER_INTEGRATION, boxDevice, coverage, lookupDevices } from './devices';
+import { sourceSection, type SourceChoice } from '../../components/editor/source-section';
+import '../../components/editor/vivid-editor-section';
 import '../../components/editor/vivid-device-entities-editor';
 
 /** The config with its `entities` map replaced (left out when empty). */
@@ -66,7 +68,7 @@ export class VividAmbilightCardEditor extends LitElement {
 
   constructor() {
     super();
-    this._open = new Set(['inputs']);
+    this._open = new Set(['header']);
     this._input = 0;
   }
 
@@ -115,48 +117,6 @@ export class VividAmbilightCardEditor extends LitElement {
       .mono {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px;
-      }
-      .section {
-        border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
-        border-radius: 12px;
-        overflow: hidden;
-      }
-      summary {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        cursor: pointer;
-        list-style: none;
-      }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      .section-title {
-        font-weight: 500;
-        flex: none;
-      }
-      .hint {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 12px;
-        color: var(--secondary-text-color);
-      }
-      .chevron {
-        margin-left: auto;
-        transition: transform 0.2s ease;
-      }
-      .section[open] > summary .chevron {
-        transform: rotate(180deg);
-      }
-      .section-body {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 4px 14px 14px;
       }
       .hint-line {
         font-size: 12.5px;
@@ -340,28 +300,22 @@ export class VividAmbilightCardEditor extends LitElement {
     ></ha-form>`;
   }
 
+  /** A folding section, the same component as every other card editor. */
   private section(id: string, icon: string, title: string, hint: string, body: () => unknown) {
     const open = this._open.has(id);
-    return html`<details
-      class="section"
-      ?open=${open}
-      @toggle=${(event: Event) => {
-        const isOpen = (event.target as HTMLDetailsElement).open;
-        if (isOpen === this._open.has(id)) return;
+    return html`<vivid-editor-section
+      .icon=${icon}
+      .heading=${title}
+      .hint=${hint}
+      .open=${open}
+      @section-toggle=${(event: CustomEvent<{ open: boolean }>) => {
         const next = new Set(this._open);
-        if (isOpen) next.add(id);
+        if (event.detail.open) next.add(id);
         else next.delete(id);
         this._open = next;
       }}
-    >
-      <summary>
-        <ha-icon .icon=${icon}></ha-icon>
-        <span class="section-title">${title}</span>
-        <span class="hint">${hint}</span>
-        <ha-icon class="chevron" .icon=${'mdi:chevron-down'}></ha-icon>
-      </summary>
-      <div class="section-body">${open ? body() : nothing}</div>
-    </details>`;
+      >${open ? body() : nothing}</vivid-editor-section
+    >`;
   }
 
   private status(kind: 'ok' | 'warn' | 'info', content: unknown) {
@@ -441,24 +395,32 @@ export class VividAmbilightCardEditor extends LitElement {
     </div>`;
   }
 
-  private renderDevices(config: AmbilightCardConfig) {
+  /** Automatic unless a device, a prefix or entities are written by hand. */
+  private source(config: AmbilightCardConfig): SourceChoice {
+    return config.device || config.prefix || config.entities ? 'manual' : 'device';
+  }
+
+  /** Source: the box found automatically, or picked by hand with each of its entities. */
+  private renderSource(config: AmbilightCardConfig) {
     const hass = this.hass;
     if (!hass) return nothing;
+    const source = this.source(config);
     const resolved = resolveAmbilightConfig(config, lookupDevices(hass, config));
     const model = buildAmbilightModel(hass, resolved);
     const { found, total, missing } = coverage(hass, resolved.entities);
-    const picked = Boolean(config.device || config.prefix);
-    const device = config.device ? hass.devices?.[config.device] : undefined;
+    const deviceId = boxDevice(hass, config);
+    const device = deviceId ? hass.devices?.[deviceId] : undefined;
     const boxName = (device ? device.name_by_user || device.name : config.prefix) ?? undefined;
-    const boxRgb = !picked ? undefined : !model.online ? RED : missing.length ? AMBER : GREEN;
-    const boxFacts: unknown[] = picked
+    const known = Boolean(deviceId || config.prefix);
+    const boxRgb = !known ? undefined : !model.online ? RED : missing.length ? AMBER : GREEN;
+    const boxFacts: unknown[] = known
       ? [
           localize(hass, model.online ? 'amb_online_short' : 'amb_offline'),
           html`<span class=${missing.length ? 'warn' : ''}
             >${localize(hass, 'amb_entities', { found, total })}</span
           >`,
         ]
-      : [this.t('amb_no_device', { prefix: DEFAULT_PREFIX })];
+      : [this.t('amb_no_box')];
     const missingLine = missing.length
       ? this.status(
           'warn',
@@ -476,7 +438,55 @@ export class VividAmbilightCardEditor extends LitElement {
               >`,
           )
         : nothing;
+    const content = html`<div class="chain">
+      ${this.tile(
+        'mdi:fan',
+        boxRgb,
+        localize(hass, 'amb_box'),
+        boxName,
+        boxFacts,
+        source === 'manual' ? this.picker(config, 'device') : html``,
+      )}
+      ${missingLine}
+      ${
+        source === 'manual'
+          ? html`<vivid-device-entities-editor
+              .hass=${hass}
+              .keys=${Object.entries(
+                entityMap(config.prefix || lookupDevices(hass, config).prefix || DEFAULT_PREFIX),
+              ).map(([key, entity]) => ({ key, entity }))}
+              .entities=${config.entities as Record<string, unknown> | undefined}
+              .device=${boxName ?? ''}
+              @entities-changed=${(event: CustomEvent<{ value?: Record<string, unknown> }>) =>
+                this.commit(withEntities(config, event.detail.value))}
+            ></vivid-device-entities-editor>`
+          : nothing
+      }
+    </div>`;
+    return sourceSection({
+      hass,
+      choices: ['device', 'manual'],
+      source,
+      hint: boxName,
+      onSource: (next) => {
+        const config2: Record<string, unknown> = { ...config };
+        delete config2.device;
+        delete config2.prefix;
+        delete config2.entities;
+        // Manual starts from the box found, so its entities show at once.
+        if (next === 'manual' && deviceId) config2.device = deviceId;
+        this.commit(config2);
+      },
+      content,
+    });
+  }
 
+  /** The HyperHDR server the Pi runs, and the link with the box. */
+  private renderPi(config: AmbilightCardConfig) {
+    const hass = this.hass;
+    if (!hass) return nothing;
+    const resolved = resolveAmbilightConfig(config, lookupDevices(hass, config));
+    const model = buildAmbilightModel(hass, resolved);
     const hub = model.hub;
     const link = hyperhdrLink(hass, model);
     const hubRgb = !hub ? undefined : hub.connected ? GREEN : GREY;
@@ -488,37 +498,39 @@ export class VividAmbilightCardEditor extends LitElement {
             : `${localize(hass, 'amb_cpu')} ${celsius(hass, hub.temperature, 0)}`,
         ]
       : [localize(hass, 'amb_link_none')];
-
-    return html`<div class="chain">
-      ${this.tile(
-        'mdi:fan',
-        boxRgb,
-        localize(hass, 'amb_box'),
-        boxName,
-        boxFacts,
-        this.picker(config, 'device'),
+    return html`${this.form(
+        [
+          {
+            type: 'grid',
+            name: '',
+            schema: [
+              { name: 'show_pi', selector: { boolean: {} } },
+              { name: 'confirm_pi_off', selector: { boolean: {} } },
+            ],
+          },
+        ],
+        { show_pi: resolved.showPi, confirm_pi_off: config.confirm_pi_off !== false },
+        (value) => {
+          const next: Record<string, unknown> = { ...config };
+          for (const key of ['show_pi', 'confirm_pi_off'] as const) {
+            if (value[key] === false) next[key] = false;
+            else delete next[key];
+          }
+          this.commit(next);
+        },
+        { show_pi: this.t('amb_show_pi'), confirm_pi_off: this.t('amb_confirm_pi') },
       )}
-      ${missingLine}
-      <vivid-device-entities-editor
-        .hass=${hass}
-        .keys=${Object.entries(
-          entityMap(config.prefix || lookupDevices(hass, config).prefix || DEFAULT_PREFIX),
-        ).map(([key, entity]) => ({ key, entity }))}
-        .entities=${config.entities as Record<string, unknown> | undefined}
-        .device=${boxName ?? ''}
-        @entities-changed=${(event: CustomEvent<{ value?: Record<string, unknown> }>) =>
-          this.commit(withEntities(config, event.detail.value))}
-      ></vivid-device-entities-editor>
-      ${this.renderLink(link)}
-      ${this.tile(
-        hub ? hubIcon(hub) : 'mdi:raspberry-pi',
-        hubRgb,
-        localize(hass, 'amb_hyperhdr_server'),
-        hub?.name,
-        hubFacts,
-        this.picker(config, 'hyperhdr'),
-      )}
-    </div>`;
+      <div class="chain">
+        ${this.renderLink(link)}
+        ${this.tile(
+          hub ? hubIcon(hub) : 'mdi:raspberry-pi',
+          hubRgb,
+          localize(hass, 'amb_hyperhdr_server'),
+          hub?.name,
+          hubFacts,
+          this.picker(config, 'hyperhdr'),
+        )}
+      </div>`;
   }
 
   /** The link between the two tiles, and what to fix when it does not work. */
@@ -624,9 +636,8 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
 
   /* --------------------------------- options -------------------------------- */
 
-  private renderSettings(config: AmbilightCardConfig) {
-    const resolved = resolveAmbilightConfig(config);
-    const choice = (values: readonly string[], prefix: string) => ({
+  private choice(values: readonly string[], prefix: string) {
+    return {
       select: {
         mode: 'dropdown',
         options: values.map((value) => ({
@@ -634,46 +645,34 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
           label: this.t(`${prefix}${value}` as EditorStringKey),
         })),
       },
-    });
+    };
+  }
+
+  /** The top of the card: name, layout, its state line and the values beside it. */
+  private renderHeader(config: AmbilightCardConfig) {
+    const resolved = resolveAmbilightConfig(config);
     const look = this.form(
       [
-        { name: 'layout', selector: choice(LAYOUTS, 'amb_layout_') },
-        ...(resolved.layout === 'line'
-          ? [{ name: 'source_display', selector: choice(SOURCE_DISPLAYS, 'amb_display_') }]
-          : []),
-        {
-          type: 'grid',
-          name: '',
-          schema: [
-            { name: 'show_status', selector: { boolean: {} } },
-            { name: 'show_pi', selector: { boolean: {} } },
-          ],
-        },
+        { name: 'name', selector: { text: {} } },
+        { name: 'layout', selector: this.choice(LAYOUTS, 'amb_layout_') },
+        { name: 'show_status', selector: { boolean: {} } },
       ],
-      {
-        layout: resolved.layout,
-        source_display: resolved.sourceDisplay,
-        show_status: resolved.showStatus,
-        show_pi: resolved.showPi,
-      },
+      { name: config.name ?? '', layout: resolved.layout, show_status: resolved.showStatus },
       (value) => {
         const next: Record<string, unknown> = { ...config };
+        const name = typeof value.name === 'string' ? value.name.trim() : '';
+        if (name) next.name = name;
+        else delete next.name;
         if (value.layout === 'tiles') next.layout = 'tiles';
         else delete next.layout;
-        if (value.source_display === 'icon' || value.source_display === 'name')
-          next.source_display = value.source_display;
-        else delete next.source_display;
-        for (const key of ['show_status', 'show_pi'] as const) {
-          if (value[key] === false) next[key] = false;
-          else delete next[key];
-        }
+        if (value.show_status === false) next.show_status = false;
+        else delete next.show_status;
         this.commit(next);
       },
       {
+        name: editorText(this.hass, 'name'),
         layout: this.t('amb_layout'),
-        source_display: this.t('amb_source_display'),
         show_status: this.t('amb_show_status'),
-        show_pi: this.t('amb_show_pi'),
       },
     );
     const info = html`<vivid-order-picker
@@ -697,62 +696,103 @@ ${yaml.map(([key, id]) => `  ${key}: ${id}`).join('\n')}</pre>
         this.commit(next);
       }}
     ></vivid-order-picker>`;
-    return html`${look}${info}${this.form(
-      [
-        { name: 'name', selector: { text: {} } },
-        { name: 'confirm_pi_off', selector: { boolean: {} } },
-        { name: 'glow', selector: GLOW_SLIDER },
-        { name: 'send_counter_entity', selector: { entity: { domain: 'sensor' } } },
-      ],
-      {
-        name: config.name ?? '',
-        confirm_pi_off: config.confirm_pi_off !== false,
-        send_counter_entity: config.send_counter_entity ?? '',
-        glow: config.glow ?? 100,
-      },
+    return html`${look}${info}`;
+  }
+
+  /** How the input menu shows the active input (one-line layout). */
+  private renderInputDisplay(config: AmbilightCardConfig) {
+    const resolved = resolveAmbilightConfig(config);
+    if (resolved.layout !== 'line') return nothing;
+    return this.form(
+      [{ name: 'source_display', selector: this.choice(SOURCE_DISPLAYS, 'amb_display_') }],
+      { source_display: resolved.sourceDisplay },
       (value) => {
         const next: Record<string, unknown> = { ...config };
-        const name = typeof value.name === 'string' ? value.name.trim() : '';
-        if (name) next.name = name;
-        else delete next.name;
-        if (value.confirm_pi_off === false) next.confirm_pi_off = false;
-        else delete next.confirm_pi_off;
+        if (value.source_display === 'icon' || value.source_display === 'name')
+          next.source_display = value.source_display;
+        else delete next.source_display;
+        this.commit(next);
+      },
+      { source_display: this.t('amb_source_display') },
+    );
+  }
+
+  /** What the details window counts. */
+  private renderDetails(config: AmbilightCardConfig) {
+    return this.form(
+      [{ name: 'send_counter_entity', selector: { entity: { domain: 'sensor' } } }],
+      { send_counter_entity: config.send_counter_entity ?? '' },
+      (value) => {
+        const next: Record<string, unknown> = { ...config };
         const counter =
           typeof value.send_counter_entity === 'string' ? value.send_counter_entity.trim() : '';
         if (counter) next.send_counter_entity = counter;
         else delete next.send_counter_entity;
+        this.commit(next);
+      },
+      { send_counter_entity: this.t('amb_counter') },
+      { send_counter_entity: this.t('amb_counter_helper') },
+    );
+  }
+
+  private renderLook(config: AmbilightCardConfig) {
+    return this.form(
+      [{ name: 'glow', selector: GLOW_SLIDER }],
+      { glow: config.glow ?? 100 },
+      (value) => {
+        const next: Record<string, unknown> = { ...config };
         if (typeof value.glow === 'number' && value.glow !== 100) next.glow = value.glow;
         else delete next.glow;
         this.commit(next);
       },
-      {
-        name: editorText(this.hass, 'name'),
-        confirm_pi_off: this.t('amb_confirm_pi'),
-        send_counter_entity: this.t('amb_counter'),
-        glow: this.t('amb_halo'),
-      },
-      { send_counter_entity: this.t('amb_counter_helper') },
-    )}`;
+      { glow: this.t('amb_halo') },
+    );
   }
 
+  /**
+   * The sections follow the card from top to bottom: source, header, HDMI
+   * inputs, Raspberry Pi, details window, look.
+   */
   protected override render() {
     const config = this._config;
     if (!config) return nothing;
+    const resolved = resolveAmbilightConfig(config);
     return html`<div class="editor">
-      ${this.renderDevices(config)}
+      ${this.renderSource(config)}
+      ${this.section(
+        'header',
+        'mdi:page-layout-header',
+        this.t('amb_section_header'),
+        config.name ?? this.t(`amb_layout_${resolved.layout}` as EditorStringKey),
+        () => this.renderHeader(config),
+      )}
       ${this.section(
         'inputs',
         'mdi:video-input-hdmi',
         this.t('amb_inputs'),
         this.t('amb_inputs_hint'),
-        () => this.renderInputs(config),
+        () => html`${this.renderInputDisplay(config)}${this.renderInputs(config)}`,
       )}
       ${this.section(
-        'options',
-        'mdi:tune-variant',
-        this.t('amb_display'),
-        this.t('amb_display_hint2'),
-        () => this.renderSettings(config),
+        'pi',
+        'mdi:raspberry-pi',
+        this.t('amb_section_pi'),
+        this.t('amb_section_pi_hint'),
+        () => this.renderPi(config),
+      )}
+      ${this.section(
+        'details',
+        'mdi:dock-window',
+        this.t('section_details'),
+        this.t('amb_section_details_hint'),
+        () => this.renderDetails(config),
+      )}
+      ${this.section(
+        'look',
+        'mdi:palette-swatch-outline',
+        this.t('section_appearance'),
+        `${this.t('amb_halo')} : ${config.glow ?? 100} %`,
+        () => this.renderLook(config),
       )}
     </div>`;
   }

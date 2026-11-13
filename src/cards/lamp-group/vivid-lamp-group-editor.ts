@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import '../../components/editor/vivid-slot-editor';
 import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
+import { sourceSection } from '../../components/editor/source-section';
+import '../../components/editor/vivid-editor-section';
 import { applySource, sourceFields, targetSource } from '../../components/editor/pilot-source';
 import { withPilotEntity } from '../../core/pilot';
 import type { SlotValue } from '../../core/slots';
@@ -9,6 +11,7 @@ import { fireEvent } from '../../core/actions';
 import { GLOW_SLIDER, glowPercent } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
+import { friendlyName } from '../../core/entities';
 import { defineElement } from '../../core/register';
 import { editorText, type EditorStringKey } from '../../i18n/editor';
 import { tokens } from '../../components/shared-styles';
@@ -155,53 +158,78 @@ export class VividLampGroupEditor extends LitElement {
     ></ha-form>`;
   }
 
+  /** A folding section, the same component as every other card editor. */
   private section(id: string, icon: string, title: string, hint: string, body: () => unknown) {
     const open = this._open.has(id);
-    return html`<details
-      class="section"
-      ?open=${open}
-      @toggle=${(event: Event) => {
-        const isOpen = (event.target as HTMLDetailsElement).open;
-        if (isOpen === this._open.has(id)) return;
+    return html`<vivid-editor-section
+      .icon=${icon}
+      .heading=${title}
+      .hint=${hint}
+      .open=${open}
+      @section-toggle=${(event: CustomEvent<{ open: boolean }>) => {
         const next = new Set(this._open);
-        if (isOpen) next.add(id);
+        if (event.detail.open) next.add(id);
         else next.delete(id);
         this._open = next;
       }}
-    >
-      <summary>
-        <ha-icon .icon=${icon}></ha-icon>
-        <span class="section-title">${title}</span>
-        <span class="hint">${hint}</span>
-        <ha-icon class="chevron" .icon=${'mdi:chevron-down'}></ha-icon>
-      </summary>
-      <div class="section-body">${open ? body() : nothing}</div>
-    </details>`;
+      >${open ? body() : nothing}</vivid-editor-section
+    >`;
   }
 
   /* ---------------------------------- main ---------------------------------- */
 
-  private renderMain(config: LampGroupCardConfig) {
+  /** Source: a Vivid Pilot group of lamps, or a group or lamps picked by hand. */
+  private renderSource(config: LampGroupCardConfig) {
+    const source = targetSource(config) === 'pilot' ? 'pilot' : 'manual';
+    const picker =
+      source === 'pilot'
+        ? this.form(
+            sourceFields(
+              this.hass,
+              { pilot: '', manual: '' },
+              'group',
+              ['light', 'switch'],
+              'pilot',
+            ).slice(1),
+            { pilot: config.pilot },
+            (value) => this.commit(applySource(config, { pilot: value.pilot }).config),
+            { pilot: this.t('src_pilot_group') },
+          )
+        : this.form(
+            [
+              { name: 'entity', selector: { entity: { domain: LAMP_DOMAINS } } },
+              { name: 'entities', selector: { entity: { domain: LAMP_DOMAINS, multiple: true } } },
+            ],
+            { entity: config.entity, entities: config.entities },
+            (value) =>
+              this.commit({
+                ...config,
+                entity: value.entity as string | undefined,
+                entities: value.entities as string[] | undefined,
+              }),
+            { entity: this.t('lamp_entity'), entities: this.t('lamp_entities') },
+          );
+    const target = this.hass ? withPilotEntity(this.hass, config, 'group').entity : undefined;
+    return sourceSection({
+      hass: this.hass,
+      choices: ['pilot', 'manual'],
+      source,
+      hint: target && this.hass?.states[target] ? friendlyName(this.hass, target) : undefined,
+      onSource: (next) => this.commit(applySource(config, { source: next }).config),
+      content: picker,
+    });
+  }
+
+  /** The top of the card: name, icon, layout, the count and the button for every lamp. */
+  private renderHeader(config: LampGroupCardConfig) {
     const layouts = LAMP_LAYOUTS.map((value) => ({
       value,
       label: this.t(`lamp_layout_${value}` as EditorStringKey),
     }));
-    const source = targetSource(config);
+    const line = (config.layout ?? 'ambiance') === 'line';
+    const toggle = (name: string) => ({ name, selector: { boolean: {} } });
     return this.form(
       [
-        ...sourceFields(
-          this.hass,
-          { pilot: this.t('badge_source_pilot'), manual: this.t('badge_source_manual') },
-          'group',
-          ['light', 'switch'],
-          source,
-        ),
-        ...(source === 'manual'
-          ? [
-              { name: 'entity', selector: { entity: { domain: LAMP_DOMAINS } } },
-              { name: 'entities', selector: { entity: { domain: LAMP_DOMAINS, multiple: true } } },
-            ]
-          : []),
         {
           type: 'grid',
           name: '',
@@ -211,41 +239,43 @@ export class VividLampGroupEditor extends LitElement {
           ],
         },
         { name: 'layout', selector: { select: { mode: 'dropdown', options: layouts } } },
+        ...(line ? [] : [toggle('show_header')]),
+        { type: 'grid', name: '', schema: [toggle('show_count'), toggle('show_toggle_all')] },
+        ...(line
+          ? [
+              {
+                type: 'grid',
+                name: '',
+                schema: [
+                  toggle('expandable'),
+                  ...((config.expandable ?? true) ? [toggle('expanded')] : []),
+                ],
+              },
+            ]
+          : []),
       ],
       {
-        source,
-        pilot: config.pilot,
-        entity: config.entity,
-        entities: config.entities,
         name: config.name,
         icon: config.icon,
         layout: config.layout ?? 'ambiance',
+        show_header: config.show_header ?? true,
+        show_count: config.show_count ?? true,
+        show_toggle_all: config.show_toggle_all ?? true,
+        expandable: config.expandable ?? true,
+        expanded: config.expanded ?? false,
       },
-      (value) => {
-        const { config: next, switched } = applySource(config, value);
-        if (switched) return this.commit(next);
-        this.commit({
-          ...next,
-          ...(source === 'manual'
-            ? {
-                entity: value.entity as string | undefined,
-                entities: value.entities as string[] | undefined,
-              }
-            : {}),
-          name: value.name as string | undefined,
-          icon: value.icon as string | undefined,
-          layout: value.layout as LampGroupCardConfig['layout'],
-        });
-      },
+      (value) => this.commit({ ...config, ...value } as LampGroupCardConfig),
       {
-        source: this.t('badge_source'),
-        pilot: this.t('badge_pilot'),
-        entity: this.t('lamp_entity'),
-        entities: this.t('lamp_entities'),
         name: this.t('name'),
         icon: this.t('icon'),
         layout: this.t('lamp_layout'),
+        show_header: this.t('lamp_show_header'),
+        show_count: this.t('lamp_show_count'),
+        show_toggle_all: this.t('lamp_show_toggle_all'),
+        expandable: this.t('lamp_expandable'),
+        expanded: this.t('lamp_expanded'),
       },
+      { expanded: this.t('lamp_expanded_helper') },
     );
   }
 
@@ -535,8 +565,8 @@ export class VividLampGroupEditor extends LitElement {
     );
   }
 
-  private renderAppearance(config: LampGroupCardConfig) {
-    const glow = glowPercent(config.glow ?? 100) ?? 100;
+  /** The lamp buttons: their size, names, status and columns. */
+  private renderButtons(config: LampGroupCardConfig) {
     const line = (config.layout ?? 'ambiance') === 'line';
     // An expandable line unfolds the ambiance grid: its names, status and columns apply.
     const grid = !line || (config.expandable ?? true);
@@ -544,66 +574,57 @@ export class VividLampGroupEditor extends LitElement {
       value,
       label: this.t(`lamp_size_${value}` as EditorStringKey),
     }));
-    const pair = (a: Schema[number], b?: Schema[number]) => ({
-      type: 'grid',
-      name: '',
-      schema: b ? [a, b] : [a],
-    });
     const toggle = (name: string) => ({ name, selector: { boolean: {} } });
-    const schema: Schema = [
-      ...(line ? [] : [pair(toggle('show_header'), toggle('show_count'))]),
-      line
-        ? pair(toggle('show_count'), toggle('show_toggle_all'))
-        : pair(toggle('show_toggle_all')),
-      ...(line
-        ? [pair(toggle('expandable'), ...((config.expandable ?? true) ? [toggle('expanded')] : []))]
-        : []),
-      ...(grid ? [pair(toggle('show_names'), toggle('show_status'))] : []),
-      pair(
-        { name: 'size', selector: { select: { mode: 'dropdown', options: sizes } } },
-        ...(grid
-          ? [{ name: 'columns', selector: { number: { min: 1, max: 12, step: 1, mode: 'box' } } }]
-          : []),
-      ),
-      { name: 'glow', selector: GLOW_SLIDER },
-    ];
     return this.form(
-      schema,
+      [
+        ...(grid
+          ? [{ type: 'grid', name: '', schema: [toggle('show_names'), toggle('show_status')] }]
+          : []),
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'size', selector: { select: { mode: 'dropdown', options: sizes } } },
+            ...(grid
+              ? [
+                  {
+                    name: 'columns',
+                    selector: { number: { min: 1, max: 12, step: 1, mode: 'box' } },
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
       {
-        show_header: config.show_header ?? true,
-        show_count: config.show_count ?? true,
-        show_toggle_all: config.show_toggle_all ?? true,
         show_names: config.show_names ?? true,
         show_status: config.show_status ?? true,
-        expandable: config.expandable ?? true,
-        expanded: config.expanded ?? false,
         size: config.size ?? 'medium',
         columns: config.columns,
-        glow,
       },
-      (value) => {
-        const next = { ...config, ...value } as LampGroupCardConfig;
-        // A named level written in YAML stays until the slider moves.
-        if (value.glow === glow) next.glow = config.glow;
-        this.commit(next);
-      },
+      (value) => this.commit({ ...config, ...value } as LampGroupCardConfig),
       {
-        show_header: this.t('lamp_show_header'),
-        show_count: this.t('lamp_show_count'),
-        show_toggle_all: this.t('lamp_show_toggle_all'),
         show_names: this.t('lamp_show_names'),
         show_status: this.t('lamp_show_status'),
-        expandable: this.t('lamp_expandable'),
-        expanded: this.t('lamp_expanded'),
         size: this.t('lamp_size'),
         columns: this.t('lamp_columns'),
-        glow: this.t('glow'),
       },
-      {
-        columns: this.t('lamp_columns_helper'),
-        expanded: this.t('lamp_expanded_helper'),
-        glow: this.t('glow_helper'),
+      { columns: this.t('lamp_columns_helper') },
+    );
+  }
+
+  private renderLook(config: LampGroupCardConfig) {
+    const glow = glowPercent(config.glow ?? 100) ?? 100;
+    return this.form(
+      [{ name: 'glow', selector: GLOW_SLIDER }],
+      { glow },
+      (value) => {
+        // A named level written in YAML stays until the slider moves.
+        if (value.glow === glow) return;
+        this.commit({ ...config, glow: value.glow } as LampGroupCardConfig);
       },
+      { glow: this.t('glow') },
+      { glow: this.t('glow_helper') },
     );
   }
 
@@ -654,71 +675,64 @@ export class VividLampGroupEditor extends LitElement {
     const lamps = model?.all ?? [];
     const scenes = config.scenes?.length ?? 0;
     return html`<div class="editor">
-      ${this.renderMain(config)} ${error ? html`<div class="error">${error}</div>` : nothing}
+      ${this.renderSource(config)} ${error ? html`<div class="error">${error}</div>` : nothing}
       ${
         model && resolved
-          ? html`<div class="sections">
-              ${this.section(
-                'lamps',
-                'mdi:lamps',
-                this.t('lamps_section'),
-                `${lamps.length} · ${this.t('lamps_hint')}`,
-                () =>
-                  html`<vivid-slot-editor
-                      open
-                      .hass=${hass}
-                      .label=${this.t('lamps_section')}
-                      icon="mdi:lamps"
-                      .multiple=${true}
-                      .domains=${['light', 'switch', 'group', 'input_boolean']}
-                      .modes=${['auto', 'manual'] as const}
-                      .pilot=${targetSource(config) === 'pilot'}
-                      .value=${membersValue(config)}
-                      .resolved=${membersSlot(hass, withPilotEntity(hass, config, 'group'))}
-                      @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
-                        this.commit(applyMembers(config, event.detail.value))}
-                    ></vivid-slot-editor>
-                    ${lamps.map((lamp) => this.renderLamp(lamp, config))}`,
-              )}
-              ${this.section(
-                'scenes',
-                'mdi:palette-outline',
-                this.t('scenes_section'),
-                scenes ? String(scenes) : this.t('scenes_hint'),
-                () => this.renderScenes(config, model),
-              )}
-              ${this.section(
-                'power',
-                'mdi:flash',
-                this.t('section_power'),
-                model.hasPower
-                  ? `${model.all.filter((lamp) => lamp.power).length}/${lamps.length}`
-                  : this.t('no_power'),
-                () => this.renderPower(config),
-              )}
-              ${this.section(
-                'appearance',
-                'mdi:creation',
-                this.t('section_appearance'),
-                [
-                  config.show_names === false && config.show_status === false
-                    ? this.t('lamp_icons_only')
-                    : undefined,
-                  this.t(`lamp_size_${config.size ?? 'medium'}` as EditorStringKey),
-                  `${glowPercent(config.glow ?? 100) ?? 100} %`,
-                ]
-                  .filter(Boolean)
-                  .join(' · '),
-                () => this.renderAppearance(config),
-              )}
-              ${this.section(
-                'gestures',
-                'mdi:gesture-tap',
-                this.t('section_gestures'),
-                this.t('lamp_gestures_hint'),
-                () => this.renderGestures(config),
-              )}
-            </div>`
+          ? html`${this.section(
+              'header',
+              'mdi:page-layout-header',
+              this.t('section_header'),
+              config.name ?? model.name,
+              () => this.renderHeader(config),
+            )}
+            ${this.section(
+              'scenes',
+              'mdi:palette-outline',
+              this.t('scenes_section'),
+              scenes ? String(scenes) : this.t('scenes_hint'),
+              () => this.renderScenes(config, model),
+            )}
+            ${this.section(
+              'lamps',
+              'mdi:lamps',
+              this.t('lamps_section'),
+              `${lamps.length} · ${this.t('lamps_hint')}`,
+              () =>
+                html`<vivid-slot-editor
+                    open
+                    .hass=${hass}
+                    .label=${this.t('lamps_section')}
+                    icon="mdi:lamps"
+                    .multiple=${true}
+                    .domains=${['light', 'switch', 'group', 'input_boolean']}
+                    .modes=${['auto', 'manual'] as const}
+                    .pilot=${targetSource(config) === 'pilot'}
+                    .value=${membersValue(config)}
+                    .resolved=${membersSlot(hass, withPilotEntity(hass, config, 'group'))}
+                    @slot-changed=${(event: CustomEvent<{ value: SlotValue }>) =>
+                      this.commit(applyMembers(config, event.detail.value))}
+                  ></vivid-slot-editor>
+                  ${this.renderButtons(config)}
+                  <div class="label">${this.t('section_gestures')}</div>
+                  ${this.renderGestures(config)}
+                  ${lamps.map((lamp) => this.renderLamp(lamp, config))}`,
+            )}
+            ${this.section(
+              'power',
+              'mdi:flash',
+              this.t('section_power'),
+              model.hasPower
+                ? `${model.all.filter((lamp) => lamp.power).length}/${lamps.length}`
+                : this.t('no_power'),
+              () => this.renderPower(config),
+            )}
+            ${this.section(
+              'appearance',
+              'mdi:palette-swatch-outline',
+              this.t('section_appearance'),
+              `${glowPercent(config.glow ?? 100) ?? 100} %`,
+              () => this.renderLook(config),
+            )}`
           : nothing
       }
     </div>`;
@@ -758,42 +772,12 @@ export class VividLampGroupEditor extends LitElement {
         font-weight: 500;
         margin: 10px 0 6px;
       }
-      .section {
-        border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
-        border-radius: 12px;
-        overflow: hidden;
-      }
-      summary {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        cursor: pointer;
-        list-style: none;
-      }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      .section-title {
-        font-weight: 500;
-        flex: none;
-      }
-      summary .hint {
-        flex: 1;
-      }
       .chevron {
         margin-left: auto;
         transition: transform 0.2s ease;
       }
-      .section[open] > summary .chevron,
       .lamp.open .chevron {
         transform: rotate(180deg);
-      }
-      .section-body {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 4px 14px 14px;
       }
       .lamp {
         border-radius: 10px;

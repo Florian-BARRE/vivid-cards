@@ -38,7 +38,59 @@ export function coverage(
   return { found: keys.length - missing.length, total: keys.length, missing };
 }
 
-/** Prefix of the configured device. */
+/** A device that carries the box's relay and fan, under one entity prefix. */
+export function isBoxDevice(hass: HomeAssistant, deviceId: string): boolean {
+  const prefix = devicePrefix(hass, deviceId);
+  return (
+    prefix !== undefined &&
+    hass.states[`switch.${prefix}relay`] !== undefined &&
+    hass.states[`fan.${prefix}jonsbo_fan`] !== undefined
+  );
+}
+
+/**
+ * Registry lookups are cached per registry snapshot: Home Assistant replaces
+ * `hass.entities` and `hass.devices` when they change, not on state changes.
+ */
+const registryCache = new WeakMap<object, Map<string, unknown>>();
+
+export function cached<T>(hass: HomeAssistant, key: string, compute: () => T): T {
+  const registry = hass.entities as object | undefined;
+  if (!registry) return compute();
+  let entries = registryCache.get(registry);
+  if (!entries) {
+    entries = new Map();
+    registryCache.set(registry, entries);
+  }
+  const devices = hass.devices as object | undefined;
+  const full = `${key}|${devices ? 'd' : '-'}`;
+  const hit = entries.get(full) as { devices?: object; value: T } | undefined;
+  if (hit && hit.devices === devices) return hit.value;
+  const value = compute();
+  entries.set(full, { devices, value });
+  return value;
+}
+
+/** Every Ambilight box of the installation (device ids, sorted). */
+export function findBoxes(hass: HomeAssistant): string[] {
+  return cached(hass, 'boxes', () =>
+    Object.keys(hass.devices ?? {})
+      .filter((id) => isBoxDevice(hass, id))
+      .sort(),
+  );
+}
+
+/**
+ * The box the card reads: the device picked, else (no prefix written either)
+ * the first Ambilight box found in the registry.
+ */
+export function boxDevice(hass: HomeAssistant, config: AmbilightCardConfig): string | undefined {
+  if (config.device) return config.device;
+  return config.prefix ? undefined : findBoxes(hass)[0];
+}
+
+/** Prefix of the box the card reads. */
 export function lookupDevices(hass: HomeAssistant, config: AmbilightCardConfig): DeviceLookup {
-  return { prefix: config.device ? devicePrefix(hass, config.device) : undefined };
+  const device = boxDevice(hass, config);
+  return { prefix: device ? devicePrefix(hass, device) : undefined };
 }

@@ -79,13 +79,17 @@ expanded: false # set true to start unfolded; expandable: false for the plain li
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/lamp-group-editor.png" alt="Visual editor of the lamp group card" width="300" />
 </p>
 
-| Section           | What it sets                                                             |
-| ----------------- | ------------------------------------------------------------------------ |
-| **Lamps**         | Per lamp: name, icon on and off, power sensor, shown on the card         |
-| **Quick presets** | Name, icon, the lamps it turns on (none: all off) or a scene             |
-| **Consumption**   | Watts, durations, energy of the day, price or price entity, halo, alerts |
-| **Appearance**    | Header, count, group button, names, status, size, columns, halo          |
-| **Gestures**      | Tap and hold on a lamp                                                   |
+Every card editor is built the same way: **Source** first, then one folding
+section per part of the card, from top to bottom.
+
+| Section           | What it sets                                                                      |
+| ----------------- | --------------------------------------------------------------------------------- |
+| **Source**        | Vivid Pilot (`pilot: salon__light`, the room's lamps) or manual (group, lamps)    |
+| **Header**        | Name, icon, layout, header, count, button for every lamp, expandable line         |
+| **Quick presets** | Name, icon, the lamps it turns on (none: all off) or a scene                      |
+| **Lamps**         | Which lamps; names, status, size, columns; gestures; per lamp: name, icons, power |
+| **Consumption**   | Watts, durations, energy of the day, price or price entity, halo, alerts          |
+| **Appearance**    | Halo                                                                              |
 
 ## Recipes
 

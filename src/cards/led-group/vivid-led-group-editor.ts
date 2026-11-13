@@ -2,6 +2,8 @@ import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import '../../components/editor/vivid-slot-editor';
 import { applyMembers, membersSlot, membersValue } from '../../components/editor/members';
 import { applySource, sourceFields, targetSource } from '../../components/editor/pilot-source';
+import { sourceSection } from '../../components/editor/source-section';
+import '../../components/editor/vivid-editor-section';
 import { PilotIndex } from '../../core/pilot';
 import type { SlotValue } from '../../core/slots';
 import { classMap } from 'lit/directives/class-map.js';
@@ -11,7 +13,7 @@ import { fireEvent } from '../../core/actions';
 import { kelvinToRgb, parseColor, rgbCss, rgbHex } from '../../core/color';
 import { GLOW_SLIDER } from '../../core/glow';
 import { badgeModel } from '../../core/badges';
-import { parseNumericState } from '../../core/entities';
+import { friendlyName, parseNumericState } from '../../core/entities';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
 import { supportsHue, supportsTemperature } from '../../core/light';
@@ -40,7 +42,6 @@ import {
   removeFavorite,
   setOption,
   setRoot,
-  toggleDefaultOn,
   updateMember,
 } from './editor-model';
 import { buildLedGroupModel, type LedGroupModel, type StripModel } from './model';
@@ -102,6 +103,9 @@ const LABELS: Record<string, EditorStringKey> = {
   box: 'box',
   box_hyperhdr: 'box_hyperhdr',
   confirm_off: 'box_confirm_off',
+  ambilight_button: 'ambilight_button',
+  power_badge: 'power_badge',
+  details_enabled: 'details_enabled',
 };
 
 const MODE_LABELS: Record<PowerMode, EditorStringKey> = {
@@ -273,65 +277,6 @@ export class VividLedGroupEditor extends LitElement {
         <b>${this.t(model.isGroup ? 'group_detected' : 'single_light')}</b> · ${facts.join(' · ')}
         ${powerLine ? html`<br />${powerLine}` : nothing}
       </span>
-    </div>`;
-  }
-
-  private renderPills(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
-    const config = this._config ?? ({} as LedGroupCardConfig);
-    const pill = (
-      on: boolean,
-      icon: string,
-      label: string,
-      onClick: () => void,
-      disabled = false,
-    ) =>
-      html`<button
-        type="button"
-        class=${classMap({ pill: true, on: on && !disabled, disabled })}
-        aria-pressed=${String(on && !disabled)}
-        ?disabled=${disabled}
-        @click=${onClick}
-      >
-        <ha-icon .icon=${icon}></ha-icon>${label}
-      </button>`;
-
-    return html`<div class="pills">
-      ${
-        model.hasLiveOverride
-          ? pill(
-              resolved.ambilight.enabled,
-              'mdi:television-ambient-light',
-              this.t('toggle_ambilight'),
-              () =>
-                this.commit(
-                  setOption(
-                    config,
-                    'ambilight',
-                    'enabled',
-                    toggleDefaultOn(config.ambilight?.enabled),
-                  ),
-                ),
-            )
-          : pill(
-              false,
-              'mdi:television-ambient-light',
-              this.t('toggle_ambilight_none'),
-              () => {},
-              true,
-            )
-      }
-      ${pill(resolved.power.enabled, 'mdi:flash', this.t('toggle_power'), () =>
-        this.commit(setOption(config, 'power', 'enabled', toggleDefaultOn(config.power?.enabled))),
-      )}
-      ${
-        model.isGroup
-          ? pill(model.detailsEnabled, 'mdi:dock-window', this.t('toggle_details'), () =>
-              this.commit(
-                setOption(config, 'details', 'enabled', model.detailsEnabled ? false : undefined),
-              ),
-            )
-          : nothing
-      }
     </div>`;
   }
 
@@ -878,11 +823,10 @@ export class VividLedGroupEditor extends LitElement {
 
   private renderAppearance(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const config = this._config ?? ({} as LedGroupCardConfig);
-    return html`${this.renderLayout(resolved)}${this.form(
+    return html`${this.form(
       [
         { name: 'glow', selector: GLOW_SLIDER },
         { name: 'glow_boost', selector: GLOW_SLIDER },
-        { name: 'header', selector: { boolean: {} } },
         { name: 'compact', selector: { boolean: {} } },
         ...(model.isGroup ? [{ name: 'gradient', selector: { boolean: {} } }] : []),
         { name: 'animate_effects', selector: { boolean: {} } },
@@ -890,7 +834,6 @@ export class VividLedGroupEditor extends LitElement {
       {
         glow: resolved.appearance.glow,
         glow_boost: resolved.appearance.glowBoost,
-        header: resolved.appearance.header,
         compact: resolved.appearance.compact,
         gradient: resolved.appearance.gradient,
         animate_effects: resolved.appearance.animateEffects,
@@ -902,7 +845,6 @@ export class VividLedGroupEditor extends LitElement {
             ? config
             : setOption(config, 'appearance', 'glow', value.glow, 100);
         next = setOption(next, 'appearance', 'glow_boost', value.glow_boost, 100);
-        next = setOption(next, 'appearance', 'header', value.header, true);
         next = setOption(next, 'appearance', 'compact', value.compact, false);
         if (model.isGroup) next = setOption(next, 'appearance', 'gradient', value.gradient, true);
         next = setOption(next, 'appearance', 'animate_effects', value.animate_effects, true);
@@ -953,6 +895,7 @@ export class VividLedGroupEditor extends LitElement {
   /* -------------------------------- sections -------------------------------- */
 
   /** A foldable section; its summary tells what is set without opening it. */
+  /** A folding section, the same component as every other card editor. */
   private section(
     id: string,
     icon: string,
@@ -961,27 +904,20 @@ export class VividLedGroupEditor extends LitElement {
     content: () => unknown,
   ): TemplateResult {
     const open = this._open.has(id);
-    return html`<details
-      class="section"
+    return html`<vivid-editor-section
       data-section=${id}
-      ?open=${open}
-      @toggle=${(event: Event) => {
-        const isOpen = (event.target as HTMLDetailsElement).open;
-        if (isOpen === this._open.has(id)) return;
+      .icon=${icon}
+      .heading=${title}
+      .hint=${summary}
+      .open=${open}
+      @section-toggle=${(event: CustomEvent<{ open: boolean }>) => {
         const next = new Set(this._open);
-        if (isOpen) next.add(id);
+        if (event.detail.open) next.add(id);
         else next.delete(id);
         this._open = next;
       }}
-    >
-      <summary>
-        <ha-icon .icon=${icon}></ha-icon>
-        <span class="section-title">${title}</span>
-        <span class="summary-hint">${summary}</span>
-        <ha-icon class="chevron" .icon=${'mdi:chevron-down'}></ha-icon>
-      </summary>
-      <div class="section-body">${open ? content() : nothing}</div>
-    </details>`;
+      >${open ? content() : nothing}</vivid-editor-section
+    >`;
   }
 
   private join(parts: (string | undefined | false)[]): string {
@@ -1116,13 +1052,16 @@ export class VividLedGroupEditor extends LitElement {
           },
           (schema) => (schema.name === 'transition' ? this.t('transition_helper') : undefined),
         )}
+        <div class="label">${this.t('section_gestures')}</div>
+        ${this.renderGestures(model)}
       `,
     );
   }
 
   /* -------------------------------- gestures -------------------------------- */
 
-  private renderGesturesSection(model: LedGroupModel) {
+  /** Tap, hold and double tap on the tile. */
+  private renderGestures(model: LedGroupModel) {
     const config = this._config ?? ({} as LedGroupCardConfig);
     const actions = SIMPLE_ACTIONS.filter((action) => action !== 'details' || model.isGroup).map(
       (action) => ({ value: action, label: this.t(ACTION_LABELS[action] as EditorStringKey) }),
@@ -1143,36 +1082,32 @@ export class VividLedGroupEditor extends LitElement {
       doubleTap !== 'none' &&
         `${this.t('double_tap_action')} : ${this.actionLabel(doubleTap, model)}`,
     ]);
-    return this.section('gestures', 'mdi:gesture-tap', this.t('section_gestures'), summary, () =>
-      this.form(
-        [
-          {
-            type: 'grid',
-            name: '',
-            schema: [
-              { name: 'tap_action', selector: this.select(withCustom(tap)) },
-              {
-                name: 'hold_action',
-                selector: this.select([
-                  { value: DEFAULT, label: holdDefault },
-                  ...withCustom(hold),
-                ]),
-              },
-            ],
-          },
-          { name: 'double_tap_action', selector: this.select(withCustom(doubleTap)) },
-        ],
-        { tap_action: tap, hold_action: hold, double_tap_action: doubleTap },
-        (value) => {
-          if (value.tap_action !== CUSTOM && value.tap_action !== tap) {
-            tile('tap_action', value.tap_action, 'toggle');
-          } else if (value.hold_action !== CUSTOM && value.hold_action !== hold) {
-            tile('hold_action', value.hold_action === DEFAULT ? undefined : value.hold_action);
-          } else if (value.double_tap_action !== CUSTOM && value.double_tap_action !== doubleTap) {
-            tile('double_tap_action', value.double_tap_action, 'none');
-          }
+    void summary;
+    return this.form(
+      [
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'tap_action', selector: this.select(withCustom(tap)) },
+            {
+              name: 'hold_action',
+              selector: this.select([{ value: DEFAULT, label: holdDefault }, ...withCustom(hold)]),
+            },
+          ],
         },
-      ),
+        { name: 'double_tap_action', selector: this.select(withCustom(doubleTap)) },
+      ],
+      { tap_action: tap, hold_action: hold, double_tap_action: doubleTap },
+      (value) => {
+        if (value.tap_action !== CUSTOM && value.tap_action !== tap) {
+          tile('tap_action', value.tap_action, 'toggle');
+        } else if (value.hold_action !== CUSTOM && value.hold_action !== hold) {
+          tile('hold_action', value.hold_action === DEFAULT ? undefined : value.hold_action);
+        } else if (value.double_tap_action !== CUSTOM && value.double_tap_action !== doubleTap) {
+          tile('double_tap_action', value.double_tap_action, 'none');
+        }
+      },
     );
   }
 
@@ -1286,18 +1221,32 @@ export class VividLedGroupEditor extends LitElement {
   /* --------------------------------- details -------------------------------- */
 
   private renderDetailsSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
-    if (!model.isGroup || !model.detailsEnabled) return nothing;
+    if (!model.isGroup) return nothing;
+    const config = this._config ?? ({} as LedGroupCardConfig);
     const sortKey: Record<string, EditorStringKey> = {
       name: 'sort_name',
       group: 'sort_group',
       custom: 'sort_custom',
     };
-    const summary = this.join([
-      resolved.details.hash,
-      this.t(sortKey[resolved.details.sort] ?? 'sort_name'),
-    ]);
-    return this.section('details', 'mdi:dock-window', this.t('section_details'), summary, () =>
-      this.renderDetailsOptions(resolved, model),
+    const summary = model.detailsEnabled
+      ? this.join([resolved.details.hash, this.t(sortKey[resolved.details.sort] ?? 'sort_name')])
+      : this.t('details_off');
+    return this.section(
+      'details',
+      'mdi:dock-window',
+      this.t('section_details'),
+      summary,
+      () =>
+        html`${this.form(
+          [{ name: 'details_enabled', selector: { boolean: {} } }],
+          { details_enabled: model.detailsEnabled },
+          (value) =>
+            this.commit(
+              setOption(config, 'details', 'enabled', value.details_enabled ? undefined : false),
+            ),
+          () => this.t('details_enabled_helper'),
+        )}
+        ${model.detailsEnabled ? this.renderDetailsOptions(resolved, model) : nothing}`,
     );
   }
 
@@ -1306,11 +1255,9 @@ export class VividLedGroupEditor extends LitElement {
   private renderAppearanceSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
     const appearance = resolved.appearance;
     const summary = this.join([
-      resolved.layout === 'collapsible' && this.t('layout_collapsible'),
       `${this.t('glow')} : ${appearance.glow} %`,
       appearance.glowBoost !== 100 && `${this.t('glow_boost')} : ${appearance.glowBoost} %`,
       appearance.compact && this.t('compact').toLowerCase(),
-      !appearance.header && this.t('summary_no_header'),
       model.isGroup && !appearance.gradient && this.t('summary_no_gradient'),
       !appearance.animateEffects && this.t('summary_no_shimmer'),
     ]);
@@ -1463,43 +1410,117 @@ export class VividLedGroupEditor extends LitElement {
     </div>`;
   }
 
+  /* --------------------------------- source --------------------------------- */
+
+  /** Source: a Vivid Pilot LED group, or a light or group picked by hand. */
+  private renderSource(config: LedGroupCardConfig, resolution?: Resolution) {
+    const source = targetSource(config) === 'pilot' ? 'pilot' : 'manual';
+    const target = this.target();
+    const picker =
+      source === 'pilot'
+        ? this.form(
+            sourceFields(this.hass, { pilot: '', manual: '' }, 'group', ['led'], 'pilot').slice(1),
+            { pilot: config.pilot },
+            (value) => this.commit(applySource(config, { pilot: value.pilot }).config),
+          )
+        : this.form(
+            [{ name: 'entity', required: true, selector: { entity: { domain: 'light' } } }],
+            { entity: config.entity },
+            (value) => this.commit(setRoot(config, 'entity', value.entity)),
+          );
+    return sourceSection({
+      hass: this.hass,
+      choices: ['pilot', 'manual'],
+      source,
+      hint: target && this.hass?.states[target] ? friendlyName(this.hass, target) : undefined,
+      onSource: (next) => this.commit(applySource(config, { source: next }).config),
+      content: html`${picker}${this.renderBanner(target, resolution)}`,
+    });
+  }
+
+  /* --------------------------------- header --------------------------------- */
+
+  /** What the top of the card shows: name, icon, layout, and its buttons and badge. */
+  private renderHeaderSection(resolved: ResolvedLedGroupConfig, model: LedGroupModel) {
+    const config = this._config ?? ({} as LedGroupCardConfig);
+    const summary = this.join([
+      resolved.name ?? model.name,
+      resolved.layout === 'collapsible' && this.t('layout_collapsible'),
+      !resolved.appearance.header && this.t('summary_no_header'),
+    ]);
+    return this.section(
+      'header',
+      'mdi:page-layout-header',
+      this.t('section_header'),
+      summary,
+      () =>
+        html`${this.form(
+          [
+            {
+              type: 'grid',
+              name: '',
+              schema: [
+                { name: 'name', selector: { text: {} } },
+                { name: 'icon', selector: { icon: {} }, context: { icon_entity: 'entity' } },
+              ],
+            },
+          ],
+          { name: config.name, icon: config.icon, entity: this.target() },
+          (value) => {
+            let next = setRoot(config, 'name', value.name);
+            next = setRoot(next, 'icon', value.icon);
+            this.commit(next);
+          },
+          (schema) => (schema.name === 'name' ? this.t('name_auto_helper') : undefined),
+        )}
+        ${this.renderLayout(resolved)}
+        ${this.form(
+          [
+            { name: 'header', selector: { boolean: {} } },
+            ...(model.hasLiveOverride
+              ? [{ name: 'ambilight_button', selector: { boolean: {} } }]
+              : []),
+            { name: 'power_badge', selector: { boolean: {} } },
+          ],
+          {
+            header: resolved.appearance.header,
+            ambilight_button: resolved.ambilight.enabled,
+            power_badge: resolved.power.enabled,
+          },
+          (value) => {
+            let next = setOption(config, 'appearance', 'header', value.header, true);
+            if (model.hasLiveOverride) {
+              next = setOption(next, 'ambilight', 'enabled', value.ambilight_button, true);
+            }
+            next = setOption(next, 'power', 'enabled', value.power_badge, true);
+            this.commit(next);
+          },
+          (schema) =>
+            schema.name === 'ambilight_button'
+              ? this.t('ambilight_button_helper')
+              : schema.name === 'power_badge'
+                ? this.t('power_badge_helper')
+                : undefined,
+        )}`,
+    );
+  }
+
   /* --------------------------------- render --------------------------------- */
 
+  /**
+   * The sections follow the card from top to bottom: source, header, tile,
+   * Ambilight box rail, details window, the lights in it, consumption, look.
+   */
   protected override render() {
     if (!this.hass || !this._config) return nothing;
     const config = this._config;
     const resolution = this.resolve();
-
-    const source = targetSource(config);
-    const entityForm = this.form(
-      [
-        ...sourceFields(
-          this.hass,
-          { pilot: this.t('badge_source_pilot'), manual: this.t('badge_source_manual') },
-          'group',
-          ['led'],
-          source,
-        ),
-        ...(source === 'manual'
-          ? [{ name: 'entity', required: true, selector: { entity: { domain: 'light' } } }]
-          : []),
-      ] as FormSchema[],
-      { source, pilot: config.pilot, entity: config.entity },
-      (value) => {
-        const { config: next, switched } = applySource(config, value);
-        if (switched || source === 'pilot') return this.commit(next);
-        this.commit(setRoot(next, 'entity', value.entity));
-      },
-    );
-    const target = this.target();
-
     if (!resolution) {
-      return html`<div class="editor">${entityForm}${this.renderBanner(target)}</div>`;
+      return html`<div class="editor">${this.renderSource(config)}</div>`;
     }
     const { resolved, model, error } = resolution;
-
     return html`<div class="editor">
-      ${entityForm} ${this.renderBanner(target, resolution)}
+      ${this.renderSource(config, resolution)}
       ${
         error
           ? html`<div class="banner error">
@@ -1507,32 +1528,11 @@ export class VividLedGroupEditor extends LitElement {
             </div>`
           : nothing
       }
-      ${this.form(
-        [
-          {
-            type: 'grid',
-            name: '',
-            schema: [
-              { name: 'name', selector: { text: {} } },
-              { name: 'icon', selector: { icon: {} }, context: { icon_entity: 'entity' } },
-            ],
-          },
-        ],
-        { name: config.name, icon: config.icon, entity: config.entity },
-        (value) => {
-          let next = setRoot(config, 'name', value.name);
-          next = setRoot(next, 'icon', value.icon);
-          this.commit(next);
-        },
-      )}
-      ${this.renderPills(resolved, model)}
       ${resolved.power.enabled && !model.hasPower ? this.renderPowerWarning(model) : nothing}
-      <div class="sections">
-        ${this.renderLightsSection(resolved, model)} ${this.renderTileSection(resolved, model)}
-        ${this.renderGesturesSection(model)} ${this.renderPowerSection(resolved, model)}
-        ${this.renderDetailsSection(resolved, model)} ${this.renderBoxSection(resolved, model)}
-        ${this.renderAppearanceSection(resolved, model)}
-      </div>
+      ${this.renderHeaderSection(resolved, model)} ${this.renderTileSection(resolved, model)}
+      ${this.renderBoxSection(resolved, model)} ${this.renderDetailsSection(resolved, model)}
+      ${this.renderLightsSection(resolved, model)} ${this.renderPowerSection(resolved, model)}
+      ${this.renderAppearanceSection(resolved, model)}
     </div>`;
   }
 
@@ -1585,8 +1585,7 @@ export class VividLedGroupEditor extends LitElement {
         font-size: 14px;
         margin-top: 2px;
       }
-      .muted,
-      .summary-hint {
+      .muted {
         color: var(--secondary-text-color);
         font-weight: 400;
         font-size: 12px;
@@ -1601,45 +1600,9 @@ export class VividLedGroupEditor extends LitElement {
         height: 1px;
         background: var(--divider-color, rgba(255, 255, 255, 0.12));
       }
-      .pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .pill {
-        appearance: none;
-        border: none;
-        font: inherit;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 12px;
-        border-radius: 18px;
-        background: rgba(var(--vivid-rgb-text), 0.06);
-        color: var(--secondary-text-color);
-        font-size: 13px;
-        cursor: pointer;
-      }
-      .pill.on {
-        background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.18);
-        color: var(--primary-text-color);
-      }
-      .pill.on ha-icon {
-        color: var(--primary-color);
-      }
-      .pill.disabled {
-        cursor: default;
-        background: none;
-        border: 1px dashed var(--divider-color, rgba(255, 255, 255, 0.15));
-        color: var(--disabled-text-color);
-      }
       .pill:focus-visible,
       .segmented button:focus-visible,
       .switch:focus-visible,
-      summary:focus-visible {
-        outline: 2px solid var(--primary-color);
-        outline-offset: 2px;
-      }
       .favorites {
         display: flex;
         flex-wrap: wrap;
@@ -1891,41 +1854,6 @@ export class VividLedGroupEditor extends LitElement {
         color: var(--primary-text-color);
         font-weight: 500;
       }
-      .sections {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .section {
-        border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.08));
-        border-radius: 12px;
-      }
-      .section[open] {
-        background: rgba(var(--vivid-rgb-text), 0.02);
-      }
-      summary {
-        display: grid;
-        grid-template-columns: auto auto minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        cursor: pointer;
-        list-style: none;
-        font-weight: 500;
-      }
-      summary::-webkit-details-marker {
-        display: none;
-      }
-      .section-title {
-        white-space: nowrap;
-      }
-      summary .summary-hint {
-        min-width: 0;
-        text-align: right;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
       .chevron {
         transition: transform 0.2s ease;
         color: var(--secondary-text-color);
@@ -1933,12 +1861,6 @@ export class VividLedGroupEditor extends LitElement {
       .section[open] > summary .chevron,
       .member.open .member-head .chevron {
         transform: rotate(180deg);
-      }
-      .section-body {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 0 14px 14px;
       }
       @media (prefers-reduced-motion: reduce) {
         .switch,
