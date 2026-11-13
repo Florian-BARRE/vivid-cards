@@ -1,43 +1,43 @@
 /* ====== Code Summary ======
- * The slots of a room header, one per role: its lights, its power sensor,
- * each badge sensor and the room's scripts. Each role has its names (French
- * and English, for the name pattern), the domains and device classes it
- * accepts (for the area), what it feeds, and its badge.
+ * The slots of a room header, one per role: its lights, its power, each
+ * badge sensor. Each role names what Vivid Pilot generates for it in the
+ * room (the node's category and the kind of entity), the domains a hand-
+ * picked entity may have, what it feeds, and its badge. The role keys are the
+ * Vivid Pilot categories, so `entities.presence` is the room's presence.
  */
 
-import { nameKey, type RoleQuery } from '../../core/slots';
-
-export { nameKey };
+import { nodeKey, type PilotCategory, type PilotKind } from '../../core/pilot';
+import type { RoleQuery } from '../../core/slots';
 
 /* ============================== Types ============================== */
 
 export type RoomRole =
-  | 'lampes'
-  | 'leds'
-  | 'interrupteurs'
-  | 'puissance'
-  | 'eclairement'
+  | 'light'
+  | 'led'
+  | 'switch'
+  | 'power'
+  | 'illuminance'
   | 'presence'
-  | 'fenetres'
-  | 'portes'
+  | 'window'
+  | 'door'
   | 'temperature'
-  | 'humidite'
-  | 'pression'
+  | 'humidity'
+  | 'pressure'
   | 'co2'
-  | 'scripts_on'
-  | 'scripts_off'
-  | 'scripts_toggle';
+  | 'battery';
 
-/** What a role feeds: the lights, the power, the power button's scripts, or a badge. */
-export type RoleFeed = 'light' | 'power' | 'action' | 'badge';
+/** What a role feeds: the lights, the power, or a badge. */
+export type RoleFeed = 'light' | 'power' | 'badge';
 
 export interface RoleSpec extends RoleQuery {
   role: RoomRole;
+  /** Vivid Pilot node category (none: the room node itself). */
+  category?: PilotCategory;
+  /** Kind of the generated entity the role uses. */
+  kind: PilotKind;
   feeds: RoleFeed;
   /** A list of entities (lights) or one. */
   multiple: boolean;
-  /** Found in the room's area too (off where an area holds many unrelated ones). */
-  inArea: boolean;
   /** Badge tag shown for it (lights: one per entity). */
   badge?: string;
   /** Icon of the slot in the editor. */
@@ -46,167 +46,82 @@ export interface RoleSpec extends RoleQuery {
 
 /* ============================== Table ============================== */
 
-const LIGHT_DOMAINS = ['switch', 'light', 'group', 'input_boolean'];
+const LIGHT_DOMAINS = ['light', 'switch', 'group', 'input_boolean'];
 
-/** Every role, in the order of the badges (scripts last). Battery is not a room role. */
+function light(role: 'light' | 'led' | 'switch', badge: string, icon: string): RoleSpec {
+  return {
+    role,
+    category: role,
+    kind: 'group',
+    domains: LIGHT_DOMAINS,
+    feeds: 'light',
+    multiple: true,
+    badge,
+    icon,
+  };
+}
+
+function sensor(
+  role: RoomRole,
+  category: PilotCategory,
+  kind: PilotKind,
+  domain: string,
+  badge: string,
+  icon: string,
+): RoleSpec {
+  return { role, category, kind, domains: [domain], feeds: 'badge', multiple: false, badge, icon };
+}
+
+/** Every role, in the order of the badges. */
 export const ROOM_ROLES: readonly RoleSpec[] = [
+  light('light', 'vivid-lamp-badge', 'mdi:lamp'),
+  light('led', 'vivid-led-badge', 'mdi:led-strip-variant'),
+  light('switch', 'vivid-light-badge', 'mdi:light-switch'),
   {
-    role: 'lampes',
-    aliases: ['lampes', 'lamps', 'lampe', 'lamp'],
-    domains: LIGHT_DOMAINS,
-    deviceClasses: ['outlet'],
-    feeds: 'light',
-    multiple: true,
-    inArea: true,
-    badge: 'vivid-lamp-badge',
-    icon: 'mdi:lamp',
-  },
-  {
-    role: 'leds',
-    aliases: ['leds', 'led'],
-    domains: ['light', 'group'],
-    feeds: 'light',
-    multiple: true,
-    inArea: true,
-    badge: 'vivid-led-badge',
-    icon: 'mdi:led-strip-variant',
-  },
-  {
-    role: 'interrupteurs',
-    aliases: ['interrupteurs', 'switches', 'interrupteur', 'switch'],
-    domains: LIGHT_DOMAINS,
-    feeds: 'light',
-    multiple: true,
-    inArea: false,
-    badge: 'vivid-light-badge',
-    icon: 'mdi:light-switch',
-  },
-  {
-    role: 'puissance',
-    aliases: ['puissance', 'power'],
+    role: 'power',
+    kind: 'power',
     domains: ['sensor'],
     feeds: 'power',
     multiple: false,
-    inArea: false,
     icon: 'mdi:flash',
   },
-  {
-    role: 'eclairement',
-    aliases: ['eclairement', 'illuminance', 'luminosite', 'lux'],
-    domains: ['sensor'],
-    deviceClasses: ['illuminance'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-illuminance-badge',
-    icon: 'mdi:brightness-5',
-  },
-  {
-    role: 'presence',
-    aliases: ['presence', 'occupancy', 'mouvement', 'motion'],
-    domains: ['binary_sensor'],
-    deviceClasses: ['occupancy', 'motion', 'presence'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-presence-badge',
-    icon: 'mdi:motion-sensor',
-  },
-  {
-    role: 'fenetres',
-    aliases: ['fenetres', 'windows', 'fenetre', 'window'],
-    domains: ['binary_sensor'],
-    deviceClasses: ['window'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-window-badge',
-    icon: 'mdi:window-closed-variant',
-  },
-  {
-    role: 'portes',
-    aliases: ['portes', 'doors', 'porte', 'door'],
-    domains: ['binary_sensor'],
-    deviceClasses: ['door', 'garage_door'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-door-badge',
-    icon: 'mdi:door',
-  },
-  {
-    role: 'temperature',
-    aliases: ['temperature'],
-    domains: ['sensor'],
-    deviceClasses: ['temperature'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-temperature-badge',
-    icon: 'mdi:thermometer',
-  },
-  {
-    role: 'humidite',
-    aliases: ['humidite', 'humidity'],
-    domains: ['sensor'],
-    deviceClasses: ['humidity'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-humidity-badge',
-    icon: 'mdi:water-percent',
-  },
-  {
-    role: 'pression',
-    aliases: ['pression', 'pressure'],
-    domains: ['sensor'],
-    deviceClasses: ['atmospheric_pressure', 'pressure'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-pressure-badge',
-    icon: 'mdi:gauge',
-  },
-  {
-    role: 'co2',
-    aliases: ['co2', 'air'],
-    domains: ['sensor'],
-    deviceClasses: ['carbon_dioxide'],
-    feeds: 'badge',
-    multiple: false,
-    inArea: true,
-    badge: 'vivid-air-quality-badge',
-    icon: 'mdi:molecule-co2',
-  },
-  // The room's scripts ("salon-scripts-on"): the power button runs them
-  // instead of switching the lights itself, so they can restore a scene.
-  {
-    role: 'scripts_on',
-    aliases: ['scripts_on', 'script_on'],
-    domains: ['script'],
-    feeds: 'action',
-    multiple: false,
-    inArea: false,
-    icon: 'mdi:script-text-play-outline',
-  },
-  {
-    role: 'scripts_off',
-    aliases: ['scripts_off', 'script_off'],
-    domains: ['script'],
-    feeds: 'action',
-    multiple: false,
-    inArea: false,
-    icon: 'mdi:script-text-outline',
-  },
-  {
-    role: 'scripts_toggle',
-    aliases: ['scripts_toggle', 'script_toggle'],
-    domains: ['script'],
-    feeds: 'action',
-    multiple: false,
-    inArea: false,
-    icon: 'mdi:script-outline',
-  },
+  sensor(
+    'illuminance',
+    'illuminance',
+    'mean',
+    'sensor',
+    'vivid-illuminance-badge',
+    'mdi:brightness-5',
+  ),
+  sensor(
+    'presence',
+    'presence',
+    'any',
+    'binary_sensor',
+    'vivid-presence-badge',
+    'mdi:motion-sensor',
+  ),
+  sensor(
+    'window',
+    'window',
+    'any',
+    'binary_sensor',
+    'vivid-window-badge',
+    'mdi:window-closed-variant',
+  ),
+  sensor('door', 'door', 'any', 'binary_sensor', 'vivid-door-badge', 'mdi:door'),
+  sensor(
+    'temperature',
+    'temperature',
+    'mean',
+    'sensor',
+    'vivid-temperature-badge',
+    'mdi:thermometer',
+  ),
+  sensor('humidity', 'humidity', 'mean', 'sensor', 'vivid-humidity-badge', 'mdi:water-percent'),
+  sensor('pressure', 'pressure', 'mean', 'sensor', 'vivid-pressure-badge', 'mdi:gauge'),
+  sensor('co2', 'co2', 'mean', 'sensor', 'vivid-air-quality-badge', 'mdi:molecule-co2'),
+  sensor('battery', 'battery', 'battery', 'sensor', 'vivid-battery-badge', 'mdi:battery'),
 ];
 
 const BY_ROLE = new Map(ROOM_ROLES.map((spec) => [spec.role, spec]));
@@ -219,13 +134,7 @@ export function isRoomRole(value: string): value is RoomRole {
   return BY_ROLE.has(value as RoomRole);
 }
 
-const ALIAS_INDEX = new Map<string, RoomRole>();
-for (const spec of ROOM_ROLES) {
-  ALIAS_INDEX.set(spec.role, spec.role);
-  for (const alias of spec.aliases) ALIAS_INDEX.set(nameKey(alias), spec.role);
-}
-
-/** The role an alias names ("lamps", "présence"), or `undefined`. */
-export function roleOf(alias: string): RoomRole | undefined {
-  return ALIAS_INDEX.get(nameKey(alias));
+/** The Vivid Pilot node a role reads in a room (`salon__light`, or `salon` for the power). */
+export function roleNode(room: string, spec: RoleSpec): string {
+  return nodeKey(room, spec.category);
 }

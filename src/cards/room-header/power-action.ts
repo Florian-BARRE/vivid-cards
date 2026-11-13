@@ -1,23 +1,23 @@
 /* ====== Code Summary ======
  * What the power button of a room header does. Each way (turn on when
  * everything is off, turn off when a light is on) runs, first match wins:
- * the action set in the editor; the room's script for that way (or its
- * toggle script); else the room's lights are switched. Every way is a Home
- * Assistant action, run like any other card action.
+ *   on:  the action set in the editor; the room's Vivid Pilot memory scene
+ *        (its last lighting, kept up to date by Vivid Pilot); else the
+ *        room's lights are turned on;
+ *   off: the action set in the editor; else the room's lights are turned off.
+ * Every way is a Home Assistant action, run like any other card action.
  */
 
 import type { ActionConfig } from '../../core/action-handler';
 import { domainOf } from '../../core/entities';
-import type { ResolvedRoomHeaderConfig } from './config';
-import type { RoomSlots } from './room-slots';
 
 /** Where a way of the button comes from. */
-export type PowerSource = 'config' | 'script' | 'lights' | 'none';
+export type PowerSource = 'config' | 'scene' | 'lights' | 'none';
 
 export interface PowerWay {
   action?: ActionConfig;
   source: PowerSource;
-  /** The script or the lights it runs on, for the editor. */
+  /** The scene or the lights it runs on, for the editor. */
   entities: string[];
 }
 
@@ -35,7 +35,7 @@ const RUN_SERVICES: Record<string, string> = {
   input_button: 'input_button.press',
 };
 
-/** The action that runs an entity (`script.salon_scripts_on`). */
+/** The action that runs an entity (`scene.vivid_pilot_salon_state`). */
 export function runEntityAction(entity: string): ActionConfig {
   return {
     action: 'perform-action',
@@ -44,36 +44,35 @@ export function runEntityAction(entity: string): ActionConfig {
   };
 }
 
-function way(
-  configured: ActionConfig | undefined,
-  script: string | undefined,
-  lights: readonly string[],
-  service: 'turn_on' | 'turn_off',
-): PowerWay {
-  if (configured) return { action: configured, source: 'config', entities: [] };
-  if (script) return { action: runEntityAction(script), source: 'script', entities: [script] };
-  if (lights.length) {
-    return {
-      action: {
-        action: 'perform-action',
-        perform_action: `homeassistant.${service}`,
-        target: { entity_id: [...lights] },
-      },
-      source: 'lights',
-      entities: [...lights],
-    };
-  }
-  return { source: 'none', entities: [] };
+function lightsWay(lights: readonly string[], service: 'turn_on' | 'turn_off'): PowerWay {
+  if (!lights.length) return { source: 'none', entities: [] };
+  return {
+    action: {
+      action: 'perform-action',
+      perform_action: `homeassistant.${service}`,
+      target: { entity_id: [...lights] },
+    },
+    source: 'lights',
+    entities: [...lights],
+  };
 }
 
+/**
+ * The two ways of the button. `scene` is the room's memory scene when it can
+ * be activated now (memory on and something stored).
+ */
 export function powerPlan(
-  config: Pick<ResolvedRoomHeaderConfig, 'onAction' | 'offAction'>,
-  slots: Pick<RoomSlots, 'scripts_on' | 'scripts_off' | 'scripts_toggle'>,
+  config: { onAction?: ActionConfig; offAction?: ActionConfig },
+  scene: string | undefined,
   lights: readonly string[],
 ): PowerPlan {
-  const toggle = slots.scripts_toggle.entities[0];
-  return {
-    on: way(config.onAction, slots.scripts_on.entities[0] ?? toggle, lights, 'turn_on'),
-    off: way(config.offAction, slots.scripts_off.entities[0] ?? toggle, lights, 'turn_off'),
-  };
+  const on: PowerWay = config.onAction
+    ? { action: config.onAction, source: 'config', entities: [] }
+    : scene
+      ? { action: runEntityAction(scene), source: 'scene', entities: [scene] }
+      : lightsWay(lights, 'turn_on');
+  const off: PowerWay = config.offAction
+    ? { action: config.offAction, source: 'config', entities: [] }
+    : lightsWay(lights, 'turn_off');
+  return { on, off };
 }

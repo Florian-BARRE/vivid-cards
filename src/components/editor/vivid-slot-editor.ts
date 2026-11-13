@@ -26,6 +26,7 @@ import {
   type SlotMode,
   type SlotValue,
 } from '../../core/slots';
+import { pilotNodeLabel } from '../../i18n/pilot';
 import { slotText, type SlotStringKey } from '../../i18n/slots';
 import { tokens } from '../shared-styles';
 import { slotEditorStyles } from './slot-editor-styles';
@@ -42,6 +43,7 @@ export class VividSlotEditor extends LitElement {
     value: { attribute: false },
     resolved: { attribute: false },
     searched: {},
+    pilot: { type: Boolean },
     modes: { attribute: false },
     open: { type: Boolean, reflect: true },
   };
@@ -58,8 +60,10 @@ export class VividSlotEditor extends LitElement {
   declare value: SlotValue | unknown;
   /** What the card resolves for it now. */
   declare resolved?: ResolvedSlot;
-  /** What the discovery looked for, shown when nothing is found ("sdb-humidité"). */
+  /** What the discovery looked for, shown when nothing is found. */
   declare searched?: string;
+  /** The automatic mode follows Vivid Pilot (named "Pilot" rather than "Auto"). */
+  declare pilot?: boolean;
   /** Modes offered (all by default; a group's members have no "off"). */
   declare modes?: readonly SlotMode[];
   declare open: boolean;
@@ -89,12 +93,19 @@ export class VividSlotEditor extends LitElement {
 
   /* ------------------------------ header ------------------------------ */
 
+  /** The key of a mode's word: the automatic mode is "Pilot" on a Vivid Pilot slot. */
+  private modeKey(mode: SlotMode | 'tweaked', suffix = ''): SlotStringKey {
+    if (this.pilot && mode === 'auto') return `mode_pilot${suffix}` as SlotStringKey;
+    if (this.pilot && mode === 'tweaked') return 'mode_pilot_tweaked';
+    return `mode_${mode}${suffix}` as SlotStringKey;
+  }
+
   private modeLabel(): string {
     const resolved = this.resolved;
-    if (!resolved) return this.t('mode_auto');
+    if (!resolved) return this.t(this.modeKey('auto'));
     if (resolved.mode === 'off') return this.t('mode_off');
     if (resolved.mode === 'manual') return this.t('mode_manual');
-    return this.t(resolved.tweaked ? 'mode_tweaked' : 'mode_auto');
+    return this.t(this.modeKey(resolved.tweaked ? 'tweaked' : 'auto'));
   }
 
   private summary(): string {
@@ -116,7 +127,7 @@ export class VividSlotEditor extends LitElement {
   private renderModes(mode: SlotMode) {
     const modes: readonly SlotMode[] = this.modes ?? ['auto', 'manual', 'off'];
     if (modes.length < 2)
-      return html`<div class="help">${this.t(`mode_${mode}_help` as SlotStringKey)}</div>`;
+      return html`<div class="help">${this.t(this.modeKey(mode, '_help'))}</div>`;
     return html`<div class="modes" role="radiogroup">
         ${modes.map(
           (item) =>
@@ -126,11 +137,11 @@ export class VividSlotEditor extends LitElement {
               aria-checked=${item === mode ? 'true' : 'false'}
               @click=${() => item !== mode && this.setMode(item)}
             >
-              ${this.t(`mode_${item}` as SlotStringKey)}
+              ${this.t(this.modeKey(item))}
             </button>`,
         )}
       </div>
-      <div class="help">${this.t(`mode_${mode}_help` as SlotStringKey)}</div>`;
+      <div class="help">${this.t(this.modeKey(mode, '_help'))}</div>`;
   }
 
   private origin(entry: SlotEntry): string {
@@ -138,7 +149,8 @@ export class VividSlotEditor extends LitElement {
     if (entry.origin === 'manual') return this.t('manual');
     const found = entry.found;
     if (!found) return '';
-    return this.t(`found_${found.source}` as SlotStringKey, { via: found.via });
+    const via = found.source === 'pilot' ? pilotNodeLabel(this.hass, found.via) : found.via;
+    return this.t(`found_${found.source}` as SlotStringKey, { via });
   }
 
   private renderEntry(entry: SlotEntry, index: number, movable: string[]) {

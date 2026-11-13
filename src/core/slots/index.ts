@@ -5,17 +5,9 @@
  */
 
 export {
-  AreaSource,
-  DEFAULT_PATTERN,
   DiscoverySource,
   GroupSource,
-  NamingSource,
-  SOURCE_KINDS,
-  areaForRoom,
-  areaOf,
-  fillPattern,
-  isValidPattern,
-  nameKey,
+  PilotSource,
   type Found,
   type RoleQuery,
   type SourceKind,

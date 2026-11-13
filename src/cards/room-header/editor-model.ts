@@ -1,91 +1,14 @@
 /* ====== Code Summary ======
- * The room header editor's changes to the config, as pure functions: the
- * 0.14–0.17 options moved to the slots once (so everything shows in the
- * editor), a slot's value, the discovery settings, the power button, and the
- * badges list (add, move, remove, options). Each writes the shortest config:
- * a default is left out.
+ * The room header editor's changes to the config, as pure functions: a
+ * slot's value, an option, the power button, and the badges list (add, move,
+ * remove, options). Each writes the shortest config: a default is left out.
  */
 
-import type { HomeAssistant } from '../../core/hass-types';
-import { readSlot, writeSlot, type SlotValue } from '../../core/slots';
-import {
-  resolveRoomHeaderConfig,
-  type PowerButtonConfig,
-  type RoomBadgeConfig,
-  type RoomHeaderCardConfig,
-} from './config';
-import { lightRoleOf } from './light-roles';
-import { roomSlots } from './room-slots';
-import { ROOM_ROLES, roleOf, roleSpec, type RoomRole } from './roles';
+import type { SlotValue } from '../../core/slots';
+import type { PowerButtonConfig, RoomBadgeConfig, RoomHeaderCardConfig } from './config';
+import type { RoomRole } from './roles';
 
 type Config = RoomHeaderCardConfig;
-
-/* ============================== 0.14–0.17 options ============================== */
-
-/**
- * Moves `exclude`, `lights`, `power` and badges without `slot` into the slots
- * and the badges list, so the editor shows all of it. Entity ids left out go
- * to the slot that finds them (needs `hass`; kept as they are without it).
- */
-export function migrateRoomHeaderConfig(config: Config, hass?: HomeAssistant): Config {
-  const next: Record<string, unknown> = { ...config };
-  const entities: Partial<Record<RoomRole, SlotValue>> = { ...(config.entities ?? {}) };
-  const exclude = Array.isArray(config.exclude)
-    ? config.exclude.filter((item) => typeof item === 'string')
-    : [];
-  const keptExclusions: string[] = [];
-  for (const item of exclude) {
-    if (item.includes('.')) continue;
-    const role = roleOf(item);
-    if (role && entities[role] === undefined) entities[role] = false;
-  }
-  const ids = exclude.filter((item) => item.includes('.'));
-  if (ids.length) {
-    let slots: ReturnType<typeof roomSlots> | undefined;
-    try {
-      slots = hass
-        ? roomSlots(hass, resolveRoomHeaderConfig({ ...config, exclude: [] }))
-        : undefined;
-    } catch {
-      slots = undefined;
-    }
-    for (const id of ids) {
-      const role = slots
-        ? ROOM_ROLES.find((spec) => slots![spec.role].entries.some((entry) => entry.entity === id))
-            ?.role
-        : undefined;
-      if (!role) {
-        keptExclusions.push(id);
-        continue;
-      }
-      const slot = readSlot(entities[role]);
-      if (slot.mode !== 'auto') continue;
-      entities[role] = writeSlot(
-        { ...slot, exclude: [...slot.exclude, id] },
-        roleSpec(role).multiple,
-      );
-    }
-  }
-  if (Array.isArray(config.lights) && config.lights.length) {
-    const lists: Partial<Record<RoomRole, string[]>> = {};
-    for (const id of config.lights) (lists[lightRoleOf(id)] ??= []).push(id);
-    for (const role of ['lampes', 'leds', 'interrupteurs'] as const)
-      entities[role] = lists[role] ?? false;
-  }
-  if (typeof config.power === 'string' && config.power) entities.puissance = config.power;
-  if (
-    Array.isArray(config.badges) &&
-    config.badges.length &&
-    !config.badges.some((item) => item.slot !== undefined)
-  ) {
-    next.badges = [{ slot: '*' }, ...config.badges];
-  }
-  delete next.lights;
-  delete next.power;
-  if (keptExclusions.length) next.exclude = keptExclusions;
-  else delete next.exclude;
-  return withEntities(next as Config, entities);
-}
 
 function withEntities(config: Config, entities: Partial<Record<RoomRole, SlotValue>>): Config {
   const next: Record<string, unknown> = { ...config };
@@ -97,7 +20,7 @@ function withEntities(config: Config, entities: Partial<Record<RoomRole, SlotVal
   return next as Config;
 }
 
-/* ============================== Slots and discovery ============================== */
+/* ============================== Slots and options ============================== */
 
 /** Writes one role's slot (`undefined` = back to auto). */
 export function setSlot(config: Config, role: RoomRole, value: SlotValue): Config {
@@ -115,15 +38,6 @@ export function setOption(
   const empty = value === undefined || value === '' || value === null;
   if (empty || value === fallback) delete next[key as string];
   else next[key as string] = value;
-  return next as Config;
-}
-
-/** Sets the name pattern (the default one is left out). */
-export function setPattern(config: Config, pattern: string): Config {
-  const next: Record<string, unknown> = { ...config };
-  const value = pattern.trim();
-  if (!value || value === '{room}-{role}') delete next.naming;
-  else next.naming = { ...(config.naming ?? {}), pattern: value };
   return next as Config;
 }
 
