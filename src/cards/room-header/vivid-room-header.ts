@@ -294,7 +294,7 @@ export class VividRoomHeader extends LitElement {
     const model = this.model;
     const action = model ? powerTap(model) : undefined;
     if (!hass || !model || !action) return;
-    haptic(this, model.on > 0 ? 'medium' : 'light');
+    haptic(this, model.buttonOn ? 'medium' : 'light');
     runAction(action, { node: this, hass, entityId: model.mainEntity ?? '' });
   }
 
@@ -376,7 +376,8 @@ export class VividRoomHeader extends LitElement {
     const model = this.model;
     if (!config || !model) return nothing;
     const hass = this.hass;
-    const anyOn = model.on > 0;
+    // The button is on when anything it controls is on; the subtitle counts every light.
+    const anyOn = model.buttonOn;
     const glow = config.glow / 100;
     const subtitle = config.showSubtitle ? this.subtitle(model) : undefined;
     const badges = this.slots;
@@ -421,7 +422,7 @@ export class VividRoomHeader extends LitElement {
                 : nothing
             }
           </div>
-          ${subtitle ? html`<div class=${classMap({ sub: true, on: anyOn })}>${subtitle}</div>` : nothing}
+          ${subtitle ? html`<div class=${classMap({ sub: true, on: model.on > 0 })}>${subtitle}</div>` : nothing}
         </div>
         ${
           badges.length

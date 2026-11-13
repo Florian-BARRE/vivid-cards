@@ -39,7 +39,9 @@ The editor follows the card from top to bottom (YAML is optional):
 - **Power button**: when it shows, and what a tap does. With Vivid Pilot, a
   tap with everything off restores the room's last lighting (its memory
   scene) or turns the lamps and LEDs on (`power_button.on: lights`); a tap
-  with a light on turns them off. Any Home Assistant action can replace
+  with a light on turns them off. The button controls only what the
+  room's memory covers (or the lamps and LEDs): it is on when part of it is
+  on, and switches are never switched by it. Any Home Assistant action can replace
   either way, and the hold.
 - **Badges**: every badge the room can show, ticked when shown, in their
   order (arrows), the hidden ones below. A row unfolds to where its entity

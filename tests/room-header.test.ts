@@ -45,6 +45,7 @@ const model = (hass: HomeAssistant, extra: Record<string, unknown> = {}) =>
 const badgeTypes = (hass: HomeAssistant, extra: Record<string, unknown> = {}) =>
   model(hass, extra).badges.map((badge) => badge.config.type.replace('custom:vivid-', ''));
 const node = {} as HTMLElement;
+const PILOT_LAMP = 'switch.0xa4c138d6cea4f686';
 
 describe('room header config', () => {
   it('fills the defaults', () => {
@@ -250,14 +251,40 @@ describe('room header model', () => {
 });
 
 describe('room header power button', () => {
-  it("turns off the room's groups", () => {
-    const plan = model(createRoomMock('all')).plan;
-    expect(plan.off).toMatchObject({ source: 'lights' });
-    expect(plan.off.action).toEqual({
+  it('turns off what the memory covers, or the lamps and LEDs without a memory', () => {
+    const hass = createRoomMock('all');
+    const members = hass.states[PILOT.scene]!.attributes.entity_id;
+    expect(model(hass).plan.off.action).toEqual({
       action: 'perform-action',
       perform_action: 'homeassistant.turn_off',
-      target: { entity_id: [PILOT.lights, PILOT.leds] },
+      target: { entity_id: members },
     });
+    expect(model(hass, { power_button: { on: 'lights' } }).plan.off.entities).toEqual([
+      PILOT.lights,
+      PILOT.leds,
+    ]);
+  });
+
+  it('uses a memory scene never activated yet (state unknown), and ignores switches', () => {
+    const hass = createRoomMock('off', { memory: true });
+    hass.states[PILOT.scene] = {
+      ...hass.states[PILOT.scene]!,
+      state: 'unknown',
+      attributes: { ...hass.states[PILOT.scene]!.attributes, entity_id: [PILOT_LAMP] },
+    };
+    hass.states['switch.prise_seche_serviette'] = {
+      entity_id: 'switch.prise_seche_serviette',
+      state: 'on',
+      attributes: {},
+      last_changed: '',
+      last_updated: '',
+    };
+    const m = model(hass, { entities: { switch: ['switch.prise_seche_serviette'] } });
+    expect(m.plan.on.source).toBe('scene');
+    expect(m.scope).toEqual([PILOT_LAMP]);
+    // A switch on does not make the button "on": a tap restores the memory.
+    expect(m.buttonOn).toBe(false);
+    expect(m.on).toBe(1);
   });
 
   it("turns on with the room's memory scene, which brings back the last lighting", async () => {
