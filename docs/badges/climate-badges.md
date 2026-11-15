@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="../assets/headers/climate-badges.jpg" alt="Climate badges" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#badges">Badges</a> › Climate badges</sub>
+
 # Climate badges
+
+> [!TIP]
+> **Works with [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot)**: choose **Vivid Pilot** as the
+> card's source and pick a room or a group; Vivid Pilot has sorted the rest. Every setting stays adjustable,
+> and **Manual** works without it.
 
 Four badges for the climate of a room or of the whole home:
 `vivid-temperature-badge`, `vivid-humidity-badge`, `vivid-pressure-badge` and

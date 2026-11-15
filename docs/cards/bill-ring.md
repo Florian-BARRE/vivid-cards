@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/bill-ring.jpg" alt="Bill ring" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Bill ring</sub>
+
 # vivid-bill-ring
 
 A bill as rings. `ring: money` shows where each euro goes (peak, off-peak,

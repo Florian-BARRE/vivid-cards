@@ -3,10 +3,17 @@
 </p>
 
 <p align="center">
-  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5?style=for-the-badge" alt="HACS custom repository" /></a>
-  <a href="https://github.com/Florian-BARRE/vivid-cards/releases/latest"><img src="https://img.shields.io/github/v/release/Florian-BARRE/vivid-cards?style=for-the-badge&color=ff5f6d" alt="Latest release" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Florian-BARRE/vivid-cards/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white" alt="CI" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/actions/workflows/hacs.yml"><img src="https://img.shields.io/github/actions/workflow/status/Florian-BARRE/vivid-cards/hacs.yml?branch=main&style=for-the-badge&label=HACS&logo=homeassistant&logoColor=white" alt="HACS validation" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/releases/latest"><img src="https://img.shields.io/github/v/release/Florian-BARRE/vivid-cards?style=for-the-badge&color=ff5f6d&logo=github" alt="Latest release" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/releases"><img src="https://img.shields.io/github/downloads/Florian-BARRE/vivid-cards/total?style=for-the-badge&color=ff8a3d" alt="Downloads" /></a>
+  <a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Florian-BARRE/vivid-cards?style=for-the-badge&color=8a3ffc" alt="MIT license" /></a>
+  <br />
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.11%2B-18BCF2?style=for-the-badge&logo=homeassistant&logoColor=white" alt="Home Assistant 2024.11 or later" />
-  <a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Florian-BARRE/vivid-cards?style=for-the-badge&color=8a3ffc" alt="License" /></a>
+  <img src="https://img.shields.io/badge/Marketplace-custom%20repository-41BDF5?style=for-the-badge" alt="Marketplace custom repository" />
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Lit-3-324FFF?style=for-the-badge&logo=lit&logoColor=white" alt="Lit" />
+  <a href="https://github.com/Florian-BARRE/vivid-pilot"><img src="https://img.shields.io/badge/works%20with-Vivid%20Pilot-03a9f4?style=for-the-badge" alt="Works with Vivid Pilot" /></a>
 </p>
 
 <p align="center">
@@ -15,16 +22,40 @@
 </p>
 
 <p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Florian-BARRE&repository=vivid-cards&category=plugin"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open Vivid Cards in your Home Assistant" /></a>
+</p>
+
+<p align="center">
   <a href="#installation">Install</a> ·
-  <a href="#the-cards">Cards</a> ·
-  <a href="#badges">Badges</a> ·
+  <a href="#whats-inside">What's inside</a> ·
   <a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/README.md">Documentation</a> ·
+  <a href="#vivid-pilot--vivid-cards">With Vivid Pilot</a> ·
   <a href="https://github.com/Florian-BARRE/vivid-cards/blob/main/CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/showcase.png" alt="A dashboard made with Vivid Cards" width="100%" />
 </p>
+
+## Vivid Pilot + Vivid Cards
+
+Vivid Cards is one half of **Vivid**. Its companion,
+[**Vivid Pilot**](https://github.com/Florian-BARRE/vivid-pilot), is a Home
+Assistant integration that sorts your home: each device in its room and its kind,
+groups, totals, power, energy and the last lighting of each room. A card just
+picks a room or a group, and Vivid Pilot has already worked out the rest. Each
+also works on its own: every card can be set by hand.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/ecosystem.png" alt="Vivid Pilot builds, Vivid Cards shows" width="100%" />
+</p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-pilot/main/docs/assets/logo.svg" alt="" width="40" align="left" />&nbsp;<a href="https://github.com/Florian-BARRE/vivid-pilot"><b>Vivid Pilot</b></a><br />&nbsp;<sub>The integration: rooms, groups, totals, power, memory.</sub></td>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Florian-BARRE/vivid-cards/main/docs/assets/logo.svg" alt="" width="40" align="left" />&nbsp;<b>Vivid Cards</b> · you are here<br />&nbsp;<sub>The cards and badges: lights, Ambilight, energy, climate.</sub></td>
+  </tr>
+</table>
 
 ## Why Vivid Cards
 
@@ -42,7 +73,7 @@
 - **Big cards, small cards.** The large cards gather everything about a thing;
   each of their parts also exists as a card of its own, to place where you want.
 
-## The cards
+## What's inside
 
 ### Lights
 
@@ -108,7 +139,7 @@ shared by every card.
   </tr>
 </table>
 
-## Badges
+### Badges
 
 <table>
   <tr>
@@ -125,28 +156,27 @@ Every badge is listed in [light badges](https://github.com/Florian-BARRE/vivid-c
 
 ## Installation
 
-Requires Home Assistant 2024.11 or newer.
+**Home Assistant 2026.11 and later: the Marketplace.**
 
-### HACS (recommended)
+[![Open Vivid Cards in your Home Assistant.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Florian-BARRE&repository=vivid-cards&category=plugin)
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Florian-BARRE&repository=vivid-cards&category=plugin)
+1. Click the button (or _Settings → Marketplace → ⋮ → Custom repositories_, add
+   `https://github.com/Florian-BARRE/vivid-cards`, type **Dashboard**).
+2. Download **Vivid Cards**: the dashboard resource is added for you.
+3. Reload the page (Ctrl+F5, or close and reopen the app).
 
-Click the button above, or add it by hand:
+**From 2024.11 to 2026.10: HACS.** The same button opens it in HACS; or HACS → ⋮ →
+_Custom repositories_ → `https://github.com/Florian-BARRE/vivid-cards`, type
+_Dashboard_. Then steps 2 and 3.
 
-1. In HACS, open the menu (⋮) → **Custom repositories**.
-2. Add `https://github.com/Florian-BARRE/vivid-cards` with the type **Dashboard**.
-3. Search for **Vivid Cards** and download it.
+**Manual.** Download `vivid-cards.js` from the
+[latest release](https://github.com/Florian-BARRE/vivid-cards/releases/latest),
+copy it to `config/www/vivid-cards/vivid-cards.js`, add the resource
+(_Settings → Dashboards → ⋮ → Resources_, URL
+`/local/vivid-cards/vivid-cards.js`, type **JavaScript module**), reload.
 
-HACS adds the dashboard resource for you; reload the page afterwards. Updates
-show up in HACS like any other download.
-
-### Manual
-
-1. Download `vivid-cards.js` from the [latest release](https://github.com/Florian-BARRE/vivid-cards/releases/latest).
-2. Copy it to `config/www/vivid-cards/vivid-cards.js`.
-3. Add a dashboard resource: **Settings → Dashboards → ⋮ → Resources → Add resource**,
-   URL `/local/vivid-cards/vivid-cards.js`, type **JavaScript module**.
-4. Reload the page.
+For the rooms and groups, install
+[Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot#installation) too.
 
 ## Quick start
 
@@ -184,19 +214,22 @@ tariff:
 
 ## Documentation
 
-Each card has its own page, with its options, examples and screenshots:
-**[the documentation](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/README.md)**. Also there:
+**[The documentation](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/README.md)**
+has a page for every card and badge, with what it shows, its visual editor, its
+options, examples and screenshots in both themes. Also there:
 [Vivid Pilot and manual](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/discovery.md),
-[troubleshooting](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/troubleshooting.md),
+[electricity](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/electricity.md),
 [halos and theming](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/theming.md),
+[troubleshooting](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/troubleshooting.md),
 [development](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/development.md).
 
 ## Contributing
 
-Issues and pull requests are welcome. Run `npm install`, then `npm run dev`
-for preview pages with a simulated Home Assistant, and `npm run check` before
-a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[development guide](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/development.md).
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and
+the [development guide](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/guides/development.md).
+Run `npm install`, then `npm run dev` for preview pages with a simulated Home
+Assistant, and `npm run check` before a pull request. The pictures of this page
+are made from the real cards ([docs/design](https://github.com/Florian-BARRE/vivid-cards/blob/main/docs/design/README.md)).
 
 ## License
 

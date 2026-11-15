@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/hyperhdr.jpg" alt="HyperHDR" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › HyperHDR</sub>
+
 # vivid-hyperhdr-card
 
 HyperHDR, the software that drives the Ambilight LEDs from the picture, as

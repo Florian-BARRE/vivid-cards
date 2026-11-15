@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/energy-ranking.jpg" alt="Energy ranking" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Energy ranking</sub>
+
 # vivid-energy-ranking
 
 The devices ranked by energy and cost over the period, nested devices under

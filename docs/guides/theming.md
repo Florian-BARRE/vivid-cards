@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/theming.jpg" alt="Halos and theming" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#guides">Guides</a> › Halos and theming</sub>
+
 # Halos and theming
 
 ## Halos

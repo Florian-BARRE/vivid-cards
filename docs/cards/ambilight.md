@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/ambilight.jpg" alt="Ambilight" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › Ambilight</sub>
+
 # vivid-ambilight-card
 
 A card made for one DIY device, the **Salon Ambilight Manager**: a Wemos D1

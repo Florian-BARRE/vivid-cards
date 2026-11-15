@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="../assets/headers/lamp-group.jpg" alt="Lamp group" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#lights">Lights</a> › Lamp group</sub>
+
 # vivid-lamp-group
+
+> [!TIP]
+> **Works with [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot)**: choose **Vivid Pilot** as the
+> card's source and pick a room or a group; Vivid Pilot has sorted the rest. Every setting stays adjustable,
+> and **Manual** works without it.
 
 Lamps on smart plugs, wall switches or plain on/off lights, where all you know
 is whether a lamp is on and what it draws. Each lamp gets a round button that

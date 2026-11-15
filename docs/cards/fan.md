@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/fan.jpg" alt="Fan" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › Fan</sub>
+
 # vivid-fan-card
 
 The fan of the [Ambilight box](ambilight.md) on its own card: its mode, its

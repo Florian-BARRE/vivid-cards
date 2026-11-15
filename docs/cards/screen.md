@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/screen.jpg" alt="Screen" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › Screen</sub>
+
 # vivid-screen-card
 
 What the TV shows, as HyperHDR captures it: the live picture in a frame lit by

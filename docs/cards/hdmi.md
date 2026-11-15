@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/hdmi.jpg" alt="HDMI" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › HDMI</sub>
+
 # vivid-hdmi-card
 
 The HDMI inputs of the [Ambilight box](ambilight.md) as big tiles. A tap sends

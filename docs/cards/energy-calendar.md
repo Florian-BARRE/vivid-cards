@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/energy-calendar.jpg" alt="Energy calendar" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Energy calendar</sub>
+
 # vivid-energy-calendar
 
 A month, one cell per day colored by what the day cost, from a sober day to an

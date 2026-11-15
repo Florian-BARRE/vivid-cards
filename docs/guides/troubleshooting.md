@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/troubleshooting.jpg" alt="Troubleshooting" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#guides">Guides</a> › Troubleshooting</sub>
+
 # Troubleshooting
 
 **"Custom element doesn't exist: vivid-led-group".** The resource is not

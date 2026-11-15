@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/bill.jpg" alt="Bill" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Bill</sub>
+
 # vivid-bill-card
 
 The bill in progress: its estimated amount at the end of the billing cycle,

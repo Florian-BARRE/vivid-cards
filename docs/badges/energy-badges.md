@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/energy-badges.jpg" alt="Energy badges" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#badges">Badges</a> › Energy badges</sub>
+
 # Energy badges
 
 <p><img src="../assets/cards/energy-badges.png" alt="Energy badges" width="440" /></p>

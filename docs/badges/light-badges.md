@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="../assets/headers/light-badges.jpg" alt="Light badges" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#badges">Badges</a> › Light badges</sub>
+
 # Light badges
+
+> [!TIP]
+> **Works with [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot)**: choose **Vivid Pilot** as the
+> card's source and pick a room or a group; Vivid Pilot has sorted the rest. Every setting stays adjustable,
+> and **Manual** works without it.
 
 Three badges for the badge bar of a dashboard (Home Assistant 2024.8 or later),
 one per kind of light, with the same gestures:
