@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-11-15
+
+### Fixed
+
+- **Sliders no longer jump back**: after a drag, the brightness and color bars
+  keep the value set until Home Assistant reports it (or 4 s pass). Before,
+  the first update in between (a group's strips answering one by one, a
+  transition, any other attribute) put the slider back to the old value, then
+  forward again.
+- **Pop-ups open reliably on phones**: a long press is 450 ms everywhere
+  (before the phone's own long-press, which cancelled it now and then), the
+  Android context menu counts as the long press, iOS callouts are off, and a
+  finger may drift a little more before a press becomes a slide.
+- Reopening a details pop-up while it is closing (`details.hash`) no longer
+  leaves it shut.
+- Opening a pop-up no longer shifts the dashboard by the scrollbar width, and
+  a dashboard re-laying out its cards no longer closes an open pop-up.
+
+### Changed
+
+- Pop-ups arrive with a softer curve (an iOS-like sheet on phones) and leave
+  faster; with reduced motion they only fade.
+
 ## [1.3.1] - 2026-11-13
 
 ### Fixed

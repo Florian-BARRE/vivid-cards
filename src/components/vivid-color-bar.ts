@@ -6,7 +6,10 @@ import { clamp, hsToRgb, kelvinToRgb, rgbCss } from '../core/color';
 import { defineElement } from '../core/register';
 import { tokens } from './shared-styles';
 
-const PENDING_TIMEOUT_MS = 2000;
+/** Longest wait for Home Assistant to report the value that was sent. */
+const PENDING_TIMEOUT_MS = 4000;
+/** How close (in % of the bar) the reported value must come to count as arrived. */
+const SETTLED_TOLERANCE = 0.02;
 const HUE_GRADIENT =
   'linear-gradient(90deg, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%)';
 const TEMPERATURE_STOPS = 6;
@@ -116,7 +119,27 @@ export class VividColorBar extends LitElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has('value') && this.pointerId === undefined) this._preview = undefined;
+    // The value just picked stays until Home Assistant reports it (or the
+    // wait runs out): the values in between would make the thumb jump back.
+    if (
+      changed.has('value') &&
+      this.pointerId === undefined &&
+      this._preview !== undefined &&
+      this.value !== undefined &&
+      this.settled(this.value, this._preview)
+    ) {
+      this._preview = undefined;
+      window.clearTimeout(this.pendingTimer);
+    }
+  }
+
+  /** The reported value is close enough to the one sent (hues wrap around). */
+  private settled(reported: number, sent: number): boolean {
+    const [low, high] = this.range;
+    const span = high - low;
+    let gap = Math.abs(reported - sent);
+    if (this.kind === 'hue') gap = Math.min(gap, span - gap);
+    return gap <= Math.max(span * SETTLED_TOLERANCE, 1);
   }
 
   override disconnectedCallback(): void {

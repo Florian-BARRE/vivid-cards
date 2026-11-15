@@ -12,8 +12,8 @@ import { snapBrightness } from '../../components/vivid-light-tile';
 import { buttonReset, tokens } from '../../components/shared-styles';
 import type { DetailsLayout } from './config';
 import type { BadgeLight, LightBadgeModel } from './model';
+import { HOLD_MS } from '../../core/gestures';
 
-const HOLD_MS = 500;
 const SLIDE_PX = 6;
 /** How long a released value is shown before following Home Assistant again. */
 const PREVIEW_MS = 1500;
@@ -136,6 +136,7 @@ export class VividLightBadgeDetails extends LitElement {
         white-space: nowrap;
         cursor: default;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         user-select: none;
       }
 

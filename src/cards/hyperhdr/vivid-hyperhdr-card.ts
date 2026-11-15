@@ -272,7 +272,7 @@ export class VividHyperHdrCard extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.dialog?.unmount();
+    this.dialog?.ownerDisconnected(this);
   }
 
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {

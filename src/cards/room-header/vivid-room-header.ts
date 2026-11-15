@@ -21,8 +21,8 @@ import type { ShownBadge } from './badges';
 import { buildRoomHeaderModel, powerTap, type HaloSource, type RoomHeaderModel } from './model';
 import { PilotIndex } from '../../core/pilot';
 import './vivid-room-header-editor';
+import { HOLD_MS } from '../../core/gestures';
 
-const HOLD_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 /** Opacity of a glow at full brightness and 100 % halo. */
 const GLOW_ALPHA = 0.3;
@@ -176,6 +176,7 @@ export class VividRoomHeader extends LitElement {
         touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         transition:
           background-color 0.3s ease,
           color 0.3s ease,
