@@ -66,6 +66,10 @@ export class VividLedGroup extends LitElement {
   private dialog?: VividDialog;
   /** The details hash was pushed by this card, so closing goes back in history. */
   private pushedHash = false;
+  /** Closing went through history.back(): the hash is still there until it lands. */
+  private backPending = false;
+  /** Opened again while closing: open once the hash has gone. */
+  private reopenAfterBack = false;
 
   static getConfigElement(): HTMLElement {
     return document.createElement('vivid-led-group-editor');
@@ -184,7 +188,7 @@ export class VividLedGroup extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     for (const type of NAVIGATION_EVENTS) window.removeEventListener(type, this.syncWithLocation);
-    this.dialog?.unmount();
+    this.dialog?.ownerDisconnected(this);
   }
 
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
@@ -294,6 +298,16 @@ export class VividLedGroup extends LitElement {
     const hash = this.detailsHash;
     if (!hash) return;
     const matches = window.location.hash === hash;
+    if (this.backPending) {
+      if (matches) return;
+      this.backPending = false;
+      if (this.reopenAfterBack) {
+        this.reopenAfterBack = false;
+        this.dialog?.hide();
+        this.openDetails();
+        return;
+      }
+    }
     if (matches && !this.dialog?.open) this.showDetails();
     else if (!matches && this.dialog?.open) {
       this.pushedHash = false;
@@ -304,6 +318,11 @@ export class VividLedGroup extends LitElement {
   private readonly openDetails = (): void => {
     if (!this.model?.detailsEnabled) {
       if (this.model) openMoreInfo(this, this.model.entityId);
+      return;
+    }
+    if (this.backPending) {
+      // Still closing: opening now would be undone when the hash goes.
+      this.reopenAfterBack = true;
       return;
     }
     const hash = this.detailsHash;
@@ -321,6 +340,9 @@ export class VividLedGroup extends LitElement {
     if (hash && window.location.hash === hash) {
       if (this.pushedHash) {
         this.pushedHash = false;
+        this.backPending = true;
+        // The sheet leaves now; the hash follows when the browser goes back.
+        this.dialog?.hide();
         window.history.back();
       } else {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);

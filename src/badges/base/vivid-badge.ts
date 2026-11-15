@@ -18,8 +18,8 @@ import { VividPopover } from '../../components/vivid-popover';
 import { watchedChanged } from '../../cards/led-group/model';
 import { withPilotEntity } from '../../core/pilot';
 import type { BadgeLook, IconColor, ResolvedBaseBadge } from './config';
+import { HOLD_MS } from '../../core/gestures';
 
-const HOLD_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 /** Durations on badges ("open for 12 min") refresh at this pace. */
 const TICK_MS = 30_000;
@@ -195,6 +195,7 @@ export abstract class VividBadge<C extends ResolvedBaseBadge> extends LitElement
         white-space: nowrap;
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         touch-action: manipulation;
         transition:
           box-shadow 0.4s ease,

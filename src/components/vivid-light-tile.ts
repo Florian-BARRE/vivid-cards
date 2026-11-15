@@ -24,13 +24,17 @@ import { tokens } from './shared-styles';
 import './vivid-chip';
 import './vivid-color-bar';
 import './vivid-select-chip';
+import { HOLD_MS } from '../core/gestures';
 
-const HOLD_MS = 500;
 /** Saturation (%) sent with a hue picked on the color bar. */
 const FULL_SATURATION = 100;
-const SLIDE_THRESHOLD_PX = 8;
+/** A finger held still drifts a few pixels: it needs more room than a mouse. */
+const SLIDE_THRESHOLD_PX = { mouse: 6, touch: 14 } as const;
 const SCROLL_THRESHOLD_PX = 10;
-const PENDING_TIMEOUT_MS = 2000;
+/** Longest wait for Home Assistant to report the brightness that was sent. */
+const PENDING_TIMEOUT_MS = 4000;
+/** Reported brightness this close (in %) to the one sent: it arrived. */
+const SETTLED_TOLERANCE = 2;
 const KEY_STEP = 5;
 const KEY_COMMIT_DELAY_MS = 400;
 const DOUBLE_TAP_MS = 250;
@@ -39,6 +43,7 @@ export type TileGesture = 'tap' | 'hold' | 'double_tap';
 
 type Gesture = {
   pointerId: number;
+  touch: boolean;
   startX: number;
   startY: number;
   sliding: boolean;
@@ -283,6 +288,7 @@ export class VividLightTile extends LitElement {
         touch-action: pan-y;
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
       .surface:focus-visible {
@@ -475,11 +481,18 @@ export class VividLightTile extends LitElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has('hass') && this.gesture === undefined && this.keyTimer === undefined) {
-      const previous = changed.get('hass');
-      if (this.entityId && previous?.states[this.entityId] !== this.hass?.states[this.entityId]) {
-        this._preview = undefined;
-      }
+    // The value just set stays shown until Home Assistant reports it: the
+    // updates in between (a group's members one by one, a transition, any
+    // other attribute) would otherwise make the slider jump back, then forward.
+    if (
+      changed.has('hass') &&
+      this._preview !== undefined &&
+      this.gesture?.sliding !== true &&
+      this.keyTimer === undefined &&
+      Math.abs(this.currentBrightness() - this._preview) <= SETTLED_TOLERANCE
+    ) {
+      this._preview = undefined;
+      window.clearTimeout(this.pendingTimer);
     }
   }
 
@@ -561,6 +574,7 @@ export class VividLightTile extends LitElement {
     if (!this.available || event.button !== 0 || this.gesture) return;
     const gesture: Gesture = {
       pointerId: event.pointerId,
+      touch: event.pointerType !== 'mouse',
       startX: event.clientX,
       startY: event.clientY,
       sliding: false,
@@ -593,7 +607,7 @@ export class VividLightTile extends LitElement {
         window.clearTimeout(gesture.holdTimer);
         return;
       }
-      if (Math.abs(dx) < SLIDE_THRESHOLD_PX) return;
+      if (Math.abs(dx) < SLIDE_THRESHOLD_PX[gesture.touch ? 'touch' : 'mouse']) return;
       gesture.sliding = true;
       window.clearTimeout(gesture.holdTimer);
       this.renderRoot.querySelector('.tile')?.classList.add('sliding');
@@ -615,8 +629,24 @@ export class VividLightTile extends LitElement {
 
   private readonly onPointerCancel = (event: PointerEvent): void => {
     if (event.pointerId !== this.gesture?.pointerId) return;
+    const sliding = this.gesture.sliding;
     this.resetGesture();
-    this._preview = undefined;
+    // A slide cut short keeps nothing; a value already sent stays pending.
+    if (sliding) this._preview = undefined;
+  };
+
+  /**
+   * A long press also opens the browser's context menu (Android) at about the
+   * hold delay: it takes the press as the hold, instead of racing it and
+   * cancelling the gesture.
+   */
+  private readonly onContextMenu = (event: Event): void => {
+    event.preventDefault();
+    const gesture = this.gesture;
+    if (!gesture || gesture.sliding || gesture.cancelled || gesture.held) return;
+    window.clearTimeout(gesture.holdTimer);
+    gesture.held = true;
+    this.emit('hold');
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
@@ -868,7 +898,7 @@ export class VividLightTile extends LitElement {
         @pointerup=${this.onPointerUp}
         @pointercancel=${this.onPointerCancel}
         @keydown=${this.onKeyDown}
-        @contextmenu=${(event: Event) => event.preventDefault()}
+        @contextmenu=${this.onContextMenu}
       >
         <div class="icon"><ha-icon .icon=${this.icon}></ha-icon></div>
         <div class="text">

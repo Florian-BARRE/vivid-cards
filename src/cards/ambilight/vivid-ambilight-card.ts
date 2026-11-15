@@ -655,7 +655,7 @@ export class VividAmbilightCard extends LitElement {
     window.clearTimeout(this.stopTimer);
     for (const timer of this.phaseTimers.values()) window.clearTimeout(timer);
     this.phaseTimers.clear();
-    this.dialog?.unmount();
+    this.dialog?.ownerDisconnected(this);
     this.closeMenu();
   }
 

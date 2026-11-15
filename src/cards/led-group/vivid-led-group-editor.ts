@@ -253,7 +253,9 @@ export class VividLedGroupEditor extends LitElement {
         ? this.t('capability_temperature')
         : this.t('capability_dimmable');
     const wled = model.detected.filter((m) => m.wled).length;
-    const facts = model.isGroup ? [this.t('lights_count', { count: model.detected.length })] : [];
+    const facts = model.isGroup
+      ? [this.plural(model.detected.length, 'strips_one', 'strips_other')]
+      : [];
     if (wled > 0)
       facts.push(model.isGroup ? this.t('wled_count', { count: wled }) : this.t('wled'));
     facts.push(capability);
@@ -1111,13 +1113,13 @@ export class VividLedGroupEditor extends LitElement {
     if (!model.isGroup) return nothing;
     const hidden = model.detected.filter((strip) => strip.hidden).length;
     const summary = this.join([
-      this.t('lights_count', { count: model.detected.length }),
+      this.plural(model.detected.length, 'strips_one', 'strips_other'),
       hidden > 0 && this.plural(hidden, 'hidden_one', 'hidden_other'),
       resolved.details.sort === 'custom' && this.t('sort_custom'),
     ]);
     return this.section(
       'lights',
-      'mdi:lightbulb-group',
+      'mdi:led-strip-variant',
       this.t('members_title'),
       summary,
       () => html`
@@ -1125,7 +1127,7 @@ export class VividLedGroupEditor extends LitElement {
           open
           .hass=${this.hass}
           .label=${this.t('members_title')}
-          icon="mdi:lightbulb-group"
+          icon="mdi:led-strip-variant"
           .multiple=${true}
           .domains=${['light']}
           .modes=${['auto'] as const}

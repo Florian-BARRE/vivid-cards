@@ -46,8 +46,8 @@ import { canFold, initialFold, rememberFold } from './fold';
 import type { LampEnergy } from './vivid-lamp-group-details';
 import './vivid-lamp-group-details';
 import './vivid-lamp-group-editor';
+import { HOLD_MS } from '../../core/gestures';
 
-const HOLD_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 /** Durations ("on for 35 min") refresh at this pace. */
 const TICK_MS = 30_000;
@@ -222,6 +222,7 @@ export class VividLampGroup extends LitElement {
         border-radius: 16px;
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         touch-action: manipulation;
       }
       .lamp:active .disc,
@@ -445,6 +446,7 @@ export class VividLampGroup extends LitElement {
         color: var(--disc-color, var(--disabled-text-color, rgba(255, 255, 255, 0.4)));
         user-select: none;
         -webkit-user-select: none;
+        -webkit-touch-callout: none;
         touch-action: manipulation;
         transition:
           background 0.4s ease,
@@ -494,7 +496,7 @@ export class VividLampGroup extends LitElement {
     super.disconnectedCallback();
     this.cancelPress();
     this.stopTicker();
-    this.dialog?.unmount();
+    this.dialog?.ownerDisconnected(this);
   }
 
   protected override shouldUpdate(changed: PropertyValues<this>): boolean {
@@ -624,6 +626,19 @@ export class VividLampGroup extends LitElement {
     if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > MOVE_TOLERANCE_PX) {
       this.cancelPress();
     }
+  };
+
+  /**
+   * A long press also opens the browser's context menu (Android) at about the
+   * hold delay: it takes the press as the hold instead of racing it.
+   */
+  private readonly onContextMenu = (event: Event): void => {
+    event.preventDefault();
+    const press = this.press;
+    if (!press || press.held) return;
+    window.clearTimeout(press.timer);
+    press.held = true;
+    this.run(press.target, 'hold');
   };
 
   private onPointerUp(event: PointerEvent, target: string): void {
@@ -858,7 +873,7 @@ export class VividLampGroup extends LitElement {
       @pointerup=${gestures.up}
       @pointercancel=${() => this.cancelPress()}
       @keydown=${gestures.key}
-      @contextmenu=${(event: Event) => event.preventDefault()}
+      @contextmenu=${this.onContextMenu}
     >
       <span class="disc" style=${this.discStyle(lamp)}>
         <ha-icon .icon=${lamp.isOn ? lamp.icon : lamp.iconOff}></ha-icon>${this.renderWarn(lamp)}
@@ -923,7 +938,7 @@ export class VividLampGroup extends LitElement {
       @pointerup=${gestures.up}
       @pointercancel=${() => this.cancelPress()}
       @keydown=${gestures.key}
-      @contextmenu=${(event: Event) => event.preventDefault()}
+      @contextmenu=${this.onContextMenu}
     >
       <ha-icon .icon=${lamp.isOn ? lamp.icon : lamp.iconOff}></ha-icon>${this.renderWarn(lamp)}
     </button>`;
@@ -961,7 +976,7 @@ export class VividLampGroup extends LitElement {
           @pointerup=${title.up}
           @pointercancel=${() => this.cancelPress()}
           @keydown=${title.key}
-          @contextmenu=${(event: Event) => event.preventDefault()}
+          @contextmenu=${this.onContextMenu}
         >
           <span
             class="group-disc"

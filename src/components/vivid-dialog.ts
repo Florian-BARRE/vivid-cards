@@ -35,6 +35,7 @@ export class VividDialog extends LitElement {
   private hideTimer?: number;
   private previousFocus?: Element | null;
   private previousOverflow = '';
+  private previousPadding = '';
   private swipe?: { pointerId: number; startY: number; offset: number };
 
   constructor() {
@@ -85,10 +86,11 @@ export class VividDialog extends LitElement {
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
         opacity: 0;
-        transition: opacity ${CLOSE_ANIMATION_MS}ms ease;
+        transition: opacity 180ms ease;
       }
       :host([open]) .backdrop {
         opacity: 1;
+        transition-duration: 240ms;
       }
       .sheet {
         position: absolute;
@@ -103,15 +105,19 @@ export class VividDialog extends LitElement {
         background: var(--vivid-layer-0);
         box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
         opacity: 0;
-        transform: translate(-50%, calc(-50% + 24px)) scale(0.98);
+        transform: translate(-50%, calc(-50% + 16px)) scale(0.97);
+        /* Leaving is quicker than arriving. */
         transition:
-          opacity ${CLOSE_ANIMATION_MS}ms ease,
-          transform ${CLOSE_ANIMATION_MS}ms ease;
+          opacity 160ms ease,
+          transform 200ms ease;
         outline: none;
       }
       :host([open]) .sheet {
         opacity: 1;
         transform: translate(-50%, -50%);
+        transition:
+          opacity 200ms ease,
+          transform 320ms cubic-bezier(0.23, 1, 0.32, 1);
       }
       @media (min-width: 601px) {
         :host([wide]) .sheet {
@@ -168,15 +174,21 @@ export class VividDialog extends LitElement {
         }
         :host([open]) .sheet {
           transform: translateY(var(--swipe-offset, 0px));
+          /* The iOS sheet curve: quick start, long soft landing. */
+          transition:
+            opacity 200ms ease,
+            transform 380ms cubic-bezier(0.32, 0.72, 0, 1);
         }
         .body {
           padding: 4px 12px 16px;
         }
       }
       @media (prefers-reduced-motion: reduce) {
+        /* Fades stay, movement goes. */
         .backdrop,
-        .sheet {
-          transition: none;
+        .sheet,
+        :host([open]) .sheet {
+          transition-property: opacity;
         }
       }
     `,
@@ -188,8 +200,13 @@ export class VividDialog extends LitElement {
     if (!this.isConnected) {
       this.previousFocus = document.activeElement;
       this.previousOverflow = document.body.style.overflow;
+      this.previousPadding = document.body.style.paddingRight;
+      // Hiding the scrollbar widens the page: the gap it leaves is filled, so
+      // the dashboard does not shift (or reflow) behind the dialog.
+      const scrollbar = window.innerWidth - document.documentElement.clientWidth;
       document.body.appendChild(this);
       document.body.style.overflow = 'hidden';
+      if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
     }
     void this.updateComplete.then(() => this.raise());
     requestAnimationFrame(() => {
@@ -210,12 +227,23 @@ export class VividDialog extends LitElement {
     this.hideTimer = window.setTimeout(() => this.unmount(), CLOSE_ANIMATION_MS);
   }
 
-  /** Unmounts immediately (owner disconnected). */
+  /**
+   * The owner card left the page: unmount, unless it was only moved (a
+   * dashboard re-laying out its cards detaches and re-attaches them at once).
+   */
+  ownerDisconnected(owner: Element): void {
+    requestAnimationFrame(() => {
+      if (!owner.isConnected) this.unmount();
+    });
+  }
+
+  /** Unmounts immediately. */
   unmount(): void {
     window.clearTimeout(this.hideTimer);
     if (!this.isConnected) return;
     this.open = false;
     document.body.style.overflow = this.previousOverflow;
+    document.body.style.paddingRight = this.previousPadding;
     this.layer()?.close();
     this.remove();
     if (this.previousFocus instanceof HTMLElement && this.previousFocus.isConnected) {
