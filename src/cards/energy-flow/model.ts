@@ -13,16 +13,22 @@ import { ENERGY_PERIODS, type DeviceRow, type EnergyPeriod } from '../../energy/
 
 export const ENERGY_FLOW = 'vivid-energy-flow';
 
+/** The consumers as a flow (rooms to devices) or as a ranked list. */
+export type FlowView = 'flow' | 'list';
+export const FLOW_VIEWS: FlowView[] = ['flow', 'list'];
+
 export interface EnergyPeriodConfig extends EnergyBaseConfig {
   type: string;
   period?: EnergyPeriod;
   /** Devices drawn one by one; the others are grouped. */
   max_devices?: number;
+  view?: FlowView;
 }
 
 export interface ResolvedPeriodCard extends ResolvedEnergyBase {
   period: EnergyPeriod;
   maxDevices: number;
+  view: FlowView;
 }
 
 export function resolvePeriodCard(tag: string, raw: unknown): ResolvedPeriodCard {
@@ -33,6 +39,7 @@ export function resolvePeriodCard(tag: string, raw: unknown): ResolvedPeriodCard
     ...base,
     period: choice(config, 'period', ENERGY_PERIODS, 'month', fail),
     maxDevices: integer(config, 'max_devices', 6, 1, 20, fail),
+    view: choice(config, 'view', FLOW_VIEWS, 'flow', fail),
   };
 }
 
@@ -75,4 +82,26 @@ export function spreadLabels(
     placed[i] = Math.min(placed[i]!, limit);
   }
   return placed;
+}
+
+/** One consumer drawn in the flow: a room's device (or the room itself), with its room. */
+export interface FlowLeaf {
+  room: DeviceRow;
+  row: DeviceRow;
+}
+
+/**
+ * The rooms drawn (the biggest ones, the rest grouped) and, for each, the
+ * devices it splits into: its children when it has some, else itself.
+ */
+export function flowLeaves(rooms: readonly DeviceRow[]): FlowLeaf[] {
+  return rooms.flatMap((room) => {
+    const children = room.children.filter((child) => child.kwh > 0);
+    const rest = room.kwh - children.reduce((sum, child) => sum + child.kwh, 0);
+    const parts = children.length ? [...children] : [room];
+    // What the room measures beyond its devices stays on its own band.
+    if (children.length && rest > room.kwh * 0.02)
+      parts.push({ stat: `${room.stat}:rest`, name: room.name, kwh: rest, cost: 0, children: [] });
+    return parts.map((row) => ({ room, row }));
+  });
 }

@@ -6,6 +6,7 @@
  * requests.
  */
 import { PilotIndex, parseNodeKey } from '../core/pilot';
+import { pilotCategoryName } from '../i18n/pilot';
 import { resolveSlot, type ParsedSlot } from '../core/slots';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { HomeAssistant } from '../core/hass-types';
@@ -166,7 +167,13 @@ export function pilotDevices(hass: HomeAssistant): DeviceSource[] {
       const key = parseNodeKey(node);
       const child =
         key.area === room.area && key.category ? index.entity(node, 'energy') : undefined;
-      if (child) devices.push({ stat: child, includedIn: stat });
+      // Named by its category ("LEDs"), shown under its room.
+      if (child && key.category)
+        devices.push({
+          stat: child,
+          name: pilotCategoryName(hass, key.category),
+          includedIn: stat,
+        });
     }
   }
   return devices;

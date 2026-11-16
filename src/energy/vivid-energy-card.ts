@@ -15,12 +15,12 @@ import { localize } from '../i18n';
 import type { ResolvedEnergyBase } from './config';
 import { EnergyController, type EnergyData, type EnergyNeeds } from './data';
 import { dateKey } from './days';
+import { ENERGY_RGB } from './format';
 import { energyStyles } from './styles';
 
-/** The title row of an energy card. */
+/** The title row of an energy card (every electricity card shares its accent). */
 export interface EnergyHead {
   icon: string;
-  color: Rgb;
   title: string;
   sub?: string;
   /** Next to the title: period chips, a delta. */
@@ -138,7 +138,7 @@ export abstract class VividEnergyCard<C extends ResolvedEnergyBase> extends LitE
     return html`<div class="head">
       <span
         class="disc"
-        style=${styleMap({ '--disc': `rgb(${head.color.join(', ')})`, '--disc-rgb': head.color.join(', ') })}
+        style=${styleMap({ '--disc': `rgb(${ENERGY_RGB.join(', ')})`, '--disc-rgb': ENERGY_RGB.join(', ') })}
         ><ha-icon .icon=${head.icon}></ha-icon
       ></span>
       <div class="grow">
@@ -178,30 +178,65 @@ export abstract class VividEnergyCard<C extends ResolvedEnergyBase> extends LitE
     const state = this.renderState(data);
     const body = state ?? (data ? this.renderBody(config, data) : nothing);
     return html`<ha-card class=${this.cardClass()} style=${styleMap(glowVars(config.glow))}>
-      ${this.glows() && config.glow > 0 ? this.halo(head.color) : nothing} ${this.renderHead(head)}
+      ${this.glows() && config.glow > 0 ? this.halo(ENERGY_RGB) : nothing} ${this.renderHead(head)}
       ${body === nothing ? nothing : html`<div class="body">${body}</div>`}
     </ha-card>`;
   }
 }
 
-/** Chips choosing a period (day, week, month, year). */
-export function periodChips<P extends string>(
+/** The previous / next arrows of a period, the same on every electricity card. */
+export interface PeriodStep {
+  previous: string;
+  next: string;
+  canPrevious: boolean;
+  canNext: boolean;
+  move: (step: -1 | 1) => void;
+}
+
+/** One arrow of a period. */
+function periodArrow(step: -1 | 1, nav: PeriodStep) {
+  const enabled = step < 0 ? nav.canPrevious : nav.canNext;
+  return html`<button
+    type="button"
+    class="reset icon-button"
+    ?disabled=${!enabled}
+    aria-label=${step < 0 ? nav.previous : nav.next}
+    @click=${() => nav.move(step)}
+  >
+    <ha-icon icon=${step < 0 ? 'mdi:chevron-left' : 'mdi:chevron-right'}></ha-icon>
+  </button>`;
+}
+
+/** Just the arrows, next to a title (the month of the calendar). */
+export function periodArrows(nav: PeriodStep) {
+  return html`<div class="arrows">${periodArrow(-1, nav)}${periodArrow(1, nav)}</div>`;
+}
+
+/**
+ * The period bar of the electricity cards: the periods side by side (the
+ * active one in the accent), then the arrows when the period can move.
+ */
+export function periodBar<P extends string>(
   periods: readonly P[],
   current: P,
   label: (period: P) => string,
   pick: (period: P) => void,
+  nav?: PeriodStep,
 ) {
-  return html`<div class="chips" role="group">
-    ${periods.map(
-      (period) =>
-        html`<button
-          type="button"
-          class="reset chip"
-          aria-pressed=${String(period === current)}
-          @click=${() => pick(period)}
-        >
-          ${label(period)}
-        </button>`,
-    )}
+  return html`<div class="period-bar">
+    <div class="segments" role="group">
+      ${periods.map(
+        (period) =>
+          html`<button
+            type="button"
+            class="reset segment"
+            aria-pressed=${String(period === current)}
+            @click=${() => pick(period)}
+          >
+            ${label(period)}
+          </button>`,
+      )}
+    </div>
+    ${nav ? periodArrows(nav) : nothing}
   </div>`;
 }

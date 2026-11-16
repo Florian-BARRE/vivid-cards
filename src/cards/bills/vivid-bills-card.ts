@@ -1,6 +1,6 @@
 import { css, html, nothing, type CSSResultGroup } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
-import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
+import { defineElement } from '../../core/register';
 import { localize } from '../../i18n';
 import {
   failer,
@@ -170,7 +170,6 @@ export class VividBillsCard extends VividEnergyCard<ResolvedBillsCard> {
   protected head(config: ResolvedBillsCard): EnergyHead {
     return {
       icon: 'mdi:receipt-text-clock-outline',
-      color: [255, 112, 67],
       title: config.name ?? localize(this.hass, 'energy_bills'),
       sub: localize(this.hass, 'energy_bills_sub'),
     };
@@ -263,14 +262,8 @@ export class VividBillsCard extends VividEnergyCard<ResolvedBillsCard> {
 
 defineElement(BILLS_CARD, VividBillsCard);
 
-registerCard({
-  type: BILLS_CARD,
-  name: 'Vivid bills',
-  description:
-    'Past bills, the one in progress with its projection, and the next one at the same pace.',
-  preview: true,
-  documentationURL: `${REPOSITORY_URL}#vivid-bills-card`,
-});
+// Not in the card picker any more: replaced by the Bill card (its previous cycles). Still defined, so
+// dashboards that use it keep working.
 
 declare global {
   interface HTMLElementTagNameMap {

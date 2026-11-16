@@ -1,7 +1,7 @@
 import { html, nothing, type TemplateResult } from 'lit';
 import { PilotIndex, pilotStub } from '../../core/pilot';
 import type { HomeAssistant, Rgb } from '../../core/hass-types';
-import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
+import { defineElement } from '../../core/register';
 import { formEditor } from '../../core/vivid-form-editor';
 import { localize } from '../../i18n';
 import { formatWatts } from '../../components/vivid-light-header';
@@ -115,13 +115,8 @@ export class VividPowerCard extends VividFocusCard<ResolvedPowerCard> {
 
 defineElement(POWER_CARD, VividPowerCard);
 
-registerCard({
-  type: POWER_CARD,
-  name: 'Vivid consumption',
-  description: 'The consumption of lights or devices over 6 h, 24 h or 7 days, with its cost.',
-  preview: false,
-  documentationURL: `${REPOSITORY_URL}/blob/main/docs/cards/power.md`,
-});
+// Not in the card picker any more: replaced by the energy badges and the room header (live power) and the energy calendar (the day's curve). Still defined, so
+// dashboards that use it keep working.
 
 declare global {
   interface HTMLElementTagNameMap {

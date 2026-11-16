@@ -6,6 +6,7 @@ export const energyStyles = css`
     --energy-peak: rgb(255, 193, 7);
     --energy-off-peak: rgb(121, 134, 203);
     --energy-subscription: rgba(var(--vivid-rgb-text), 0.35);
+    --energy-accent: rgb(255, 138, 61);
     --energy-hatch: repeating-linear-gradient(
       135deg,
       rgba(var(--vivid-rgb-text), 0.28) 0 5px,
@@ -48,17 +49,14 @@ export const energyStyles = css`
     font-size: 16px;
     font-weight: 700;
     line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
+  /* Never cut: a long subtitle or label wraps instead. */
   .sub {
     font-size: 12.5px;
     color: var(--vivid-muted);
     line-height: 1.35;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   .num {
     font-variant-numeric: tabular-nums;
@@ -82,8 +80,46 @@ export const energyStyles = css`
     align-items: center;
   }
   .chip[aria-pressed='true'] {
-    background: rgba(255, 193, 7, 0.2);
-    color: rgb(255, 193, 7);
+    background: rgba(255, 138, 61, 0.2);
+    color: var(--energy-accent);
+  }
+  /* The period bar: periods side by side, the active one in the accent, then the arrows. */
+  .period-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .segments {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 19px;
+    background: rgba(var(--vivid-rgb-text), 0.06);
+  }
+  .segment {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 15px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+  .segment[aria-pressed='true'] {
+    background: var(--energy-accent);
+    color: #1b1b20;
+  }
+  .period-bar .arrows {
+    margin-left: auto;
+  }
+  .arrows {
+    display: inline-flex;
+    gap: 4px;
   }
   .badge-chip {
     height: 28px;

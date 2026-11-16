@@ -569,6 +569,14 @@ const en = {
   air_tab_frame: 'Frame',
   air_tab_screen: 'Screen',
   air_tab_settings: 'Settings',
+  energy_layout_ring: 'Card, split as a ring',
+  energy_history_show: 'Previous cycles',
+  energy_calendar_show: 'Shows',
+  energy_calendar_show_month: 'The month, the chosen day under it',
+  energy_calendar_show_day: 'One day, hour by hour',
+  energy_flow_view: 'Shows',
+  energy_flow_view_flow: 'A flow, rooms to devices',
+  energy_flow_view_list: 'A ranked list',
 };
 
 type EditorStrings = typeof en;
@@ -1151,6 +1159,14 @@ const fr: EditorStrings = {
   air_tab_frame: 'Cadre',
   air_tab_screen: 'Écran',
   air_tab_settings: 'Réglages',
+  energy_layout_ring: 'Carte, répartition en anneau',
+  energy_history_show: 'Cycles précédents',
+  energy_calendar_show: 'Affiche',
+  energy_calendar_show_month: 'Le mois, le jour choisi dessous',
+  energy_calendar_show_day: 'Un jour, heure par heure',
+  energy_flow_view: 'Affiche',
+  energy_flow_view_flow: 'Un flux, des pièces aux appareils',
+  energy_flow_view_list: 'Une liste classée',
 };
 
 const LANGUAGES: Record<string, EditorStrings> = { en, fr };

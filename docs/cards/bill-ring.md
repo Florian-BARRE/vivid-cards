@@ -6,6 +6,11 @@
 
 # vivid-bill-ring
 
+> [!NOTE]
+> **Replaced by `vivid-bill-card`** (`layout: ring`). This card still works on the dashboards that
+> use it, but it left the card picker and gets no new feature: switch to
+> [`vivid-bill-card`](bill.md).
+
 A bill as rings. `ring: money` shows where each euro goes (peak, off-peak,
 subscription) around the total; `ring: off_peak` shows the share of energy
 drawn in off-peak hours, the one that pays off with an off-peak contract.

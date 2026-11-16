@@ -1,9 +1,9 @@
-import { css, html, nothing, type CSSResultGroup } from 'lit';
+import { html, nothing, type CSSResultGroup } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize, localeOf } from '../../i18n';
-import { resolveEnergyBase, SAMPLE_TARIFF, type ResolvedEnergyBase } from '../../energy/config';
+import { SAMPLE_TARIFF } from '../../energy/config';
 import type { EnergyData, EnergyNeeds } from '../../energy/data';
 import { addDays, daysBetween } from '../../energy/days';
 import {
@@ -15,33 +15,40 @@ import {
   formatMonth,
   rgb,
 } from '../../energy/format';
-import { VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
+import { periodArrows, VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
 import { energyEditor } from '../../energy/vivid-energy-editor';
 import {
   calendarMonth,
   CALENDAR_REFERENCE_DAYS,
+  curveDates,
   loadCurve,
   type CalendarCell,
 } from '../../energy/views';
+import { formatWatts } from '../../energy/hour-chart';
 import type { Tariff } from '../../energy/tariff';
 import '../../energy/hour-chart';
 
-export const ENERGY_CALENDAR = 'vivid-energy-calendar';
+import { calendarStyles } from './styles';
 
-export function resolveEnergyCalendar(raw: unknown): ResolvedEnergyBase {
-  return resolveEnergyBase(ENERGY_CALENDAR, raw);
-}
+import { ENERGY_CALENDAR, resolveEnergyCalendar, type ResolvedEnergyCalendar } from './config';
+
+export { ENERGY_CALENDAR, resolveEnergyCalendar };
+
+/** Days with an hourly curve the day view moves through. */
+const DAY_VIEW_DAYS = 62;
 
 /** Months back the hourly data is read (the off-peak bar of older days stays empty). */
 const HOURLY_MAX_DAYS = 100;
 
 /**
- * A month, one cell per day: the cell's color says how much the day cost
- * against a usual day (cyan → red), the price is written big (subscription
- * included) and a bar splits it between off-peak and peak hours. Touching a
- * day shows its details.
+ * A month, one cell per day: the cell's orange grows more intense the more the
+ * day cost against a usual day, the price is written big (subscription
+ * included) and a bar splits it between off-peak and peak hours. Under the
+ * month, the chosen day (today by default): its peak / off-peak split, its
+ * hourly curve, its peak and off-peak kWh and its standby. With
+ * `show: day`, the day alone, moved day by day (the former load curve card).
  */
-export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
+export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyCalendar> {
   static override properties = {
     ...VividEnergyCard.properties,
     _shown: { state: true },
@@ -53,151 +60,29 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
   declare _selected?: string;
 
   static getConfigElement(): HTMLElement {
-    return energyEditor({ fields: [], validate: (config) => resolveEnergyCalendar(config) });
+    return energyEditor({
+      fields: [
+        {
+          name: 'show',
+          label: 'energy_calendar_show',
+          default: 'month',
+          options: [
+            { value: 'month', label: 'energy_calendar_show_month' },
+            { value: 'day', label: 'energy_calendar_show_day' },
+          ],
+        },
+      ],
+      validate: (config) => resolveEnergyCalendar(config),
+    });
   }
 
   static getStubConfig(): Record<string, unknown> {
     return { tariff: SAMPLE_TARIFF };
   }
 
-  static override styles: CSSResultGroup = [
-    VividEnergyCard.styles,
-    css`
-      .grid {
-        container-type: inline-size;
-        display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-        gap: clamp(3px, 1.2cqw, 8px);
-      }
-      .weekday {
-        text-align: center;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--vivid-muted);
-      }
-      .cell {
-        box-sizing: border-box;
-        min-height: clamp(52px, 13cqw, 96px);
-        border-radius: clamp(10px, 2.4cqw, 16px);
-        padding: clamp(4px, 1.2cqw, 8px) clamp(5px, 1.4cqw, 10px);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: 4px;
-        text-align: left;
-        min-width: 0;
-      }
-      .cell.data {
-        color: #ffffff;
-        cursor: pointer;
-      }
-      .cell.data:focus-visible {
-        outline: 2px solid var(--vivid-focus);
-        outline-offset: 2px;
-      }
-      .cell.selected {
-        box-shadow:
-          0 0 0 2px var(--primary-text-color),
-          0 0 16px var(--cell-glow) !important;
-      }
-      .cell.empty {
-        border: 1px dashed rgba(var(--vivid-rgb-text), 0.15);
-        color: var(--vivid-muted);
-      }
-      .cell.today {
-        border: 2px solid var(--primary-text-color);
-      }
-      .cell.past {
-        background: rgba(var(--vivid-rgb-text), 0.04);
-        color: var(--vivid-muted);
-      }
-      .day {
-        display: flex;
-        justify-content: space-between;
-        gap: 4px;
-        font-size: clamp(10px, 2.2cqw, 12px);
-        opacity: 0.85;
-        white-space: nowrap;
-        overflow: hidden;
-      }
-      .price {
-        font-size: clamp(10px, 3.1cqw, 22px);
-        font-weight: 800;
-        letter-spacing: -0.01em;
-        font-variant-numeric: tabular-nums;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: clip;
-      }
-      .hphc {
-        display: flex;
-        height: clamp(4px, 1cqw, 7px);
-        border-radius: 4px;
-        overflow: hidden;
-        background: rgba(0, 0, 0, 0.3);
-      }
-      .hphc i {
-        display: block;
-      }
-      .detail {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 12px 14px;
-        border-radius: 16px;
-        background: var(--vivid-layer-2);
-      }
-      .detail .top {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 10px;
-      }
-      .detail b {
-        font-size: 15px;
-      }
-      .hourly-waiting {
-        font-size: 12px;
-        line-height: 1.4;
-        white-space: normal;
-        overflow: visible;
-      }
-      .detail .amount {
-        font-size: 22px;
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-      }
-      .detail .split {
-        height: 12px;
-        border-radius: 6px;
-      }
-      .detail .figures {
-        display: flex;
-        justify-content: space-between;
-        font-size: 13px;
-      }
-      .total {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 10px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(var(--vivid-rgb-text), 0.1);
-      }
-      .total .num {
-        font-size: 20px;
-        font-weight: 800;
-      }
-      .scale {
-        width: 44px;
-        height: 10px;
-        border-radius: 3px;
-      }
-    `,
-  ];
+  static override styles: CSSResultGroup = [VividEnergyCard.styles, calendarStyles];
 
-  protected resolveConfig(raw: unknown): ResolvedEnergyBase {
+  protected resolveConfig(raw: unknown): ResolvedEnergyCalendar {
     return resolveEnergyCalendar(raw);
   }
 
@@ -211,7 +96,8 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     return `${shown.year}-${String(shown.month).padStart(2, '0')}-01`;
   }
 
-  protected needs(_config: ResolvedEnergyBase, today: string): EnergyNeeds {
+  protected needs(config: ResolvedEnergyCalendar, today: string): EnergyNeeds {
+    if (config.show === 'day') return { days: DAY_VIEW_DAYS, hourlyDays: DAY_VIEW_DAYS };
     const first = this.firstOf(this.shown(today));
     const back = daysBetween(addDays(first, -CALENDAR_REFERENCE_DAYS), today) + 1;
     return {
@@ -231,40 +117,72 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     this._selected = undefined;
   }
 
-  protected head(_config: ResolvedEnergyBase, data: EnergyData | undefined): EnergyHead {
+  /** Dates the day view can show: days with a whole hourly curve, before today. */
+  private curveDays(data: EnergyData | undefined): string[] {
+    return data ? curveDates(data.hourly).filter((date) => date < data.today) : [];
+  }
+
+  /** The day shown under the month, or alone: the chosen one, else the last day with data. */
+  private dayShown(
+    config: ResolvedEnergyCalendar,
+    data: EnergyData | undefined,
+  ): string | undefined {
+    if (config.show === 'day') {
+      const dates = this.curveDays(data);
+      return this._selected && dates.includes(this._selected) ? this._selected : dates.at(-1);
+    }
+    if (this._selected) return this._selected;
+    // The last day with data of the month shown.
+    if (!data) return undefined;
+    const first = this.firstOf(this.shown(data.today));
+    const month = first.slice(0, 7);
+    return data.days.filter((day) => day.date < data.today && day.date.startsWith(month)).at(-1)
+      ?.date;
+  }
+
+  protected head(config: ResolvedEnergyCalendar, data: EnergyData | undefined): EnergyHead {
     const hass = this.hass;
+    if (config.show === 'day') {
+      const dates = this.curveDays(data);
+      const date = this.dayShown(config, data);
+      const index = date ? dates.indexOf(date) : -1;
+      return {
+        icon: 'mdi:chart-bar',
+        title: config.name ?? (date ? formatLongDate(hass, date) : localize(hass, 'energy_curve')),
+        sub: localize(hass, 'energy_curve_sub'),
+        aside: dates.length
+          ? periodArrows({
+              previous: localize(hass, 'energy_previous_day'),
+              next: localize(hass, 'energy_next_day'),
+              canPrevious: index > 0,
+              canNext: index >= 0 && index < dates.length - 1,
+              move: (step) => {
+                const next = dates[index + step];
+                if (next) this._selected = next;
+              },
+            })
+          : nothing,
+      };
+    }
     const today = data?.today ?? this.today();
     const shown = this.shown(today);
     const [year, month] = today.split('-').map(Number) as [number, number];
     const first = data?.days[0]?.date;
-    const atStart = first !== undefined && this.firstOf(shown) <= first;
-    const atEnd = shown.year === year && shown.month === month;
     return {
       icon: 'mdi:calendar-month-outline',
-      color: [38, 198, 218],
-      title: formatMonth(hass, shown.year, shown.month),
+      title: config.name ?? formatMonth(hass, shown.year, shown.month),
       sub: localize(hass, 'energy_calendar_sub'),
-      aside: html`<button
-          type="button"
-          class="reset icon-button"
-          ?disabled=${atStart}
-          aria-label=${localize(hass, 'energy_previous_month')}
-          @click=${() => this.move(-1)}
-        >
-          <ha-icon icon="mdi:chevron-left"></ha-icon></button
-        ><button
-          type="button"
-          class="reset icon-button"
-          ?disabled=${atEnd}
-          aria-label=${localize(hass, 'energy_next_month')}
-          @click=${() => this.move(1)}
-        >
-          <ha-icon icon="mdi:chevron-right"></ha-icon>
-        </button>`,
+      aside: periodArrows({
+        previous: localize(hass, 'energy_previous_month'),
+        next: localize(hass, 'energy_next_month'),
+        canPrevious: !(first !== undefined && this.firstOf(shown) <= first),
+        canNext: !(shown.year === year && shown.month === month),
+        move: (step) => this.move(step),
+      }),
     };
   }
 
-  private renderCell(cell: CalendarCell) {
+  private renderCell(cell: CalendarCell, picked: string | undefined) {
     const hass = this.hass;
     if (cell.cost === undefined) {
       return html`<div
@@ -276,7 +194,7 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
       </div>`;
     }
     const color = costColor(cell.ratio ?? 1);
-    const selected = this._selected === cell.date;
+    const selected = picked === cell.date;
     const label = `${formatLongDate(hass, cell.date)} · ${formatMoney(hass, cell.cost)}`;
     return html`<button
       type="button"
@@ -290,7 +208,7 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
       aria-label=${label}
       title=${label}
       @click=${() => {
-        this._selected = selected ? undefined : cell.date;
+        this._selected = cell.date;
       }}
     >
       <span class="day"><span>${cell.day}</span></span>
@@ -309,14 +227,27 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     </button>`;
   }
 
-  private renderDetail(cell: CalendarCell | undefined, data: EnergyData, tariff: Tariff) {
+  /** The calendar cell of a date: its cost, kWh and off-peak share. */
+  private cellOf(date: string, data: EnergyData, tariff: Tariff): CalendarCell | undefined {
+    const [year, month] = date.split('-').map(Number) as [number, number];
+    return calendarMonth(data.days, tariff, year, month, data.today).cells.find(
+      (cell) => cell.date === date,
+    );
+  }
+
+  private renderDetail(
+    cell: CalendarCell | undefined,
+    data: EnergyData,
+    tariff: Tariff,
+    dated = true,
+  ) {
     if (!cell || cell.cost === undefined) return nothing;
     const hass = this.hass;
     const curve = loadCurve(data.hourly, tariff, cell.date);
     const share = cell.offPeakShare;
     return html`<div class="detail">
       <div class="top">
-        <b>${formatLongDate(hass, cell.date)}</b
+        <b>${dated ? formatLongDate(hass, cell.date) : localize(hass, 'energy_cost')}</b
         ><span class="amount">${formatMoney(hass, cell.cost)}</span>
       </div>
       ${
@@ -341,19 +272,44 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
       ${
         curve
           ? html`<vivid-hour-chart
-              class="hourly"
-              .legend=${false}
-              .hass=${hass}
-              .curve=${curve}
-              .tariff=${tariff}
-            ></vivid-hour-chart>`
+                class="hourly"
+                standby
+                .legend=${false}
+                .hass=${hass}
+                .curve=${curve}
+                .tariff=${tariff}
+              ></vivid-hour-chart>
+              <div class="tiles">
+                <div class="tile">
+                  <div class="sub">${localize(hass, 'energy_peak')}</div>
+                  <div class="value">${formatKwh(hass, curve.peakKwh)}</div>
+                </div>
+                <div class="tile">
+                  <div class="sub">${localize(hass, 'energy_off_peak')}</div>
+                  <div class="value">${formatKwh(hass, curve.offPeakKwh)}</div>
+                </div>
+                <div class="tile">
+                  <div class="sub">${localize(hass, 'energy_standby_tile')}</div>
+                  <div class="value">≈ ${formatWatts(hass, curve.standbyWatts)}</div>
+                  <div class="sub">
+                    ${localize(hass, 'energy_per_year', { v: formatMoney(hass, curve.standbyYear, 0) })}
+                  </div>
+                </div>
+              </div>`
           : html`<div class="sub hourly-waiting">${localize(hass, 'energy_day_waiting')}</div>`
       }
     </div>`;
   }
 
-  protected renderBody(config: ResolvedEnergyBase, data: EnergyData) {
+  protected renderBody(config: ResolvedEnergyCalendar, data: EnergyData) {
     const hass = this.hass;
+    if (config.show === 'day') {
+      const date = this.dayShown(config, data);
+      const cell = date ? this.cellOf(date, data, config.tariff) : undefined;
+      return cell
+        ? this.renderDetail(cell, data, config.tariff, false)
+        : html`<div class="message">${localize(hass, 'energy_curve_waiting')}</div>`;
+    }
     const shown = this.shown(data.today);
     const month = calendarMonth(data.days, config.tariff, shown.year, shown.month, data.today);
     const weekdays = Array.from({ length: 7 }, (_, index) => {
@@ -369,10 +325,10 @@ export class VividEnergyCalendar extends VividEnergyCard<ResolvedEnergyBase> {
     return html`<div class="grid">
         ${weekdays.map((name) => html`<div class="weekday">${name}</div>`)}
         ${Array.from({ length: month.lead }, () => html`<div></div>`)}
-        ${month.cells.map((cell) => this.renderCell(cell))}
+        ${month.cells.map((cell) => this.renderCell(cell, this.dayShown(config, data)))}
       </div>
       ${this.renderDetail(
-        month.cells.find((cell) => cell.date === this._selected),
+        month.cells.find((cell) => cell.date === this.dayShown(config, data)),
         data,
         config.tariff,
       )}
@@ -403,7 +359,7 @@ registerCard({
   type: ENERGY_CALENDAR,
   name: 'Vivid energy calendar',
   description:
-    'A month of electricity, one colored cell per day with its price and its off-peak share.',
+    'A month of electricity, one cell per day with its price and its off-peak share, and the chosen day hour by hour.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-energy-calendar`,
 });

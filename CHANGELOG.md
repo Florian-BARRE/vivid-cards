@@ -4,6 +4,38 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-11-16
+
+### Changed
+
+- **Electricity, three cards with one look.** Each card answers one question
+  and they share the same head and accent (orange), the same period bar,
+  the same three figures and the same colors: amber for peak hours, indigo for
+  off-peak hours, grey for the subscription, hatching for what is to come, one
+  stable color per consumer.
+  - **Bill** (`vivid-bill-card`), how much will I pay: the forecast at the end
+    of the cycle, what is spent split peak / off-peak, the planned split (with
+    what off-peak hours weigh in kWh and in money) and the previous cycles.
+    `layout: ring` shows the split as a ring; `history: false` hides the
+    previous cycles.
+  - **Energy calendar** (`vivid-energy-calendar`), when do I consume: the day's
+    cost is an orange that grows more intense, not cyan to red; the last day
+    read shows under the month with its curve, its peak and off-peak kWh and
+    its standby. `show: day` keeps the day alone, moved day by day.
+  - **Where the energy goes** (`vivid-energy-flow`): the share of the meter
+    that devices measure, then that part as a flow from the rooms to their
+    lights, LEDs and switches, or as a ranked list (`view: list`).
+- `vivid-bills-card`, `vivid-bill-ring`, `vivid-load-curve`,
+  `vivid-energy-ranking` and `vivid-power-card` left the card picker; they
+  still work on the dashboards that use them.
+
+### Fixed
+
+- No more cut subtitles or legends in the electricity cards ("Subscripti…",
+  "Standby ov…"): they wrap.
+- The lights, LEDs and switches of a room are named by their category in the
+  electricity cards ("LEDs"), not by their sensor's name.
+
 ## [1.4.1] - 2026-11-16
 
 ### Fixed

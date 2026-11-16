@@ -126,13 +126,14 @@ const fr: Record<string, PickerText> = {
       "Les pièces de Vivid Pilot classées par énergie et par coût, avec ce qui n'est pas mesuré.",
   },
   'Vivid energy flow': {
-    name: "Vivid flux d'énergie",
-    description: "L'énergie du compteur jusqu'aux appareils, la part mesurée agrandie.",
+    name: "Vivid où part l'énergie",
+    description:
+      'Où part l’énergie : la part mesurée par les appareils, en flux des pièces vers leurs lampes, LEDs et interrupteurs, ou en liste classée.',
   },
   'Vivid bill': {
     name: 'Vivid facture',
     description:
-      'La facture en cours : montant estimé, déjà dépensé, la facture précédente et le rythme.',
+      'La facture en cours : sa prévision de fin de cycle, le déjà dépensé, la répartition heures pleines / creuses / abonnement et les cycles précédents.',
   },
   'Vivid HyperHDR': {
     name: 'Vivid HyperHDR',
@@ -142,7 +143,7 @@ const fr: Record<string, PickerText> = {
   'Vivid energy calendar': {
     name: 'Vivid calendrier énergie',
     description:
-      "Un mois d'électricité, une case colorée par jour avec son prix et sa part en heures creuses.",
+      "Un mois d'électricité, une case par jour avec son prix et sa part en heures creuses, et le jour choisi heure par heure.",
   },
   'Vivid LED group': {
     name: 'Vivid groupe de LEDs',

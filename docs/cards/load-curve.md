@@ -6,6 +6,11 @@
 
 # vivid-load-curve
 
+> [!NOTE]
+> **Replaced by `vivid-energy-calendar`** (`show: day`). This card still works on the dashboards that
+> use it, but it left the card picker and gets no new feature: switch to
+> [`vivid-energy-calendar`](energy-calendar.md).
+
 The load curve of a day hour by hour over the off-peak bands: amber for what
 falls in peak hours, indigo for off-peak hours, the busiest hour pointed out,
 and the standby, the power that never stops, with what it costs a year. The
