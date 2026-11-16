@@ -1,7 +1,7 @@
 /* ====== Code Summary ======
  * What a room header shows, from its resolved config and Home Assistant:
- * its slots, its lights (the light, LED and switch slots), the lights on,
- * the power, the halo, the power button's two ways (the room's Vivid Pilot
+ * its slots, its lights (the light, LED and switch slots), the lights on
+ * and the halo (what counts, see halo-scope), the power, the power button's two ways (the room's Vivid Pilot
  * memory scene first), the badges.
  */
 
@@ -12,6 +12,7 @@ import { pilotNodeLabel } from '../../i18n/pilot';
 import { isVisible, roomBadges, type ShownBadge } from './badges';
 import type { ResolvedRoomHeaderConfig } from './config';
 import { haloSources, isOn, type HaloSource } from './halo';
+import { haloGroups } from './halo-scope';
 import { powerPlan, type PowerPlan } from './power-action';
 import { roomSlots, type RoomSlots } from './room-slots';
 
@@ -60,6 +61,7 @@ export interface RoomHeaderModel {
   lights: string[];
   /** Leaf lights and switches of the light groups, each counted once. */
   members: string[];
+  /** Lights on and lights, among those that count for the halo. */
   on: number;
   total: number;
   /** No light could be read (all unavailable). */
@@ -89,7 +91,9 @@ export function buildRoomHeaderModel(
   const slots = roomSlots(hass, config);
   const lights = [...slots.light.entities, ...slots.led.entities, ...slots.switch.entities];
   const members = [...new Set(lights.flatMap((id) => expandGroup(hass, id)))];
-  const readable = members.filter((id) => isAvailable(hass.states[id]));
+  const glowing = haloGroups(hass, slots, config.halo, config.badges);
+  const counted = [...new Set(glowing.flatMap((group) => group.members))];
+  const readable = counted.filter((id) => isAvailable(hass.states[id]));
   const power = slots.power.entities[0];
   const scene = config.powerOn === 'memory' ? memoryScene(hass, config.pilot) : undefined;
   const scope = buttonScope(hass, slots, scene);
@@ -104,7 +108,7 @@ export function buildRoomHeaderModel(
         : '');
   const mainEntity = config.entity ?? lights[0];
   const hasAction = plan.on.source !== 'none' || plan.off.source !== 'none';
-  const watched = new Set<string>([...lights, ...members]);
+  const watched = new Set<string>([...lights, ...members, ...counted]);
   if (power) watched.add(power);
   for (const entity of plan.on.entities) watched.add(entity);
   for (const entity of [...scope, ...scopeLeaves]) watched.add(entity);
@@ -119,9 +123,9 @@ export function buildRoomHeaderModel(
     members,
     on: readable.filter((id) => isOn(hass, id)).length,
     total: readable.length,
-    unavailable: members.length > 0 && readable.length === 0,
+    unavailable: members.length > 0 && !members.some((id) => isAvailable(hass.states[id])),
     power: powerWatts(hass, power),
-    sources: haloSources(hass, lights),
+    sources: haloSources(hass, glowing),
     plan,
     scope,
     buttonOn: scopeLeaves.some((id) => isOn(hass, id)),
