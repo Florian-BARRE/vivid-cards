@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/load-curve.jpg" alt="Load curve" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Load curve</sub>
+
 # vivid-load-curve
 
 The load curve of a day hour by hour over the off-peak bands: amber for what

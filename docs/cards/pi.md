@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/pi.jpg" alt="Raspberry Pi" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#ambilight-and-hyperhdr">Ambilight and HyperHDR</a> › Raspberry Pi</sub>
+
 # vivid-pi-card
 
 The Raspberry Pi of the [Ambilight box](ambilight.md) on one line: its state,

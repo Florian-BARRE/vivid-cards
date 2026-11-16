@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/electricity.jpg" alt="Electricity" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#guides">Guides</a> › Electricity</sub>
+
 # Electricity
 
 Cards and badges that turn the meter into money: the bill in progress and its

@@ -1,10 +1,16 @@
-<p align="center"><img src="assets/logo.svg" alt="Vivid Cards" width="96" /></p>
+<p align="center">
+  <img src="assets/headers/index.jpg" alt="Vivid Cards documentation" width="100%" />
+</p>
+
+<sub><a href="../README.md">Vivid Cards</a> › Documentation</sub>
 
 # Vivid Cards documentation
 
-Every card and badge has its own page: what it shows, its options, examples
-and screenshots in both themes. New here? Start with the
-[installation](../README.md#installation).
+Every card and badge has its own page: what it shows, its visual editor, its
+options, examples and screenshots in both themes. The cards read their rooms and
+groups from [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot), the
+integration that sorts your home, or take what you pick by hand. New here?
+Start with the [installation](../README.md#installation).
 
 ## Cards
 
@@ -65,11 +71,28 @@ source and how the projection works, shared by every card below.
 
 ## Guides
 
-- [Vivid Pilot and manual](guides/discovery.md): where the cards take their entities from.
-- [Electricity](guides/electricity.md): tariff, invoices, data source, projection.
-- [Troubleshooting](guides/troubleshooting.md): the card does not load, no consumption, the Pi is cut…
-- [Halos and theming](guides/theming.md): the glow, the theme variables.
-- [Development](guides/development.md): preview pages, tests, releases.
+| Page                                          | What it covers                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| [Vivid Pilot and manual](guides/discovery.md) | Where the cards take their entities from, and setting them by hand |
+| [Electricity](guides/electricity.md)          | Tariff, invoices, data source, projection                          |
+| [Halos and theming](guides/theming.md)        | The glow, the theme variables                                      |
+| [Troubleshooting](guides/troubleshooting.md)  | The card does not load, no consumption, the Pi is cut…             |
+
+## Development
+
+| Page                                 | What it covers                                                      |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| [Development](guides/development.md) | Preview pages, tests, releases                                      |
+| [Design sources](design/README.md)   | How the pictures of this documentation are made from the real cards |
+| [Contributing](../CONTRIBUTING.md)   | Layout, principles and checks                                       |
+
+## Vivid Pilot
+
+The integration side has its own documentation:
+[how it reads your home](https://github.com/Florian-BARRE/vivid-pilot/blob/main/docs/concepts/tree.md),
+[groups](https://github.com/Florian-BARRE/vivid-pilot/blob/main/docs/concepts/groups.md),
+[lighting memory](https://github.com/Florian-BARRE/vivid-pilot/blob/main/docs/concepts/memory.md),
+[with Vivid Cards](https://github.com/Florian-BARRE/vivid-pilot/blob/main/docs/guides/vivid-cards.md).
 
 ## Images
 

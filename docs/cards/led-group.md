@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="../assets/headers/led-group.jpg" alt="LED group" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#lights">Lights</a> › LED group</sub>
+
 # vivid-led-group
+
+> [!TIP]
+> **Works with [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot)**: choose **Vivid Pilot** as the
+> card's source and pick a room or a group; Vivid Pilot has sorted the rest. Every setting stays adjustable,
+> and **Manual** works without it.
 
 A light group (or one light) as a header and a brightness tile, with every light
 of the group in a details dialog. Works with any light: Hue, Zigbee, ESPHome…

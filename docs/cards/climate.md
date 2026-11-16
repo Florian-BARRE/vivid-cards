@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/climate.jpg" alt="Climate" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#climate">Climate</a> › Climate</sub>
+
 # vivid-climate-card
 
 One climate sensor and its history: the value in large, with its trend per

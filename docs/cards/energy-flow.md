@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/energy-flow.jpg" alt="Energy flow" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Energy flow</sub>
+
 # vivid-energy-flow
 
 From the meter to the devices: the grid, the home, and what the measured

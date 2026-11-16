@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/light.jpg" alt="Light" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#lights">Lights</a> › Light</sub>
+
 # vivid-light-card
 
 One light as a Vivid tile: drag across it to dim, tap to toggle, hold for its

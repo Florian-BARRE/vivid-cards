@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/bills.jpg" alt="Bills" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#electricity">Electricity</a> › Bills</sub>
+
 # vivid-bills-card
 
 Your bills side by side: the past ones (from your invoices, or computed from

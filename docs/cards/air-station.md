@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/air-station.jpg" alt="Air station" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#climate">Climate</a> › Air station</sub>
+
 # vivid-air-station-card
 
 A card made for one DIY device, the **Salon Air Station**: an ESP32 under

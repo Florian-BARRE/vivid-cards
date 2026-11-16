@@ -1,0 +1,265 @@
+{
+  "product": "Vivid Cards",
+  "logo": "docs/assets/logo.svg",
+  "kicker": "Documentation",
+  "pages": [
+    {
+      "name": "index",
+      "title": "Documentation",
+      "text": "Every card, badge and guide, with what it shows and how to set it.",
+      "accent": "#ff5f6d",
+      "images": [
+        "docs/assets/led-group.png",
+        "docs/design/crops/bill.png",
+        "docs/design/crops/room-header.png"
+      ],
+      "kicker": "Documentation"
+    },
+    {
+      "name": "led-group",
+      "title": "LED group",
+      "text": "LED strips and light groups, WLED aware, every strip one tap away.",
+      "accent": "#ff7a45",
+      "images": ["docs/assets/led-group.png", "docs/assets/led-group-details.png"],
+      "kicker": "Card · Lights"
+    },
+    {
+      "name": "lamp-group",
+      "title": "Lamp group",
+      "text": "Lamps on smart plugs: on/off, watts, presets and the cost of the day.",
+      "accent": "#f5b042",
+      "images": [
+        "docs/assets/lamp-group.png",
+        "docs/assets/lamp-group-details.png",
+        "docs/assets/lamp-group-line.png"
+      ],
+      "kicker": "Card · Lights"
+    },
+    {
+      "name": "room-header",
+      "title": "Room header",
+      "text": "A room's title, power button and badges, lit in the colors of its lights.",
+      "accent": "#ff5f6d",
+      "images": ["docs/design/crops/room-header.png", "docs/design/crops/room-header-light.png"],
+      "kicker": "Card · Lights"
+    },
+    {
+      "name": "light",
+      "title": "Light",
+      "text": "One light as a tile; a WLED strip with its settings and its device.",
+      "accent": "#ffb347",
+      "images": ["docs/design/crops/light-wled.png", "docs/design/crops/light.png"],
+      "kicker": "Card · Lights"
+    },
+    {
+      "name": "power",
+      "title": "Power",
+      "text": "The consumption of a few devices over 6 h, 24 h or 7 days.",
+      "accent": "#f5b042",
+      "images": ["docs/design/crops/power.png"],
+      "kicker": "Card · Lights"
+    },
+    {
+      "name": "ambilight",
+      "title": "Ambilight",
+      "text": "The DIY Ambilight box: HDMI by IR, the Pi's power, temperatures and fan.",
+      "accent": "#ff8a3d",
+      "images": ["docs/assets/ambilight-overview.png", "docs/assets/ambilight.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "hyperhdr",
+      "title": "HyperHDR",
+      "text": "The Pi and what it captures, every strip and its device.",
+      "accent": "#7b5cff",
+      "images": ["docs/assets/hyperhdr-overview.png", "docs/assets/hyperhdr-all.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "screen",
+      "title": "Screen",
+      "text": "The live picture of the TV, framed by its own colors.",
+      "accent": "#7b5cff",
+      "images": ["docs/design/crops/screen.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "fan",
+      "title": "Fan",
+      "text": "The box's fan, its mode and its temperature curve.",
+      "accent": "#4fc3f7",
+      "images": ["docs/design/crops/fan.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "hdmi",
+      "title": "HDMI",
+      "text": "The HDMI inputs as tiles, sent by IR and confirmed by the echo.",
+      "accent": "#ff8a3d",
+      "images": ["docs/design/crops/hdmi.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "pi",
+      "title": "Raspberry Pi",
+      "text": "The Pi on one line, with its clean shutdown.",
+      "accent": "#ff5f6d",
+      "images": ["docs/design/crops/pi.png"],
+      "kicker": "Card · Ambilight"
+    },
+    {
+      "name": "bill",
+      "title": "Bill",
+      "text": "The bill in progress: estimated amount, what is spent, the pace.",
+      "accent": "#ff7043",
+      "images": ["docs/design/crops/bill.png", "docs/design/crops/bill-line.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "bills",
+      "title": "Bills",
+      "text": "Past bills, the one in progress with its projection, the next one.",
+      "accent": "#ff7043",
+      "images": ["docs/design/crops/bills.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "bill-ring",
+      "title": "Bill ring",
+      "text": "Where each euro goes, or the off-peak share.",
+      "accent": "#ff7043",
+      "images": ["docs/design/crops/bill-ring.png", "docs/design/crops/bill-ring-off-peak.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "energy-calendar",
+      "title": "Energy calendar",
+      "text": "A month colored by price; a tap shows the day hour by hour.",
+      "accent": "#ffb300",
+      "images": ["docs/design/crops/energy-calendar.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "energy-flow",
+      "title": "Energy flow",
+      "text": "From the meter to the devices, the measured part zoomed in.",
+      "accent": "#ffb300",
+      "images": ["docs/design/crops/energy-flow.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "energy-ranking",
+      "title": "Energy ranking",
+      "text": "Devices ranked by energy and cost.",
+      "accent": "#ffb300",
+      "images": ["docs/design/crops/energy-ranking.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "load-curve",
+      "title": "Load curve",
+      "text": "A day hour by hour over the off-peak hours, with the standby.",
+      "accent": "#ffb300",
+      "images": ["docs/design/crops/load-curve.png"],
+      "kicker": "Card · Electricity"
+    },
+    {
+      "name": "climate",
+      "title": "Climate",
+      "text": "One sensor and its history, with the comfort band.",
+      "accent": "#4fc3f7",
+      "images": ["docs/design/crops/climate.png", "docs/design/crops/climate-humidity.png"],
+      "kicker": "Card · Climate"
+    },
+    {
+      "name": "air-station",
+      "title": "Air station",
+      "text": "An ESPHome air station: comfort, CO₂, its LED frame and screen.",
+      "accent": "#43b581",
+      "images": ["docs/design/crops/air-station.png", "docs/design/crops/air-station-details.png"],
+      "kicker": "Card · Climate"
+    },
+    {
+      "name": "light-badges",
+      "title": "Light badges",
+      "text": "LEDs, lamps and any light, glowing with their real color.",
+      "accent": "#ffb347",
+      "images": ["docs/assets/led-badge.png", "docs/assets/lamp-badge.png"],
+      "kicker": "Badges"
+    },
+    {
+      "name": "status-badges",
+      "title": "Status badges",
+      "text": "Windows, doors, presence, illuminance, power and batteries.",
+      "accent": "#43b581",
+      "images": [
+        "docs/design/crops/status-badges.png",
+        "docs/assets/window-badge.png",
+        "docs/assets/battery-badge.png"
+      ],
+      "kicker": "Badges"
+    },
+    {
+      "name": "climate-badges",
+      "title": "Climate badges",
+      "text": "Temperature, humidity, pressure and air quality.",
+      "accent": "#4fc3f7",
+      "images": [
+        "docs/design/crops/climate-badges.png",
+        "docs/design/crops/climate-badges-light.png"
+      ],
+      "kicker": "Badges"
+    },
+    {
+      "name": "energy-badges",
+      "title": "Energy badges",
+      "text": "The bill, peak or off-peak now, the last day.",
+      "accent": "#ff7043",
+      "images": [
+        "docs/design/crops/energy-badges.png",
+        "docs/design/crops/energy-badges-light.png"
+      ],
+      "kicker": "Badges"
+    },
+    {
+      "name": "discovery",
+      "title": "Vivid Pilot and manual",
+      "text": "Where the cards take their entities from, and how to set them by hand.",
+      "accent": "#03a9f4",
+      "images": ["docs/design/crops/room-header.png", "docs/assets/led-group.png"],
+      "kicker": "Guide"
+    },
+    {
+      "name": "electricity",
+      "title": "Electricity",
+      "text": "The tariff, the invoices, the data source and the projection.",
+      "accent": "#ff7043",
+      "images": ["docs/design/crops/bill.png", "docs/design/crops/energy-calendar.png"],
+      "kicker": "Guide"
+    },
+    {
+      "name": "theming",
+      "title": "Halos and theming",
+      "text": "The glow and the theme variables.",
+      "accent": "#b25cff",
+      "images": ["docs/design/crops/light-wled.png", "docs/design/crops/room-header-light.png"],
+      "kicker": "Guide"
+    },
+    {
+      "name": "troubleshooting",
+      "title": "Troubleshooting",
+      "text": "The card does not load, no consumption, the Pi is cut…",
+      "accent": "#ff5f6d",
+      "images": ["docs/assets/led-group-editor.png"],
+      "kicker": "Guide"
+    },
+    {
+      "name": "development",
+      "title": "Development",
+      "text": "Preview pages, tests and releases.",
+      "accent": "#7b5cff",
+      "images": ["docs/design/crops/hdmi.png", "docs/design/crops/pi.png"],
+      "kicker": "Guide"
+    }
+  ]
+}

@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="../assets/headers/room-header.jpg" alt="Room header" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#lights">Lights</a> › Room header</sub>
+
 # vivid-room-header
+
+> [!TIP]
+> **Works with [Vivid Pilot](https://github.com/Florian-BARRE/vivid-pilot)**: choose **Vivid Pilot** as the
+> card's source and pick a room or a group; Vivid Pilot has sorted the rest. Every setting stays adjustable,
+> and **Manual** works without it.
 
 The header of a room, in one card: its title with the room power button next
 to it, the lights on and the consumption under it ("4 on · 138 W", or

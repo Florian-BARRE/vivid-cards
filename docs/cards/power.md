@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/power.jpg" alt="Power" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#lights">Lights</a> › Power</sub>
+
 # vivid-power-card
 
 The consumption of a few lights or devices over 6 hours, 24 hours or 7 days:

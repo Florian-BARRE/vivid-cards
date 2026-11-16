@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/discovery.jpg" alt="Vivid Pilot and manual" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#guides">Guides</a> › Vivid Pilot and manual</sub>
+
 # Vivid Pilot and manual
 
 Vivid Cards no longer guess anything from entity names or areas.

@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="../assets/headers/development.jpg" alt="Development" width="100%" />
+</p>
+
+<sub><a href="../../README.md">Vivid Cards</a> › <a href="../README.md">Documentation</a> › <a href="../README.md#guides">Guides</a> › Development</sub>
+
 # Development
 
 Requires Node.js 22.12 or newer.
