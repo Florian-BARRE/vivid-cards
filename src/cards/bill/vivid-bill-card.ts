@@ -198,7 +198,7 @@ defineElement(BILL_CARD, VividBillCard);
 
 registerCard({
   type: BILL_CARD,
-  name: 'Vivid Bill',
+  name: 'Vivid bill',
   description:
     'The bill in progress: estimated amount, what is spent, the previous bill and the pace.',
   preview: true,

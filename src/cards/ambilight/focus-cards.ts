@@ -165,7 +165,7 @@ defineElement(PI_CARD, VividPiCard);
 
 registerCard({
   type: FAN_CARD,
-  name: 'Vivid Fan',
+  name: 'Vivid fan',
   description: 'The fan of the Ambilight box: mode, speeds and its temperature curve.',
   preview: false,
   documentationURL: `${REPOSITORY_URL}/blob/main/docs/cards/fan.md`,

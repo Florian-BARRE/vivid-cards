@@ -401,7 +401,7 @@ defineElement(ENERGY_CALENDAR, VividEnergyCalendar);
 
 registerCard({
   type: ENERGY_CALENDAR,
-  name: 'Vivid Energy Calendar',
+  name: 'Vivid energy calendar',
   description:
     'A month of electricity, one colored cell per day with its price and its off-peak share.',
   preview: true,

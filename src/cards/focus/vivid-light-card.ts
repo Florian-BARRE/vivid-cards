@@ -193,7 +193,7 @@ defineElement(LIGHT_CARD, VividLightCard);
 
 registerCard({
   type: LIGHT_CARD,
-  name: 'Vivid Light',
+  name: 'Vivid light',
   description: 'One light as a Vivid tile; a WLED strip also gets its settings and device panels.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}/blob/main/docs/cards/light.md`,

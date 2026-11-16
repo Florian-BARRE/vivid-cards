@@ -44,6 +44,7 @@ export class VividFanCurve extends LitElement {
     editable: { type: Boolean },
     colorAt: { attribute: false },
     format: { attribute: false },
+    label: {},
     drag: { state: true },
   };
 
@@ -59,6 +60,8 @@ export class VividFanCurve extends LitElement {
   declare colorAt?: (t: number) => Rgb;
   /** Number formatting (locale) for the labels. */
   declare format?: (value: number, digits: number) => string;
+  /** Accessible name of the chart, in the user's language. */
+  declare label?: string;
   declare drag?: { index: number; pointerId: number; t: number; s: number };
 
   constructor() {
@@ -291,7 +294,11 @@ export class VividFanCurve extends LitElement {
           </g>`;
         });
 
-    return html`<svg viewBox=${`0 0 ${width} ${height}`} role="img" aria-label="Fan curve">
+    return html`<svg
+      viewBox=${`0 0 ${width} ${height}`}
+      role="img"
+      aria-label=${this.label ?? 'Fan curve'}
+    >
       <defs>
         ${this.gradient(id, tMin, tMax, x)}
         <mask id=${`${id}-mask`}>
