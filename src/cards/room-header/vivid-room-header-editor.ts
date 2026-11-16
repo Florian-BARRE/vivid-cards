@@ -7,14 +7,13 @@
  *                 room's last lighting or its lights, in Vivid Pilot mode)
  *                 and with a light on, a hold — or any action;
  *   Badges        every badge, shown or hidden, in order, with its options;
- *   Look          halo.
+ *   Halo          its strength and what lights it (vivid-room-halo-editor).
  * In manual mode the same sections ask for every entity by hand.
  */
 
 import { LitElement, css, html, nothing } from 'lit';
 import { fireEvent } from '../../core/actions';
 import { friendlyName } from '../../core/entities';
-import { GLOW_SLIDER } from '../../core/glow';
 import { ensureHaForm } from '../../core/ha-elements';
 import type { HomeAssistant } from '../../core/hass-types';
 import { HOME_NODE, PilotIndex } from '../../core/pilot';
@@ -51,6 +50,7 @@ import { describeWay, powerHint } from './power-text';
 import { roomSlots, type RoomSlots } from './room-slots';
 import { ROOM_ROLES, type RoleSpec, type RoomRole } from './roles';
 import './vivid-room-badges-editor';
+import './vivid-room-halo-editor';
 
 type Form = Record<string, unknown>;
 
@@ -330,7 +330,7 @@ export class VividRoomHeaderEditor extends LitElement {
     </div>`;
   }
 
-  /* ------------------------------ badges and look ------------------------------ */
+  /* ------------------------------ badges ------------------------------ */
 
   private renderBadges(config: RoomHeaderCardConfig, state: RoomState, source: HeaderSource) {
     return html`${this.form(
@@ -350,16 +350,6 @@ export class VividRoomHeaderEditor extends LitElement {
           this.commit(event.detail.config);
         }}
       ></vivid-room-badges-editor>`;
-  }
-
-  private renderLook(config: RoomHeaderCardConfig) {
-    return this.form(
-      [{ name: 'glow', selector: GLOW_SLIDER }],
-      { glow: typeof config.glow === 'number' ? config.glow : 100 },
-      { glow: this.rh('glow') },
-      { glow: this.rh('glow_helper') },
-      (value) => setOption(this._config ?? config, 'glow', value.glow, 100),
-    );
   }
 
   /* ------------------------------ render ------------------------------ */
@@ -393,11 +383,19 @@ export class VividRoomHeaderEditor extends LitElement {
         >${this.renderBadges(config, state, source)}</vivid-editor-section
       >
       <vivid-editor-section
-        icon="mdi:palette-outline"
-        .heading=${this.rh('rh_section_look')}
-        .hint=${this.rh('rh_section_look_hint')}
-        >${this.renderLook(config)}</vivid-editor-section
-      >
+        icon="mdi:lightbulb-on-outline"
+        .heading=${this.rh('rh_section_halo')}
+        .hint=${this.rh('rh_section_halo_hint')}
+        ><vivid-room-halo-editor
+          .hass=${this.hass}
+          .config=${config}
+          .slots=${state.slots}
+          @room-config-changed=${(event: CustomEvent<{ config: RoomHeaderCardConfig }>) => {
+            event.stopPropagation();
+            this.commit(event.detail.config);
+          }}
+        ></vivid-room-halo-editor
+      ></vivid-editor-section>
     </div>`;
   }
 }

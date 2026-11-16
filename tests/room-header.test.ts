@@ -19,6 +19,8 @@ import {
   shownBadges,
   removeBadgeItem,
   setBadgeOptions,
+  setHaloEntity,
+  setHaloRole,
   setPowerButton,
   setSlot,
 } from '../src/cards/room-header/editor-model';
@@ -349,6 +351,64 @@ describe('room halo', () => {
       haloSources(hass, lights).find((source) => source.id === 'light.wled_tv')?.strength,
     ).toBe(0.25);
     expect(haloSources(createRoomMock('off'), lights).some((source) => source.on)).toBe(false);
+  });
+});
+
+describe('what lights the halo', () => {
+  const members = (hass: HomeAssistant, group: string) =>
+    hass.states[group]!.attributes.entity_id as string[];
+  const lit = (hass: HomeAssistant, extra: Record<string, unknown>) =>
+    model(hass, extra)
+      .sources.filter((source) => source.on)
+      .map((source) => source.id);
+
+  it('counts every light role while every badge shows', () => {
+    const hass = createRoomMock('all');
+    const m = model(hass);
+    expect(m.on).toBe(4);
+    expect(lit(hass, {})).toEqual([PILOT.lights, 'light.wled_tv', expect.any(String)]);
+  });
+
+  it('leaves out a role whose badge is hidden, unless set to always', () => {
+    const hass = createRoomMock('all');
+    const noLeds = { badges: [{ slot: 'light' }, { slot: 'presence' }] };
+    expect(model(hass, noLeds).on).toBe(2);
+    expect(lit(hass, noLeds)).toEqual([PILOT.lights]);
+    expect(model(hass, { ...noLeds, halo: { led: 'always' } }).on).toBe(4);
+    expect(model(hass, { halo: { light: 'never' } }).on).toBe(2);
+  });
+
+  it('lets one light override its group, and adds lights from elsewhere', () => {
+    const hass = createRoomMock('all');
+    const [first, second] = members(hass, PILOT.lights);
+    const one = { halo: { light: 'never', entities: { [first!]: 'always' } } };
+    expect(model(hass, one).on).toBe(3);
+    expect(model(hass, { halo: { entities: { [second!]: 'never' } } }).on).toBe(3);
+    expect(model(hass, { halo: { entities: { [PILOT.leds]: 'never' } } }).on).toBe(2);
+    hass.states['light.kitchen'] = {
+      ...hass.states[first!]!,
+      entity_id: 'light.kitchen',
+      state: 'on',
+    };
+    const added = { halo: { entities: { 'light.kitchen': 'always' } } };
+    expect(model(hass, added).on).toBe(5);
+    expect(lit(hass, added)).toContain('light.kitchen');
+  });
+
+  it('checks its options', () => {
+    expect(() => config({ halo: { led: 'sometimes' } })).toThrow(/halo.led/);
+    expect(() => config({ halo: { entities: { 'light.a': 'maybe' } } })).toThrow(/light.a/);
+    expect(() => config({ halo: [] })).toThrow(/"halo"/);
+    expect(config().halo.roles).toEqual({ light: 'auto', led: 'auto', switch: 'auto' });
+  });
+
+  it('writes the shortest halo config', () => {
+    let next = setHaloRole(raw(), 'switch', 'never');
+    expect(next.halo).toEqual({ switch: 'never' });
+    next = setHaloEntity(next, 'switch.plug', 'always');
+    expect(next.halo).toEqual({ switch: 'never', entities: { 'switch.plug': 'always' } });
+    next = setHaloEntity(setHaloRole(next, 'switch', 'auto'), 'switch.plug', undefined);
+    expect(next.halo).toBeUndefined();
   });
 });
 

@@ -15,7 +15,8 @@ The header of a room, in one card: its title with the room power button next
 to it, the lights on and the consumption under it ("4 on · 138 W", or
 "everything is off"), and the room badges centered below. Behind the title,
 one soft glow per light source, in its real color: amber for the lamps and
-switches, each LED strip in its current color, each as bright as the light.
+switches, each LED strip in its current color, each as bright as the light
+([what lights it](#what-lights-the-halo) is up to you).
 No glow when everything is off; colors fade smoothly (instantly with reduced
 motion).
 
@@ -45,8 +46,8 @@ The editor follows the card from top to bottom (YAML is optional):
   then comes from what Vivid Pilot sorted into it, and stays adjustable.
   Manual asks for every entity in the same sections.
 - **Title**: the title (the room's name unless you write one), the subtitle,
-  and the lamps, LEDs, switches and power it counts — the power button and
-  the halo use the same lights.
+  and the lamps, LEDs, switches and power it counts — the power button uses
+  the same lights.
 - **Power button**: when it shows, and what a tap does. With Vivid Pilot, a
   tap with everything off restores the room's last lighting (its memory
   scene) or turns the lamps and LEDs on (`power_button.on: lights`); a tap
@@ -59,7 +60,35 @@ The editor follows the card from top to bottom (YAML is optional):
   comes from (Vivid Pilot, adjustable, or picked by hand) and its options:
   name, icon, tap and hold actions, "shown only when". Free badges (a kind
   on any entity) can be added.
-- **Look**: halo.
+- **Halo**: its strength, and what lights it (see below).
+
+## What lights the halo
+
+The halo and the "4 on" of the subtitle count the same lights. Each light
+group (lamps, LEDs, switches) has three ways:
+
+| Way                         | Counted                                                        |
+| --------------------------- | -------------------------------------------------------------- |
+| **Like its badge** (`auto`) | while the group has its badge in the row; hide it, it goes out |
+| **Always** (`always`)       | even with its badge hidden                                     |
+| **Never** (`never`)         | even with its badge shown                                      |
+
+Below, **light by light**, any light of the room can do otherwise than its
+group (always or never), and a light or a plug from elsewhere can be added to
+the halo. The plug of a TV box in the switches, for example, no longer lights
+the halo once the switches badge is hidden, or with `never` on that plug only.
+The power under the title is the room's, whatever counts here.
+
+```yaml
+type: custom:vivid-room-header
+pilot: salon
+halo:
+  switch: never # the switches never light the halo
+  led: always # the LEDs do, even with their badge hidden
+  entities:
+    light.salon_lampadaire: never # this lamp does not
+    light.cuisine_spots: always # a light from the kitchen does
+```
 
 ## Roles
 
@@ -119,3 +148,4 @@ badges:
 | `show_subtitle` | `true`          | Lights on and consumption under the title.                                                                                          |
 | `show_badges`   | `true`          | Badge row.                                                                                                                          |
 | `glow`          | `100`           | Halo strength in percent (0–200), or `off`, `soft`, `normal`, `strong`.                                                             |
+| `halo`          | all `auto`      | What lights the halo: `light`, `led`, `switch` (`auto`, `always`, `never`) and `entities` (entity: `always` or `never`).            |

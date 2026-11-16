@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-11-16
+
+### Added
+
+- **Room header: choose what lights the halo.** Each light group (lamps,
+  LEDs, switches) follows its badge by default: hide the switches badge and
+  a plug that is on no longer lights the halo nor counts in "1 on". Each
+  group can also be set to always or never, any light of the room can do
+  otherwise than its group, and a light from elsewhere can be added
+  (`halo:` option, **Halo** section of the editor, which also holds the
+  strength).
+
+### Changed
+
+- The editor's **Look** section is now **Halo**.
+
 ## [1.3.2] - 2026-11-15
 
 ### Fixed

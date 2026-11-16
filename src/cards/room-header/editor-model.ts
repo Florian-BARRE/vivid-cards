@@ -1,13 +1,19 @@
 /* ====== Code Summary ======
  * The room header editor's changes to the config, as pure functions: the
  * source (Vivid Pilot or manual), a slot's value, an option, the power
- * button, and the badges list (every role badge shown or hidden and in
- * order, free badges, options). Each writes the shortest config: a default
- * is left out.
+ * button, the badges list (every role badge shown or hidden and in
+ * order, free badges, options) and what lights the halo. Each writes the
+ * shortest config: a default is left out.
  */
 
 import type { SlotValue } from '../../core/slots';
-import type { PowerButtonConfig, RoomBadgeConfig, RoomHeaderCardConfig } from './config';
+import type {
+  HaloConfig,
+  PowerButtonConfig,
+  RoomBadgeConfig,
+  RoomHeaderCardConfig,
+} from './config';
+import type { HaloEntityMode, HaloMode, HaloRole } from './halo-scope';
 import type { RoomSlots } from './room-slots';
 import { ROOM_ROLES, type RoomRole } from './roles';
 
@@ -208,4 +214,34 @@ export function setBadgeOptions(
     return next as RoomBadgeConfig;
   });
   return withBadges(config, items);
+}
+
+/* ============================== Halo ============================== */
+
+function withHalo(config: Config, halo: HaloConfig): Config {
+  const next: Record<string, unknown> = { ...config };
+  const entities = halo.entities && Object.keys(halo.entities).length ? halo.entities : undefined;
+  const kept: Record<string, unknown> = Object.fromEntries(
+    Object.entries({ ...halo, entities }).filter(([, value]) => value !== undefined),
+  );
+  if (Object.keys(kept).length) next.halo = kept;
+  else delete next.halo;
+  return next as Config;
+}
+
+/** Sets what a light role does for the halo (`auto` is left out). */
+export function setHaloRole(config: Config, role: HaloRole, mode: HaloMode | undefined): Config {
+  return withHalo(config, { ...(config.halo ?? {}), [role]: mode === 'auto' ? undefined : mode });
+}
+
+/** Sets one entity over its group (`undefined`: like its group). */
+export function setHaloEntity(
+  config: Config,
+  entity: string,
+  mode: HaloEntityMode | undefined,
+): Config {
+  const entities = { ...(config.halo?.entities ?? {}) };
+  if (mode) entities[entity] = mode;
+  else delete entities[entity];
+  return withHalo(config, { ...(config.halo ?? {}), entities });
 }

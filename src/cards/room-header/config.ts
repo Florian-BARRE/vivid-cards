@@ -3,13 +3,23 @@
  * (`pilot`, an area id), one slot per role under `entities` (Pilot when
  * absent, `{ exclude, add }`, a list, or false), the power button (its two
  * actions, its hold, when it shows), the badges list (badges of the roles,
- * free badges, "the rest").
+ * free badges, "the rest"), what lights the halo.
  */
 
 import { normalizeAction, type ActionConfig } from '../../core/action-handler';
 import { GLOW_LEVELS, GLOW_MAX, glowPercent, type GlowSetting } from '../../core/glow';
 import type { LovelaceCardConfig } from '../../core/hass-types';
 import { parseSlot, type ParsedSlot, type SlotValue } from '../../core/slots';
+import {
+  DEFAULT_HALO,
+  HALO_ENTITY_MODES,
+  HALO_MODES,
+  HALO_ROLES,
+  type HaloEntityMode,
+  type HaloMode,
+  type HaloRole,
+  type HaloSettings,
+} from './halo-scope';
 import { ROOM_ROLES, isRoomRole, type RoomRole } from './roles';
 
 export const ROOM_HEADER_CARD = 'vivid-room-header';
@@ -49,6 +59,11 @@ export interface PowerButtonConfig {
   show?: PowerShow;
 }
 
+/** What lights the halo: each light role, and single entities over their group. */
+export interface HaloConfig extends Partial<Record<HaloRole, HaloMode>> {
+  entities?: Record<string, HaloEntityMode>;
+}
+
 export interface RoomHeaderCardConfig extends LovelaceCardConfig {
   /** The Vivid Pilot room: its area id (`salon`), or `all` for the whole home. */
   pilot?: string;
@@ -62,6 +77,7 @@ export interface RoomHeaderCardConfig extends LovelaceCardConfig {
   show_subtitle?: boolean;
   show_badges?: boolean;
   glow?: GlowSetting;
+  halo?: HaloConfig;
 }
 
 export interface ResolvedRoomHeaderConfig {
@@ -81,6 +97,7 @@ export interface ResolvedRoomHeaderConfig {
   showBadges: boolean;
   /** Percent. */
   glow: number;
+  halo: HaloSettings;
 }
 
 /* ============================== Readers ============================== */
@@ -159,6 +176,26 @@ function badgeList(value: unknown): RoomBadgeConfig[] {
   });
 }
 
+/* ============================== Halo ============================== */
+
+function haloSettings(value: unknown): HaloSettings {
+  if (value === undefined || value === null) return DEFAULT_HALO;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('"halo" must be a set of options.');
+  const raw = value as HaloConfig;
+  const roles = { ...DEFAULT_HALO.roles };
+  for (const role of HALO_ROLES)
+    roles[role] = choice(raw[role], `halo.${role}`, HALO_MODES, 'auto');
+  const entities: Record<string, HaloEntityMode> = {};
+  const list = raw.entities ?? {};
+  if (typeof list !== 'object' || Array.isArray(list)) {
+    fail('"halo.entities" must map entities to always or never.');
+  }
+  for (const [entity, mode] of Object.entries(list)) {
+    entities[entity] = choice(mode, `halo.entities.${entity}`, HALO_ENTITY_MODES, 'always');
+  }
+  return { roles, entities };
+}
+
 /* ============================== Slots ============================== */
 
 function readSlots(config: RoomHeaderCardConfig): Record<RoomRole, ParsedSlot> {
@@ -212,5 +249,6 @@ export function resolveRoomHeaderConfig(raw: unknown): ResolvedRoomHeaderConfig 
     showSubtitle: bool(config.show_subtitle, 'show_subtitle', true),
     showBadges: bool(config.show_badges, 'show_badges', true),
     glow,
+    halo: haloSettings(config.halo),
   };
 }

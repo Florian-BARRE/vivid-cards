@@ -7,6 +7,7 @@
 import { WARM_WHITE, clamp, lightColor } from '../../core/color';
 import { domainOf, expandGroup } from '../../core/entities';
 import type { HomeAssistant, LightAttributes, Rgb } from '../../core/hass-types';
+import type { HaloGroup } from './halo-scope';
 
 /** Halo of lamps, plugs and white lights. */
 export const AMBER: Rgb = [255, 193, 7];
@@ -49,18 +50,24 @@ function isColorLight(hass: HomeAssistant, entityId: string): boolean {
 }
 
 /**
- * Glows behind the title: one amber glow per group of lamps or switches (its
+ * Glows behind the title, from the light groups (a group id, or a group and
+ * the members that count, see halo-scope): one amber glow per group of lamps or switches (its
  * strength is the mean brightness of the lamps on), one per color light in
  * its current color. Glows that are on are spread from left to right (lamps
  * first); the others stay in the middle, invisible, so they fade in place.
  */
-export function haloSources(hass: HomeAssistant, lights: readonly string[]): HaloSource[] {
+export function haloSources(
+  hass: HomeAssistant,
+  lights: readonly (string | HaloGroup)[],
+): HaloSource[] {
   const lamps: HaloSource[] = [];
   const colored: HaloSource[] = [];
   const seen = new Set<string>();
-  for (const group of lights) {
+  for (const light of lights) {
+    const { id: group, members } =
+      typeof light === 'string' ? { id: light, members: expandGroup(hass, light) } : light;
     const plain: string[] = [];
-    for (const member of expandGroup(hass, group)) {
+    for (const member of members) {
       if (seen.has(member)) continue;
       seen.add(member);
       if (!isColorLight(hass, member)) {
