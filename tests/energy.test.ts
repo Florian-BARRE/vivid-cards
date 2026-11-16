@@ -229,9 +229,10 @@ describe('billing cycles', () => {
 
 describe('energy colors', () => {
   it('colors days and deltas', () => {
-    expect(costColor(0.4)).toEqual([38, 198, 218]);
-    expect(costColor(1)).toEqual([255, 193, 7]);
-    expect(costColor(3)).toEqual([239, 83, 80]);
+    // An orange that grows more intense with the cost; amber and indigo stay for the tariff.
+    expect(costColor(0.4)).toEqual([104, 72, 58]);
+    expect(costColor(1)).toEqual([214, 116, 56]);
+    expect(costColor(3)).toEqual([255, 70, 46]);
     expect(deltaColor(-0.1)).toEqual([102, 187, 106]);
     expect(deltaColor(0.25)).toEqual([255, 112, 67]);
     expect(median([3, 1, 2])).toBe(2);

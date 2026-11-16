@@ -90,16 +90,20 @@ export const GOOD_RGB: Rgb = [102, 187, 106];
 export const WARN_RGB: Rgb = [255, 193, 7];
 export const BAD_RGB: Rgb = [255, 112, 67];
 
+/** The accent of every electricity card: their icon, halo and active period. */
+export const ENERGY_RGB: Rgb = [255, 138, 61];
+
 /**
  * Color of a day by how much it cost compared with a usual day (the median):
- * cyan for a sober day, amber for a usual one, orange then red for an
- * expensive one.
+ * an orange that grows more intense the more the day cost, from a muted
+ * brown for a sober day to a hot orange-red for an expensive one. Amber and
+ * indigo stay for peak and off-peak hours.
  */
 const COST_STOPS: [number, Rgb][] = [
-  [0.55, [38, 198, 218]],
-  [1, [255, 193, 7]],
-  [1.35, [255, 112, 67]],
-  [1.8, [239, 83, 80]],
+  [0.55, [104, 72, 58]],
+  [1, [214, 116, 56]],
+  [1.35, [255, 112, 52]],
+  [1.8, [255, 70, 46]],
 ];
 
 export function costColor(ratio: number): Rgb {

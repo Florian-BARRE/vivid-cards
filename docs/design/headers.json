@@ -110,9 +110,13 @@
     {
       "name": "bill",
       "title": "Bill",
-      "text": "The bill in progress: estimated amount, what is spent, the pace.",
-      "accent": "#ff7043",
-      "images": ["docs/design/crops/bill.png", "docs/design/crops/bill-line.png"],
+      "text": "How much will I pay: the forecast, its split and the previous cycles.",
+      "accent": "#ff8a3d",
+      "images": [
+        "docs/design/crops/bill.png",
+        "docs/design/crops/bill-ring.png",
+        "docs/design/crops/bill-line.png"
+      ],
       "kicker": "Card · Electricity"
     },
     {
@@ -134,17 +138,23 @@
     {
       "name": "energy-calendar",
       "title": "Energy calendar",
-      "text": "A month colored by price; a tap shows the day hour by hour.",
-      "accent": "#ffb300",
-      "images": ["docs/design/crops/energy-calendar.png"],
+      "text": "When do I consume: a month colored by price, the chosen day hour by hour.",
+      "accent": "#ff8a3d",
+      "images": [
+        "docs/design/crops/energy-calendar.png",
+        "docs/design/crops/energy-calendar-day.png"
+      ],
       "kicker": "Card · Electricity"
     },
     {
       "name": "energy-flow",
-      "title": "Energy flow",
-      "text": "From the meter to the devices, the measured part zoomed in.",
-      "accent": "#ffb300",
-      "images": ["docs/design/crops/energy-flow.png"],
+      "title": "Where the energy goes",
+      "text": "The measured part, from the rooms to their lights, LEDs and switches, or as a list.",
+      "accent": "#ff8a3d",
+      "images": [
+        "docs/design/crops/energy-flow-list.png",
+        "docs/design/crops/energy-flow-diagram.png"
+      ],
       "kicker": "Card · Electricity"
     },
     {
@@ -233,7 +243,7 @@
       "name": "electricity",
       "title": "Electricity",
       "text": "The tariff, the invoices, the data source and the projection.",
-      "accent": "#ff7043",
+      "accent": "#ff8a3d",
       "images": ["docs/design/crops/bill.png", "docs/design/crops/energy-calendar.png"],
       "kicker": "Guide"
     },

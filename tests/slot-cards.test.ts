@@ -151,6 +151,7 @@ describe('energy devices', () => {
       { stat: 'sensor.vivid_pilot_salon_energy', name: 'Salon' },
       {
         stat: 'sensor.vivid_pilot_salon_led_energy',
+        name: 'LEDs',
         includedIn: 'sensor.vivid_pilot_salon_energy',
       },
     ]);

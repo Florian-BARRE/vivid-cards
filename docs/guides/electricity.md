@@ -56,13 +56,9 @@ invoices that list their peak and off-peak kWh.
 
 ## The cards and badges
 
-| Page                                                   | What it shows                                  |
-| ------------------------------------------------------ | ---------------------------------------------- |
-| [`vivid-bill-card`](../cards/bill.md)                  | The bill in progress, its projection, the pace |
-| [`vivid-bills-card`](../cards/bills.md)                | Past bills, the one in progress, the next one  |
-| [`vivid-bill-ring`](../cards/bill-ring.md)             | Where each euro goes, or the off-peak share    |
-| [`vivid-energy-calendar`](../cards/energy-calendar.md) | A month colored by price; a day hour by hour   |
-| [`vivid-energy-flow`](../cards/energy-flow.md)         | From the meter to the devices                  |
-| [`vivid-energy-ranking`](../cards/energy-ranking.md)   | Devices ranked by energy and cost              |
-| [`vivid-load-curve`](../cards/load-curve.md)           | A day hour by hour, with the standby           |
-| [Energy badges](../badges/energy-badges.md)            | The bill, peak or off-peak now, the last day   |
+| Page                                                   | What it shows                                                     |
+| ------------------------------------------------------ | ----------------------------------------------------------------- |
+| [`vivid-bill-card`](../cards/bill.md)                  | How much will I pay: the forecast, its split, the previous cycles |
+| [`vivid-energy-calendar`](../cards/energy-calendar.md) | When do I consume: a month colored by price, a day hour by hour   |
+| [`vivid-energy-flow`](../cards/energy-flow.md)         | Where the energy goes: rooms to devices, or a ranked list         |
+| [Energy badges](../badges/energy-badges.md)            | The bill, peak or off-peak now, the last day                      |

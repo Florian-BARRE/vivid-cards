@@ -6,6 +6,11 @@
 
 # vivid-energy-ranking
 
+> [!NOTE]
+> **Replaced by `vivid-energy-flow`** (`view: list`). This card still works on the dashboards that
+> use it, but it left the card picker and gets no new feature: switch to
+> [`vivid-energy-flow`](energy-flow.md).
+
 The devices ranked by energy and cost over the period, nested devices under
 their parent, with the share nothing measures.
 

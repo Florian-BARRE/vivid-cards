@@ -11,13 +11,11 @@ const base = process.env.VIVID_DEV_URL ?? 'http://localhost:5173/dev/';
 const jobs = [
   ['energy.html?hourly=20&only=1', 'vivid-bill-card', 'bill'],
   ['energy.html?hourly=20&only=2', 'vivid-bill-card', 'bill-line'],
-  ['energy.html?hourly=20&only=3', 'vivid-bills-card', 'bills'],
-  ['energy.html?hourly=20&only=4', 'vivid-bill-ring', 'bill-ring'],
-  ['energy.html?hourly=20&only=5', 'vivid-bill-ring', 'bill-ring-off-peak'],
-  ['energy.html?hourly=20&only=6', 'vivid-energy-calendar', 'energy-calendar', 'calendar'],
-  ['energy.html?hourly=20&only=7', 'vivid-energy-flow', 'energy-flow'],
-  ['energy.html?hourly=20&only=8', 'vivid-energy-ranking', 'energy-ranking'],
-  ['energy.html?hourly=20&only=9', 'vivid-load-curve', 'load-curve'],
+  ['energy.html?hourly=20&only=3', 'vivid-bill-card', 'bill-ring'],
+  ['energy.html?hourly=20&only=4', 'vivid-energy-calendar', 'energy-calendar', 'calendar'],
+  ['energy.html?hourly=20&only=5', 'vivid-energy-calendar', 'energy-calendar-day'],
+  ['energy.html?hourly=20&only=6', 'vivid-energy-flow', 'energy-flow'],
+  ['energy.html?hourly=20&only=7', 'vivid-energy-flow', 'energy-flow-list'],
   ['energy.html?hourly=20&only=0', '.stage > div', 'energy-badges'],
   ['focus.html?only=0', 'vivid-fan-card', 'fan'],
   ['focus.html?only=1', 'vivid-hdmi-card', 'hdmi'],
@@ -49,7 +47,10 @@ async function capture(page, selector, file, pad) {
 }
 
 await (async () => {
-  const browser = await chromium.launch();
+  // CHROME: a Chrome to use instead of the Playwright download.
+  const browser = await chromium.launch(
+    process.env.CHROME ? { executablePath: process.env.CHROME } : {},
+  );
   for (const theme of ['dark', 'light']) {
     const suffix = theme === 'light' ? '-light' : '';
     for (const [page, selector, name, action] of jobs) {

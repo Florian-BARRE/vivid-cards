@@ -6,6 +6,12 @@
 
 # vivid-power-card
 
+> [!NOTE]
+> **Out of the card picker.** The live watts of each device are in the power badge (`vivid-power-badge`,
+> its details sort the devices by power) and the home's day hour by hour in the
+> [energy calendar](energy-calendar.md). This card still works on the dashboards that use it, for the
+> history of a few devices over 6 h, 24 h or 7 days, but gets no new feature.
+
 The consumption of a few lights or devices over 6 hours, 24 hours or 7 days:
 one stacked area per device, the energy of today and of the period with its
 cost, the peak, and a cursor that reads every device at a given time. The

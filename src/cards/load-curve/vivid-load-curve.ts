@@ -1,9 +1,9 @@
 import { html, nothing, type CSSResultGroup } from 'lit';
-import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
+import { defineElement } from '../../core/register';
 import { localize } from '../../i18n';
 import { resolveEnergyBase, SAMPLE_TARIFF, type ResolvedEnergyBase } from '../../energy/config';
 import type { EnergyData, EnergyNeeds } from '../../energy/data';
-import { formatKwh, formatLongDate, formatMoney, PEAK_RGB } from '../../energy/format';
+import { formatKwh, formatLongDate, formatMoney } from '../../energy/format';
 import { VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
 import { energyEditor } from '../../energy/vivid-energy-editor';
 import { curveDates, loadCurve } from '../../energy/views';
@@ -67,7 +67,6 @@ export class VividLoadCurve extends VividEnergyCard<ResolvedEnergyBase> {
     };
     return {
       icon: 'mdi:chart-bar',
-      color: PEAK_RGB,
       title: config.name ?? (date ? formatLongDate(hass, date) : localize(hass, 'energy_curve')),
       sub: localize(hass, 'energy_curve_sub'),
       aside: dates.length
@@ -126,13 +125,8 @@ export class VividLoadCurve extends VividEnergyCard<ResolvedEnergyBase> {
 
 defineElement(LOAD_CURVE, VividLoadCurve);
 
-registerCard({
-  type: LOAD_CURVE,
-  name: 'Vivid load curve',
-  description: 'The hourly load curve of a day over the off-peak hours, with the standby.',
-  preview: true,
-  documentationURL: `${REPOSITORY_URL}#vivid-load-curve`,
-});
+// Not in the card picker any more: replaced by the energy calendar (`show: day`). Still defined, so
+// dashboards that use it keep working.
 
 declare global {
   interface HTMLElementTagNameMap {

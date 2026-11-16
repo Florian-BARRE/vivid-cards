@@ -575,6 +575,25 @@ const en = {
   air_high_temp: 'Warm',
   air_low_hum: 'Dry',
   air_high_hum: 'Humid',
+  energy_forecast: 'Forecast for the end of the cycle',
+  energy_forecast_pace: 'at the pace of the last {n} days',
+  energy_pace_days: '{n}-day pace',
+  energy_spent_label: 'already spent',
+  energy_previous_label: 'previous cycle',
+  energy_planned_split: 'Planned split',
+  energy_history: 'Previous cycles',
+  energy_in_progress_short: 'in progress',
+  energy_bill_sub: '{range} · day {day} of {total}',
+  energy_standby_tile: 'Standby',
+  energy_per_year: '{v} a year',
+  energy_where: 'Where the energy goes',
+  energy_measured: 'Measured {v}',
+  energy_rest_of_home: 'Rest of the home {v}',
+  energy_measured_note:
+    'Only part of the home is measured device by device; the details below zoom on that part.',
+  energy_view_flow: 'Flow',
+  energy_view_list: 'List',
+  energy_kwh_so_far: '{v} so far',
 };
 
 type Strings = typeof en;
@@ -1159,6 +1178,25 @@ const fr: Strings = {
   air_high_temp: 'Chaud',
   air_low_hum: 'Sec',
   air_high_hum: 'Humide',
+  energy_forecast: 'Prévision de fin de cycle',
+  energy_forecast_pace: 'au rythme des {n} derniers jours',
+  energy_pace_days: 'Rythme {n} jours',
+  energy_spent_label: 'déjà dépensé',
+  energy_previous_label: 'cycle précédent',
+  energy_planned_split: 'Répartition prévue',
+  energy_history: 'Cycles précédents',
+  energy_in_progress_short: 'en cours',
+  energy_bill_sub: '{range} · jour {day} sur {total}',
+  energy_standby_tile: 'Veille',
+  energy_per_year: '{v} par an',
+  energy_where: "Où part l'énergie",
+  energy_measured: 'Mesuré {v}',
+  energy_rest_of_home: 'Reste de la maison {v}',
+  energy_measured_note:
+    'Seule une partie de la maison est mesurée appareil par appareil ; le détail ci-dessous zoome sur elle.',
+  energy_view_flow: 'Flux',
+  energy_view_list: 'Liste',
+  energy_kwh_so_far: '{v} à ce jour',
 };
 
 const LANGUAGES: Record<string, Strings> = { en, fr };

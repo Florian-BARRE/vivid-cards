@@ -6,6 +6,11 @@
 
 # vivid-bills-card
 
+> [!NOTE]
+> **Replaced by `vivid-bill-card`** (its previous cycles are at the bottom of the Bill card). This card still works on the dashboards that
+> use it, but it left the card picker and gets no new feature: switch to
+> [`vivid-bill-card`](bill.md).
+
 Your bills side by side: the past ones (from your invoices, or computed from
 the statistics), the one in progress with its projection hatched, and the next
 one if the pace holds. Each bar is split into peak hours, off-peak hours,

@@ -22,7 +22,6 @@ Start with the [installation](../README.md#installation).
 | [`vivid-lamp-group`](cards/lamp-group.md)   | Lamps on smart plugs or switches: on/off, watts, presets, daily cost  |
 | [`vivid-room-header`](cards/room-header.md) | A room's title, power button, lights on and watts, real-color halo    |
 | [`vivid-light-card`](cards/light.md)        | One light as a tile; a WLED strip with its Settings and Device panels |
-| [`vivid-power-card`](cards/power.md)        | The consumption of a few devices over 6 h, 24 h or 7 days             |
 
 ### Ambilight and HyperHDR
 
@@ -43,15 +42,17 @@ Ambilight mode: see [its page](cards/led-group.md#collapsible-layout-and-ambilig
 Start with the [electricity guide](guides/electricity.md): the tariff, the data
 source and how the projection works, shared by every card below.
 
-| Card                                                | What it is for                                                  |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| [`vivid-bill-card`](cards/bill.md)                  | The bill in progress: estimated amount, what is spent, the pace |
-| [`vivid-bills-card`](cards/bills.md)                | Past bills, the one in progress with its projection, the next   |
-| [`vivid-bill-ring`](cards/bill-ring.md)             | Where each euro goes, or the off-peak share                     |
-| [`vivid-energy-calendar`](cards/energy-calendar.md) | A month colored by price; a tap shows the day hour by hour      |
-| [`vivid-energy-flow`](cards/energy-flow.md)         | From the meter to the devices, the measured part zoomed in      |
-| [`vivid-energy-ranking`](cards/energy-ranking.md)   | Devices ranked by energy and cost                               |
-| [`vivid-load-curve`](cards/load-curve.md)           | A day hour by hour over the off-peak hours, with the standby    |
+| Card                                                | What it is for                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`vivid-bill-card`](cards/bill.md)                  | How much will I pay: the forecast, what is spent, its split, the previous cycles |
+| [`vivid-energy-calendar`](cards/energy-calendar.md) | When do I consume: a month colored by price, the chosen day hour by hour         |
+| [`vivid-energy-flow`](cards/energy-flow.md)         | Where the energy goes: the measured part, rooms to devices, or a ranked list     |
+
+Former cards, still working but out of the card picker:
+[`vivid-bills-card`](cards/bills.md) and [`vivid-bill-ring`](cards/bill-ring.md)
+(now in the Bill card), [`vivid-load-curve`](cards/load-curve.md) (the
+calendar's `show: day`), [`vivid-energy-ranking`](cards/energy-ranking.md) (the
+flow's `view: list`) and [`vivid-power-card`](cards/power.md).
 
 ### Climate
 

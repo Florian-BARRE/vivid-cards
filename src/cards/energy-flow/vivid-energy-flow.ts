@@ -1,38 +1,49 @@
 import { css, html, nothing, svg, type CSSResultGroup } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
 import { REPOSITORY_URL, defineElement, registerCard } from '../../core/register';
 import { localize } from '../../i18n';
 import { SAMPLE_TARIFF } from '../../energy/config';
 import type { EnergyData, EnergyNeeds } from '../../energy/data';
-import { formatKwh, formatMoney, rgb, PEAK_RGB } from '../../energy/format';
-import { periodChips, VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
+import { deviceColor } from '../../energy/device-colors';
+import { deviceList, deviceListStyles } from '../../energy/device-list';
+import { formatKwh, formatMoney, rgb } from '../../energy/format';
+import { periodBar, VividEnergyCard, type EnergyHead } from '../../energy/vivid-energy-card';
 import { energyEditor } from '../../energy/vivid-energy-editor';
 import {
   devicesView,
   ENERGY_PERIODS,
   periodDays,
   periodRange,
+  type DeviceRow,
   type DevicesView,
   type EnergyPeriod,
 } from '../../energy/views';
 import {
   ENERGY_FLOW,
+  flowLeaves,
   PERIOD_NAMES,
   resolvePeriodCard,
   shownDevices,
   spreadLabels,
   statName,
+  type FlowView,
   type ResolvedPeriodCard,
 } from './model';
 
 export { ENERGY_FLOW, PERIOD_NAMES, resolvePeriodCard, type ResolvedPeriodCard };
 
-const W = 640;
-const H = 320;
-const TOP = 24;
-const HEIGHT = 272;
-const NODE = 10;
-const X = [8, 150, 290, 450];
+/* ------------------------------ geometry ------------------------------ */
 
+/** Width of the drawing; it scales with the card. */
+const W = 440;
+const ROOM_X = 112;
+const DEVICE_X = 300;
+const NODE = 8;
+const LABEL_GAP = 32;
+const DEVICE_GAP = 10;
+const ROOM_GAP = 16;
+
+/** A curved band from one node to another. */
 function band(
   x1: number,
   a1: number,
@@ -41,33 +52,40 @@ function band(
   a2: number,
   b2: number,
   fill: string,
-  opacity: number,
 ) {
   const xm = (x1 + x2) / 2;
   return svg`<path
     d=${`M${x1},${a1.toFixed(1)} C${xm},${a1.toFixed(1)} ${xm},${a2.toFixed(1)} ${x2},${a2.toFixed(1)} L${x2},${b2.toFixed(1)} C${xm},${b2.toFixed(1)} ${xm},${b1.toFixed(1)} ${x1},${b1.toFixed(1)} Z`}
     fill=${fill}
-    fill-opacity=${opacity}
+    fill-opacity="0.38"
   ></path>`;
 }
 
-function label(x: number, y: number, title: string, sub: string) {
-  return svg`<text x=${x} y=${y.toFixed(1)} class="label"><tspan class="label-title" x=${x} dy="-0.2em">${title}</tspan><tspan class="label-sub" x=${x} dy="1.25em">${sub}</tspan></text>`;
+/** A label of two lines (name, figures), anchored at its start or its end. */
+function label(x: number, y: number, title: string, sub: string, anchor: 'start' | 'end') {
+  return svg`<text x=${x} y=${y.toFixed(1)} text-anchor=${anchor}><tspan class="label-title" x=${x} dy="-0.15em">${title}</tspan><tspan class="label-sub" x=${x} dy="1.25em">${sub}</tspan></text>`;
 }
 
-const LABEL_GAP = 34;
+/** A device's name without its room's in front ("Salon LEDs" → "LEDs"). */
+function shortName(device: string, room: string): string {
+  return device.startsWith(`${room} `) ? device.slice(room.length + 1) : device;
+}
 
 /**
- * Energy flow, from the meter to the home, then to what is measured and what
- * is not; the measured part is zoomed so each device stays readable.
+ * Where the energy goes over a period: the part the meter shows that devices
+ * measure (the rest of the home apart), then that part as a flow from the
+ * rooms to their lights, LEDs and switches, each in its own color, or as a
+ * ranked list. It also stands for the former ranking card.
  */
 export class VividEnergyFlow extends VividEnergyCard<ResolvedPeriodCard> {
   static override properties = {
     ...VividEnergyCard.properties,
     _period: { state: true },
+    _view: { state: true },
   };
 
   declare _period?: EnergyPeriod;
+  declare _view?: FlowView;
 
   static getConfigElement(): HTMLElement {
     return energyEditor({
@@ -81,6 +99,15 @@ export class VividEnergyFlow extends VividEnergyCard<ResolvedPeriodCard> {
             value: period,
             label: `energy_period_${period}` as const,
           })),
+        },
+        {
+          name: 'view',
+          label: 'energy_flow_view',
+          default: 'flow',
+          options: [
+            { value: 'flow', label: 'energy_flow_view_flow' },
+            { value: 'list', label: 'energy_flow_view_list' },
+          ],
         },
         {
           name: 'max_devices',
@@ -99,33 +126,56 @@ export class VividEnergyFlow extends VividEnergyCard<ResolvedPeriodCard> {
 
   static override styles: CSSResultGroup = [
     VividEnergyCard.styles,
+    deviceListStyles,
     css`
+      .measured {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .measured .bar {
+        display: flex;
+        gap: 2px;
+        height: 14px;
+      }
+      .measured .bar .part {
+        border-radius: 7px 0 0 7px;
+        background: var(--energy-accent);
+      }
+      .measured .bar .rest {
+        flex: 1;
+        border: 1.5px dashed rgba(var(--vivid-rgb-text), 0.35);
+        border-radius: 0 7px 7px 0;
+        box-sizing: border-box;
+      }
+      .measured .figures {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        font-size: 13px;
+      }
+      .note {
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--secondary-text-color);
+      }
+      .views {
+        align-self: flex-start;
+      }
       svg {
-        color: var(--primary-text-color);
         width: 100%;
         height: auto;
         overflow: visible;
       }
       .label-title {
-        font-size: 13px;
+        font-size: 12.5px;
         font-weight: 700;
         fill: var(--primary-text-color);
       }
       .label-sub {
-        font-size: 11.5px;
-        fill: var(--secondary-text-color);
-      }
-      .zoom {
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        fill: rgb(255, 193, 7);
-      }
-      .hatch-a {
-        fill: rgba(var(--vivid-rgb-text), 0.06);
-      }
-      .hatch-b {
-        fill: rgba(var(--vivid-rgb-text), 0.16);
+        fill: var(--secondary-text-color);
       }
     `,
   ];
@@ -154,136 +204,164 @@ export class VividEnergyFlow extends VividEnergyCard<ResolvedPeriodCard> {
     );
   }
 
-  protected head(config: ResolvedPeriodCard, _data?: EnergyData): EnergyHead {
+  protected head(config: ResolvedPeriodCard, data?: EnergyData): EnergyHead {
+    const hass = this.hass;
+    const view = data?.days.length ? this.view(config, data) : undefined;
+    const period = localize(hass, PERIOD_NAMES[this.period(config)]);
     return {
       icon: 'mdi:transit-connection-variant',
-      color: [66, 165, 245],
-      title: config.name ?? localize(this.hass, 'energy_flow'),
-      sub: localize(this.hass, 'energy_flow_sub'),
-      aside: periodChips(
-        ENERGY_PERIODS,
-        this.period(config),
-        (period) => localize(this.hass, PERIOD_NAMES[period]),
-        (period) => {
-          this._period = period;
-        },
-      ),
+      title: config.name ?? localize(hass, 'energy_where'),
+      sub: view
+        ? `${period} · ${formatKwh(hass, view.kwh, 0)} · ${formatMoney(hass, view.cost)}`
+        : period,
     };
+  }
+
+  /** The part devices measure, the rest of the home apart. */
+  private renderMeasured(view: DevicesView) {
+    const hass = this.hass;
+    const share = view.trackedShare;
+    return html`<div class="measured">
+      <div class="bar" aria-hidden="true">
+        <span
+          class="part"
+          style=${styleMap({ width: `${Math.max(2, share * 100).toFixed(1)}%` })}
+        ></span
+        ><span class="rest"></span>
+      </div>
+      <div class="figures">
+        <span
+          ><b>${localize(hass, 'energy_measured', { v: formatKwh(hass, view.tracked) })}</b>
+          <span class="sub">· ${Math.round(share * 1000) / 10} %</span></span
+        >
+        <span class="sub"
+          >${localize(hass, 'energy_rest_of_home', { v: formatKwh(hass, view.untracked, 0) })}</span
+        >
+      </div>
+      ${share < 0.5 ? html`<div class="note">${localize(hass, 'energy_measured_note')}</div>` : nothing}
+    </div>`;
+  }
+
+  /** Rooms on the left, their devices on the right, each band as thick as its kWh. */
+  private renderFlow(config: ResolvedPeriodCard, view: DevicesView) {
+    const hass = this.hass;
+    const rooms = shownDevices(
+      view.rows,
+      config.maxDevices,
+      localize(hass, 'energy_others'),
+    ).filter((row: DeviceRow) => row.kwh > 0);
+    const leaves = flowLeaves(rooms);
+    if (!leaves.length) return html`<div class="message">${localize(hass, 'energy_no_data')}</div>`;
+    const total = rooms.reduce((sum, room) => sum + room.kwh, 0);
+    const height = Math.max(220, leaves.length * 36);
+    const k = (height - DEVICE_GAP * (leaves.length - 1)) / total;
+    const roomsHeight = total * k + ROOM_GAP * (rooms.length - 1);
+    const money = (kwh: number) => formatMoney(hass, kwh * view.price);
+    let roomY = (height - roomsHeight) / 2;
+    let deviceY = 0;
+    const roomNodes: { room: DeviceRow; y: number; h: number }[] = [];
+    const deviceNodes: { leaf: (typeof leaves)[number]; y: number; h: number; from: number }[] = [];
+    for (const room of rooms) {
+      const h = room.kwh * k;
+      roomNodes.push({ room, y: roomY, h });
+      let from = roomY;
+      for (const leaf of leaves.filter((item) => item.room === room)) {
+        const leafH = Math.max(leaf.row.kwh * k, 2);
+        deviceNodes.push({ leaf, y: deviceY, h: leafH, from });
+        from += leaf.row.kwh * k;
+        deviceY += leafH + DEVICE_GAP;
+      }
+      roomY += h + ROOM_GAP;
+    }
+    const roomLabels = spreadLabels(
+      roomNodes.map((node) => node.y + node.h / 2),
+      LABEL_GAP,
+      14,
+      height - 8,
+    );
+    const deviceLabels = spreadLabels(
+      deviceNodes.map((node) => node.y + node.h / 2),
+      LABEL_GAP,
+      14,
+      height - 8,
+    );
+    return html`<svg
+      viewBox="0 0 ${W} ${height}"
+      role="img"
+      aria-label=${localize(hass, 'energy_where')}
+    >
+      ${deviceNodes.map((node) =>
+        band(
+          ROOM_X + NODE,
+          node.from,
+          node.from + node.leaf.row.kwh * k,
+          DEVICE_X,
+          node.y,
+          node.y + node.h,
+          rgb(deviceColor(node.leaf.row.stat)),
+        ),
+      )}
+      ${roomNodes.map(
+        (node) =>
+          svg`<rect x=${ROOM_X} y=${node.y.toFixed(1)} width=${NODE} height=${node.h.toFixed(1)} rx="3" fill="currentColor" style="color: var(--primary-text-color)"></rect>`,
+      )}
+      ${deviceNodes.map(
+        (node) =>
+          svg`<rect x=${DEVICE_X} y=${node.y.toFixed(1)} width=${NODE} height=${node.h.toFixed(1)} rx="3" fill=${rgb(deviceColor(node.leaf.row.stat))}></rect>`,
+      )}
+      ${roomNodes.map((node, index) =>
+        label(
+          ROOM_X - 6,
+          roomLabels[index] ?? node.y,
+          node.room.name,
+          formatKwh(hass, node.room.kwh),
+          'end',
+        ),
+      )}
+      ${deviceNodes.map((node, index) =>
+        label(
+          DEVICE_X + NODE + 6,
+          deviceLabels[index] ?? node.y,
+          node.leaf.row === node.leaf.room || node.leaf.row.stat === `${node.leaf.room.stat}:rest`
+            ? node.leaf.room.name
+            : shortName(node.leaf.row.name, node.leaf.room.name),
+          `${formatKwh(hass, node.leaf.row.kwh)} · ${money(node.leaf.row.kwh)}`,
+          'start',
+        ),
+      )}
+    </svg>`;
   }
 
   protected renderBody(config: ResolvedPeriodCard, data: EnergyData) {
     const hass = this.hass;
-    const view = this.view(config, data);
-    if (!data.devices.length)
-      return html`<div class="message">${localize(hass, 'energy_no_devices')}</div>`;
-    if (view.kwh <= 0) return html`<div class="message">${localize(hass, 'energy_no_data')}</div>`;
-    const total = Math.max(view.kwh, view.tracked);
-    const scale = HEIGHT / total;
-    const gap = 12;
-    const untrackedH = view.untracked * scale;
-    const trackedH = Math.max(view.tracked * scale, view.tracked > 0 ? 3 : 0);
-    const trackedTop = TOP + untrackedH + (untrackedH > 0 ? gap : 0);
-    const devices = shownDevices(
-      view.rows,
-      config.maxDevices,
-      localize(hass, 'energy_others'),
-    ).filter((row) => row.kwh > 0);
-    const deviceGap = 8;
-    const zoomRoom = HEIGHT - deviceGap * Math.max(0, devices.length - 1);
-    const zoomScale = view.tracked > 0 ? zoomRoom / view.tracked : 0;
-    let y = TOP;
-    const items = devices.map((row) => {
-      const height = Math.max(row.kwh * zoomScale, 3);
-      const item = { row, y, height };
-      y += height + deviceGap;
-      return item;
-    });
-    const zoomBottom = y - deviceGap;
-    const labels = spreadLabels(
-      items.map((item) => item.y + item.height / 2),
-      LABEL_GAP,
-      TOP + 6,
-      H - 12,
+    const bar = periodBar(
+      ENERGY_PERIODS,
+      this.period(config),
+      (period) => localize(hass, PERIOD_NAMES[period]),
+      (period) => {
+        this._period = period;
+      },
     );
-    const amber = rgb(PEAK_RGB);
-    const share = (value: number) => `${Math.round((value / Math.max(view.kwh, 0.001)) * 100)} %`;
-    const zoom = scale > 0 && zoomScale > 0 ? Math.round(zoomScale / scale) : 1;
-    const money = (kwh: number) => formatMoney(hass, kwh * view.price);
-    return html`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label=${localize(hass, 'energy_flow')}>
-      <defs>
-        <pattern
-          id="hatch"
-          width="8"
-          height="8"
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <rect class="hatch-a" width="8" height="8"></rect>
-          <rect class="hatch-b" width="3" height="8"></rect>
-        </pattern>
-      </defs>
-      ${band(X[0]! + NODE, TOP, TOP + HEIGHT, X[1]!, TOP, TOP + HEIGHT, 'rgb(66, 165, 245)', 0.3)}
-      <rect
-        x=${X[0]}
-        y=${TOP}
-        width=${NODE}
-        height=${HEIGHT}
-        rx="4"
-        fill="rgb(66, 165, 245)"
-      ></rect>
-      <rect
-        x=${X[1]}
-        y=${TOP}
-        width=${NODE}
-        height=${HEIGHT}
-        rx="4"
-        fill="currentColor"
-        style="color: var(--primary-text-color)"
-      ></rect>
-      ${untrackedH > 0 ? band(X[1]! + NODE, TOP, TOP + untrackedH, X[2]!, TOP, TOP + untrackedH, 'url(#hatch)', 1) : nothing}
-      ${
-        view.tracked > 0
-          ? band(
-              X[1]! + NODE,
-              TOP + untrackedH,
-              TOP + untrackedH + view.tracked * scale,
-              X[2]!,
-              trackedTop,
-              trackedTop + trackedH,
-              amber,
-              0.6,
-            )
-          : nothing
-      }
-      ${untrackedH > 0 ? svg`<rect x=${X[2]} y=${TOP} width=${NODE} height=${untrackedH.toFixed(1)} rx="4" fill="rgba(158, 158, 158, 0.7)"></rect>` : nothing}
-      ${trackedH > 0 ? svg`<rect x=${X[2]} y=${trackedTop.toFixed(1)} width=${NODE} height=${trackedH.toFixed(1)} rx="2" fill=${amber}></rect>` : nothing}
-      ${
-        items.length
-          ? svg`<path
-              d=${`M${X[2]! + NODE},${trackedTop.toFixed(1)} L${X[3]},${TOP} L${X[3]},${zoomBottom.toFixed(1)} L${X[2]! + NODE},${(trackedTop + trackedH).toFixed(1)} Z`}
-              fill=${amber}
-              fill-opacity="0.07"
-              stroke=${rgb(PEAK_RGB, 0.5)}
-              stroke-dasharray="4 4"
-            ></path>
-            <text class="zoom" x=${X[3]! - 6} y=${TOP - 8} text-anchor="end">${localize(hass, 'energy_zoom', { z: zoom })}</text>`
-          : nothing
-      }
-      ${items.map((item) => svg`<rect x=${X[3]} y=${item.y.toFixed(1)} width=${NODE} height=${item.height.toFixed(1)} rx="3" fill=${amber}></rect>`)}
-      ${label(X[0]! + NODE + 8, TOP + HEIGHT / 2, localize(hass, 'energy_grid'), `${formatKwh(hass, view.kwh, 0)} · ${formatMoney(hass, view.cost)}`)}
-      ${label(X[1]! + NODE + 8, TOP + HEIGHT / 2 + (untrackedH > HEIGHT / 2 ? 44 : 0), localize(hass, 'energy_home'), '')}
-      ${untrackedH > 0 ? label(X[2]! + NODE + 8, TOP + untrackedH / 2, localize(hass, 'energy_untracked'), `${formatKwh(hass, view.untracked, 0)} · ${share(view.untracked)}`) : nothing}
-      ${view.tracked > 0 ? label(X[2]! + NODE + 8, Math.min(TOP + HEIGHT - 10, trackedTop + trackedH / 2 + 16), localize(hass, 'energy_tracked'), `${formatKwh(hass, view.tracked)} · ${share(view.tracked)}`) : nothing}
-      ${items.map((item, index) => {
-        const at = item.y + item.height / 2;
-        const placed = labels[index] ?? at;
-        const leader =
-          Math.abs(placed - at) > 4
-            ? svg`<path d=${`M${X[3]! + NODE + 1},${at.toFixed(1)} L${X[3]! + NODE + 5},${placed.toFixed(1)}`} stroke="currentColor" stroke-opacity="0.35" fill="none"></path>`
-            : nothing;
-        return svg`${leader}${label(X[3]! + NODE + 8, placed, item.row.name, `${formatKwh(hass, item.row.kwh)} · ${money(item.row.kwh)}`)}`;
-      })}
-    </svg>`;
+    if (!data.devices.length)
+      return html`${bar}
+        <div class="message">${localize(hass, 'energy_no_devices')}</div>`;
+    const view = this.view(config, data);
+    if (view.kwh <= 0)
+      return html`${bar}
+        <div class="message">${localize(hass, 'energy_no_data')}</div>`;
+    const shown = this._view ?? config.view;
+    return html`${bar} ${this.renderMeasured(view)}
+      <div class="views">
+        ${periodBar(
+          ['flow', 'list'] as const,
+          shown,
+          (value) => localize(hass, value === 'flow' ? 'energy_view_flow' : 'energy_view_list'),
+          (value) => {
+            this._view = value;
+          },
+        )}
+      </div>
+      ${shown === 'flow' ? this.renderFlow(config, view) : deviceList(hass, view, config.maxDevices)}`;
   }
 }
 
@@ -292,7 +370,8 @@ defineElement(ENERGY_FLOW, VividEnergyFlow);
 registerCard({
   type: ENERGY_FLOW,
   name: 'Vivid energy flow',
-  description: 'Energy from the meter to the devices, the measured part zoomed in.',
+  description:
+    'Where the energy goes: the part devices measure, as a flow from the rooms to their lights, LEDs and switches, or as a ranked list.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-energy-flow`,
 });
