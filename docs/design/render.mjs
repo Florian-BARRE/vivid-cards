@@ -10,7 +10,10 @@ const pages = [
 ];
 await (async () => {
   const only = process.argv[2];
-  const browser = await chromium.launch();
+  // CHROME: a Chrome to use instead of the Playwright download.
+  const browser = await chromium.launch(
+    process.env.CHROME ? { executablePath: process.env.CHROME } : {},
+  );
   for (const [file, out, width, height] of pages) {
     if (only && !file.startsWith(only)) continue;
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 2 });
