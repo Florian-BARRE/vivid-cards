@@ -135,7 +135,7 @@ defineElement(CLIMATE_CARD, VividClimateCard);
 
 registerCard({
   type: CLIMATE_CARD,
-  name: 'Vivid Climate',
+  name: 'Vivid climate',
   description: 'One temperature, humidity, pressure or CO₂ sensor and its history.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}/blob/main/docs/cards/climate.md`,

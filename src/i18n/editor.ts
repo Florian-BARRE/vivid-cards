@@ -720,7 +720,7 @@ const fr: EditorStrings = {
   section_gestures: 'Gestes',
   tap_action: 'Tap',
   hold_action: 'Appui long',
-  double_tap_action: 'Double tap',
+  double_tap_action: 'Double appui',
   action_toggle: 'Allumer / éteindre',
   action_details: 'Pop-up',
   action_more_info: 'Fiche Home Assistant',

@@ -117,7 +117,7 @@ defineElement(POWER_CARD, VividPowerCard);
 
 registerCard({
   type: POWER_CARD,
-  name: 'Vivid Consumption',
+  name: 'Vivid consumption',
   description: 'The consumption of lights or devices over 6 h, 24 h or 7 days, with its cost.',
   preview: false,
   documentationURL: `${REPOSITORY_URL}/blob/main/docs/cards/power.md`,

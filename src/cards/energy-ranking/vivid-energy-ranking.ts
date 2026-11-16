@@ -230,7 +230,7 @@ defineElement(ENERGY_RANKING, VividEnergyRanking);
 
 registerCard({
   type: ENERGY_RANKING,
-  name: 'Vivid Energy Ranking',
+  name: 'Vivid energy ranking',
   description: 'The rooms of Vivid Pilot ranked by energy and cost, with what is not measured.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-energy-ranking`,

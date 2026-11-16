@@ -265,7 +265,7 @@ defineElement(BILLS_CARD, VividBillsCard);
 
 registerCard({
   type: BILLS_CARD,
-  name: 'Vivid Bills',
+  name: 'Vivid bills',
   description:
     'Past bills, the one in progress with its projection, and the next one at the same pace.',
   preview: true,

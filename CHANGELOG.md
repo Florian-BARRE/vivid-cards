@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] - 2026-11-16
+
+### Fixed
+
+- **Card and badge pickers in French**: their names and descriptions follow
+  the language of the Home Assistant user (English otherwise), and the names
+  are written the same way everywhere ("Vivid energy calendar", not
+  "Vivid Energy Calendar").
+- The last French gaps: preset, playlist, firmware, HDR tone mapping, the
+  IR status of the Ambilight box, the projection and the double tap, and the
+  name read out for the fan curve.
+
 ## [1.4.0] - 2026-11-16
 
 ### Added

@@ -291,7 +291,7 @@ defineElement(ENERGY_FLOW, VividEnergyFlow);
 
 registerCard({
   type: ENERGY_FLOW,
-  name: 'Vivid Energy Flow',
+  name: 'Vivid energy flow',
   description: 'Energy from the meter to the devices, the measured part zoomed in.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-energy-flow`,

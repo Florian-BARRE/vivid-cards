@@ -370,7 +370,7 @@ defineElement(BILL_RING, VividBillRing);
 
 registerCard({
   type: BILL_RING,
-  name: 'Vivid Bill Ring',
+  name: 'Vivid bill ring',
   description: 'A bill as rings: where each euro goes, or how much falls in off-peak hours.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-bill-ring`,

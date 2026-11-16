@@ -1305,6 +1305,7 @@ export class VividAmbilightDetails extends LitElement {
       ${
         handles && model.fan.mode !== 'manual'
           ? html`<vivid-fan-curve
+              .label=${localize(hass, 'amb_fan_curve_label')}
               mini
               .points=${handles}
               .temperature=${t}
@@ -1415,6 +1416,7 @@ export class VividAmbilightDetails extends LitElement {
         handles
           ? html`<div class="curvebox">
               <vivid-fan-curve
+                .label=${localize(hass, 'amb_fan_curve_label')}
                 .points=${handles}
                 .temperature=${curve.temperature}
                 .stop=${model.curve.stopBelowT1 === true}
@@ -1604,7 +1606,7 @@ export class VividAmbilightDetails extends LitElement {
       </div>
       <div class="irstatus">
         <ha-icon icon="mdi:information-outline"></ha-icon>
-        <span><small>IR Status</small>${model.ir.status ?? '—'}</span>
+        <span><small>${localize(hass, 'amb_ir_status')}</small>${model.ir.status ?? '—'}</span>
       </div>
       <div class="targets">
         ${localize(hass, 'amb_target')}

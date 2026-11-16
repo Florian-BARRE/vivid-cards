@@ -128,7 +128,7 @@ defineElement(LOAD_CURVE, VividLoadCurve);
 
 registerCard({
   type: LOAD_CURVE,
-  name: 'Vivid Load Curve',
+  name: 'Vivid load curve',
   description: 'The hourly load curve of a day over the off-peak hours, with the standby.',
   preview: true,
   documentationURL: `${REPOSITORY_URL}#vivid-load-curve`,
